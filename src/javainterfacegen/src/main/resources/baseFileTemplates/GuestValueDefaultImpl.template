@@ -1,0 +1,26 @@
+package {{package}};
+
+import org.graalvm.polyglot.Value;
+
+{{generated}}
+
+public class GuestValueDefaultImpl implements GuestValue {
+    
+    private final Value value;
+
+    public GuestValueDefaultImpl(Value value) {
+        this.value = value;
+    }
+
+    @Override
+    public Value getValue() {
+        return value;
+    }
+
+    @Override
+    public String toString() {
+        return value.toString();
+    }
+    
+}
+

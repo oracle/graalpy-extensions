@@ -7,3 +7,5 @@ build
 .project
 .idea
 *.iml
+.factorypath
+generator-cache/

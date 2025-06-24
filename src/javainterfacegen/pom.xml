@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.graalvm.python</groupId>
+        <artifactId>graalpy-extensions</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <name>GraalPy Java Interface Generator</name>
+    <artifactId>javainterfacegen</artifactId>
+    <description>A utility to generate Java interfaces from (typed) Python
+    libraries that allow convenient access to Python libraries from Java using
+    the Graal Polyglot API behind the scenes.</description>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>python</artifactId>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <artifactId>python-embedding</artifactId>
+            <groupId>${project.groupId}</groupId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.3</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+                    <configuration>
+                        <argLine>-Xss64M --add-opens org.graalvm.python.javainterfacegen/org.graalvm.python.javainterfacegen=ALL-UNNAMED</argLine>
+                    </configuration> 
+            </plugin>
+            <plugin>
+                <groupId>org.graalvm.python</groupId>
+                <artifactId>graalpy-maven-plugin</artifactId>
+                <version>${project.version}</version>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <packages>
+                                <package>mypy==1.13.0</package>
+                                <package>mypy-extensions==1.1.0</package>
+                                <package>typing-extensions==4.14.0</package>
+                            </packages> 
+                            <resourceDirectory>
+                                GRAALPY-VFS/${project.groupId}/${project.artifactId}
+                            </resourceDirectory>
+                        </configuration>
+                        <goals>
+                            <goal>process-graalpy-resources</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>org.graalvm.python.javainterfacegen.Main</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.9.27</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <buildArgs>
+                                <buildArg>-H:+IncludeLanguageResources</buildArg>
+                                <buildArg>-Dpython.WithoutSSL=true</buildArg>
+                                <buildArg>-Dpython.WithoutNativePosix=true</buildArg>
+                                <buildArg>-Dtruffle.TruffleRuntime=com.oracle.truffle.api.impl.DefaultTruffleRuntime</buildArg>
+                                <buildArg>-Dpolyglot.engine.WarnInterpreterOnly=false</buildArg>
+                                <buildArg>-Dimage-build-time.PreinitializeContexts=</buildArg>
+                                <buildArg>--gc=G1</buildArg>
+                            </buildArgs>
+                            <fallback>false</fallback>
+                            <mainClass>org.graalvm.python.javainterfacegen.Main</mainClass>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

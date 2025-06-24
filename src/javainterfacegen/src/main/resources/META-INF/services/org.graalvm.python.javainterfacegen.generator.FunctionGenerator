@@ -1,0 +1,2 @@
+org.graalvm.python.javainterfacegen.generator.impl.FunctionGeneratorImpl
+org.graalvm.python.javainterfacegen.generator.impl.JustInterfacesGeneratorImpl

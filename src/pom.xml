@@ -18,6 +18,7 @@
         <module>graalpy-maven-plugin</module>
         <module>org.graalvm.python.embedding</module>
         <module>org.graalvm.python.embedding.tools</module>
+        <module>javainterfacegen</module>
     </modules>
 
     <dependencyManagement>

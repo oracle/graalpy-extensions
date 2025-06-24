@@ -1,0 +1,2 @@
+org.graalvm.python.javainterfacegen.generator.impl.TypeGeneratorImpl
+org.graalvm.python.javainterfacegen.generator.impl.TypeInterfaceGeneratorImpl

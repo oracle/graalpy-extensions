@@ -1,0 +1,10 @@
+package {{package}};
+
+import org.graalvm.polyglot.Value;
+
+{{generated}}
+
+public interface GuestValue {
+    public Value getValue();
+}
+

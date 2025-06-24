@@ -1,0 +1,52 @@
+package {{package}};
+
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Value;
+
+{{generated}}
+
+public class Utils {
+    public static String PYTHON = "python";
+    
+    private static String HELP_FN_ARRAYS_KWARGS = "__help_fn_arrays_and_kwargs";
+    private static String HELP_FN_KWARGS = "__help_fn_kwargs";
+    
+    
+    public static Value getHelpFnArraysKWArgs(Context context) {
+        
+        Value bindings = context.getBindings(PYTHON);
+        if (!bindings.hasMember(HELP_FN_ARRAYS_KWARGS)) {
+            context.eval(PYTHON, "def " + HELP_FN_ARRAYS_KWARGS + " (fn, arrays, kwargs):\n" +
+                                    "    return fn(*arrays, **kwargs)");
+        }
+        return bindings.getMember(HELP_FN_ARRAYS_KWARGS);
+    }
+    
+    public static Value getHelpFnKWArgs(Context context) {
+        
+        Value bindings = context.getBindings(PYTHON);
+        if (!bindings.hasMember(HELP_FN_KWARGS)) {
+            context.eval(PYTHON, "def " + HELP_FN_KWARGS + " (fn, kwargs):\n" +
+                                    "    return fn(**kwargs)");
+        }
+        return bindings.getMember(HELP_FN_KWARGS);
+    }
+    
+    public static String getFullyQualifedName(Value instance) {
+        Context context = instance.getContext();
+        Value bindings = context.getBindings(PYTHON);
+        if (!bindings.hasMember("utils_main")) {
+            bindings.putMember("utils_main", context.eval(Utils.PYTHON, "import utils"));
+        }
+        return bindings.getMember("utils").invokeMember("getFQN", instance).asString();
+    }
+    
+    public static String typeOf(Context context, Value instance) {
+        return context.getBindings("python").getMember("type").newInstance(instance).toString();
+    }
+    
+    public static String dir(Value instance) {
+        return instance.getContext().getBindings("python").getMember("dir").execute(instance).toString();
+    }
+   
+}
