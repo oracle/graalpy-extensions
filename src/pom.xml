@@ -32,6 +32,7 @@
                 <groupId>org.graalvm.polyglot</groupId>
                 <artifactId>python</artifactId>
                 <version>${project.polyglot.version}</version>
+                <type>pom</type>
             </dependency>
         </dependencies>
     </dependencyManagement>
