@@ -4,12 +4,13 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.graalvm.python</groupId>
     <artifactId>graalpy-extensions</artifactId>
-    <version>24.2.0</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <project.polyglot.version>24.2.0</project.polyglot.version>
+        <project.polyglot.version>24.2.1</project.polyglot.version>
+        <revision>24.2.1</revision>
     </properties>
 
     <modules>

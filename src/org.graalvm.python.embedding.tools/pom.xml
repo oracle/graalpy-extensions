@@ -6,7 +6,7 @@
   <parent>
       <groupId>org.graalvm.python</groupId>
       <artifactId>graalpy-extensions</artifactId>
-      <version>24.2.0</version>
+      <version>${revision}</version>
   </parent>
 
   <name>GraalPy utilities for build tools</name>
