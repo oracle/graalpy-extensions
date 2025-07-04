@@ -54,9 +54,11 @@ GRADLE_VERSION = "8.9"
 DEFAULT_VFS_PREFIX = "org.graalvm.python.vfs"
 
 graalvmVersion = None
+jbang_graalpy_version = None
 long_running_test_disabled = False
 no_clean = False
 test_native_image = True
+gradle_java_home = os.environ['JAVA_HOME']
 
 def long_running_test(func):
     return unittest.skipIf(long_running_test_disabled, "passed option --skip-long-running")(func)

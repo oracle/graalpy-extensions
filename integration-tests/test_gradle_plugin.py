@@ -116,6 +116,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
 
         self.copy_build_files(target_dir)
 
+        # at the moment the gradle demon does not run with jdk <= 22
+        assert util.gradle_java_home, "in order to run standalone gradle tests, the 'GRADLE_JAVA_HOME' env var has to be set to a jdk <= 22"
+        util.replace_in_file(os.path.join(target_dir, "gradle.properties"), "{GRADLE_JAVA_HOME}", util.gradle_java_home.replace("\\", "\\\\"))
+
         meta_inf_native_image_dir = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
         os.makedirs(meta_inf_native_image_dir, exist_ok=True)
         shutil.copy(os.path.join(os.path.dirname(__file__), "native-image.properties"), os.path.join(meta_inf_native_image_dir, "native-image.properties"))
