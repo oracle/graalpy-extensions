@@ -58,5 +58,10 @@ SOFTWARE.
       <artifactId>python-embedding-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>python-embedding</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 </project>

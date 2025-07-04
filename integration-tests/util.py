@@ -54,6 +54,7 @@ GRADLE_VERSION = "8.9"
 DEFAULT_VFS_PREFIX = "org.graalvm.python.vfs"
 
 graalvmVersion = None
+jbang_graalpy_version = None
 long_running_test_disabled = False
 no_clean = False
 test_native_image = True

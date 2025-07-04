@@ -6,8 +6,13 @@ on:
       - main
 
 jobs:
-  run-tests:
+  integration-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: enable more integration tests
+        test_name: [ test_maven_plugin.py ]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -22,7 +27,9 @@ jobs:
         uses: ./.github/actions/setup-polyglot-mvn-repo
 
       - name: Run Maven package install
-        run: mvn --batch-mode -s settings.xml package install
+        run: mvn --batch-mode -DskipTests -s settings.xml package install
 
       - name: Run integration tests
-        run: mvn --batch-mode -s settings.xml exec:java@integration-tests
+        run: |
+          mvn --batch-mode -s settings.xml exec:java@integration-tests \
+              -Dintegration.tests.args="${{ matrix.test_name }}"

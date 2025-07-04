@@ -1,0 +1,28 @@
+name: Weekly CI
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  run-jbang-tests-on-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: '24'
+
+      # doesn't even build the project, we just need polyglot dependencies
+      # to run the GraalPy launcher to drive the Python based test
+      - name: Run JBang integration tests
+        run: |
+          mvn --batch-mode exec:java@integration-tests \
+              -Dproject.polyglot.version=24.1.2 \
+              -Dintegration.tests.args="test_jbang_integration.py \
+              --jbang-graalpy-version=24.2.1"
