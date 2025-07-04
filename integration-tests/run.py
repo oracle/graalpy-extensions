@@ -51,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--skip-native-image', action='store_true', help='Skips tests that build projects with GraalVM Native Image (TODO: not fully honored by all tests)')
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
+    parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
     args, remaining_args = parser.parse_known_args()
 
     if 'JAVA_HOME' not in os.environ:
@@ -64,5 +65,6 @@ if __name__ == "__main__":
     util.long_running_test_disabled = args.skip_long_running
     util.no_clean = args.no_clean
     util.test_native_image = not args.skip_native_image
+    util.jbang_graalpy_version = args.jbang_graalpy_version if args.jbang_graalpy_version else args.graalpy_version
 
     unittest.main(argv=[sys.argv[0]] + remaining_args, module=None, exit=True)

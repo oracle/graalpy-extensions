@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  run-tests:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -22,7 +22,38 @@ jobs:
         uses: ./.github/actions/setup-polyglot-mvn-repo
 
       - name: Run Maven package install
-        run: mvn --batch-mode -s settings.xml package install
+        run: mvn --batch-mode -s settings.xml package
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: enable more integration tests
+        test_name: [ test_jbang_integration.py, test_maven_plugin.MavenPluginTest.test_generated_app ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: '25-ea'
+
+      - name: Setup Polyglot Maven bundle
+        uses: ./.github/actions/setup-polyglot-mvn-repo
+
+      - name: Run Maven package install
+        run: mvn --batch-mode -DskipTests -s settings.xml package install
+
+      - name: Install JBang
+        if: matrix.test_name == 'test_jbang_integration.py'
+        run: |
+          curl -Ls https://sh.jbang.dev | bash
+          echo "$HOME/.jbang/bin" >> $GITHUB_PATH
 
       - name: Run integration tests
-        run: mvn --batch-mode -s settings.xml exec:java@integration-tests
+        run: |
+          mvn --batch-mode -s settings.xml exec:java@integration-tests \
+              -Dintegration.tests.args="${{ matrix.test_name }}"

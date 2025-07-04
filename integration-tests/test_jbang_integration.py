@@ -48,19 +48,17 @@ import unittest
 
 import util
 
-is_enabled = 'ENABLE_JBANG_INTEGRATION_UNITTESTS' in os.environ and os.environ['ENABLE_JBANG_INTEGRATION_UNITTESTS'] == "true"
-MAVEN_REPO_LOCAL_URL = os.environ.get('org.graalvm.maven.downloader.repository')
-GRAAL_VERSION = os.environ.get('org.graalvm.maven.downloader.version')
-
 # whole folder will be deleted after the tests finished
 WORK_DIR = os.path.join(tempfile.gettempdir(),tempfile.mkdtemp())
-JBANG_CMD = os.environ.get('JBANG_CMD')
+JBANG_CMD = [os.environ.get('JBANG_CMD', 'jbang')]
 ENV = os.environ.copy()
 USE_SHELL = 'win32' == sys.platform
 
-def run_cmd(cmd, env=ENV, cwd=None):
+def run_cmd(cmd, cwd=None):
     print(f"\nExecuting: {cmd=}")
-    process = subprocess.Popen(cmd, env=env, cwd=cwd, shell=USE_SHELL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, errors='backslashreplace')
+    env = os.environ.copy()
+    env['GRAALPY_VERSION'] = util.jbang_graalpy_version
+    process = subprocess.Popen(cmd, cwd=cwd, env=env, shell=USE_SHELL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, errors='backslashreplace')
     out = []
     print("============== output =============")
     for line in iter(process.stdout.readline, ""):
@@ -73,16 +71,11 @@ class TestJBangIntegration(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        if not is_enabled:
-            return
-        cls.ensureProxy()
         cls.clearCache()
         cls.catalog_file = cls.getCatalogFile()
 
     @classmethod
     def tearDownClass(cls):
-        if not is_enabled:
-            return
         try:
             shutil.rmtree(WORK_DIR)
         except Exception as e:
@@ -98,31 +91,13 @@ class TestJBangIntegration(unittest.TestCase):
             print(f"The test run correctly but problem during removing workdir: {e}")
 
     @staticmethod
-    def ensureProxy():
-        java_tools = os.environ.get('JAVA_TOOL_OPTIONS')
-        if java_tools is None:
-            java_tools = ""
-
-        http_proxy = os.environ.get('http_proxy')
-        https_proxy = os.environ.get('http_proxy')
-        if https_proxy and 'https_proxy' not in java_tools and len(https_proxy.split(":")) == 2:
-            server, port = https_proxy.split(":")
-            java_tools = f"{java_tools} -Dhttps.proxyHost={server} -Dhttps.proxyPort={port}"
-        if http_proxy and 'http_proxy' not in java_tools and len(http_proxy.split(":")) == 2:
-            server, port = http_proxy.split(":")
-            java_tools = f"{java_tools} -Dhttp.proxyHost={server} -Dhttp.proxyPort={port}"
-
-        if len(java_tools) > 0:
-            os.environ['JAVA_TOOL_OPTIONS'] = java_tools
-
-    @staticmethod
     def clearCache():
-        command = [JBANG_CMD, "cache", "--verbose", "clear"]
+        command = JBANG_CMD + ["cache", "clear"]
         run_cmd(command)
 
     @staticmethod
     def getCatalogFile():
-        catalog_dir = os.path.dirname(os.path.abspath(__file__))
+        catalog_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(catalog_dir, 'jbang-catalog.json')
 
     def getCatalogData(self, catalog_file):
@@ -138,45 +113,25 @@ class TestJBangIntegration(unittest.TestCase):
             self.fail(f"Error during reading catalog: {e}")
         return json_data
 
-    def addLocalMavenRepo(self, file):
-
-        with open(file, 'r') as script_file:
-            content = script_file.readlines()
-
-        deps_index = next((i for i, line in enumerate(content) if line.startswith("//DEPS")), None)
-
-        if deps_index is not None:
-            # TODO can we relay on that in MAVEN_REPO the first one is the local repo?
-            local_repo = [
-                f'//REPOS mc=https://repo1.maven.org/maven2/',
-                f'//REPOS local={MAVEN_REPO_LOCAL_URL}'
-            ]
-            content.insert(deps_index, '\n'.join(local_repo) + '\n')
-
-            with open(file, 'w') as script_file:
-                script_file.writelines(content)
-        else:
-            self.fail(f"Not found any dependecies in: {file}")
-
     def prepare_hello_example(self, work_dir):
         hello_java_file = os.path.join(work_dir, "hello.java")
-        self.prepare_template(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../../graalpy-jbang/examples/hello.java"), hello_java_file)
+        hello_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "org.graalvm.python.jbang", "catalog", "examples", "hello.java")
+        self.prepare_template(hello_template, hello_java_file)
         return hello_java_file
 
     def prepare_template(self, template, target):
         shutil.copyfile(template, target)
-        self.addLocalMavenRepo(target)
 
     def test_register_catalog(self):
         alias = "graalpy_test_catalog_" + str(int(time.time()))
 
         # jbang checks catalog file sanity when adding
-        command = [JBANG_CMD, "catalog", "add", "--verbose", "--name", alias, self.catalog_file]
+        command = JBANG_CMD + ["catalog", "add", "--name", alias, self.catalog_file]
         out, result = run_cmd(command, cwd=WORK_DIR)
         if result != 0:
             self.fail(f"Problem during registering catalog")
 
-        command = [JBANG_CMD, "catalog", "remove", "--verbose", alias]
+        command = JBANG_CMD + ["catalog", "remove", alias]
         out, result = run_cmd(command, cwd=WORK_DIR)
         if result != 0:
             self.fail(f"Problem during removing catalog")
@@ -198,16 +153,13 @@ class TestJBangIntegration(unittest.TestCase):
         test_file = "graalpy_test.java"
         work_dir = self.tmpdir
 
-        command = [JBANG_CMD, "--verbose", "init", f"--template={template_name}@{self.catalog_file}" , test_file]
+        command = JBANG_CMD + ["init", f"--template={template_name}@{self.catalog_file}" , test_file]
         out, result = run_cmd(command, cwd=work_dir)
         self.assertTrue(result == 0, f"Creating template {template_name} failed")
 
-        # add local maven repo to the deps
         test_file_path = os.path.join(work_dir, test_file)
-        self.addLocalMavenRepo(test_file_path)
-
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
-        command = [JBANG_CMD, "--verbose",  test_file_path, tested_code]
+        command = JBANG_CMD + [ test_file_path, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}\n")
@@ -220,32 +172,13 @@ class TestJBangIntegration(unittest.TestCase):
         test_file = "graalpy_test.java"
         work_dir = self.tmpdir
 
-        command = [JBANG_CMD, "--verbose", "init", f"--template={template_name}@{self.catalog_file}" , test_file]
-        out, result = run_cmd(command, cwd=work_dir)
-        self.assertTrue(result == 0, f"Creating template {template_name} failed")
-
-        test_file_path = os.path.join(work_dir, test_file)
-        self.addLocalMavenRepo(test_file_path)
-        tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
-        command = [JBANG_CMD, "--verbose", "--native", test_file_path, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
-
-        self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-        self.assertTrue("Successfully installed termcolor" in out, f"Expected text:\nSuccessfully installed termcolor")
-        self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
-
-    def test_graalpy_local_repo_template(self):
-        template_name = "graalpy_local_repo"
-        test_file = "graalpy_test_local_repo.java"
-        work_dir = self.tmpdir
-
-        command = [JBANG_CMD, "--verbose", "init", f"--template={template_name}@{self.catalog_file}", f"-Dpath_to_local_repo={MAVEN_REPO_LOCAL_URL}", test_file]
+        command = JBANG_CMD + ["init", f"--template={template_name}@{self.catalog_file}" , test_file]
         out, result = run_cmd(command, cwd=work_dir)
         self.assertTrue(result == 0, f"Creating template {template_name} failed")
 
         test_file_path = os.path.join(work_dir, test_file)
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
-        command = [JBANG_CMD, "--verbose", test_file_path, tested_code]
+        command = JBANG_CMD + ["--native", test_file_path, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
@@ -257,7 +190,7 @@ class TestJBangIntegration(unittest.TestCase):
         hello_java_file = self.prepare_hello_example(work_dir)
 
         tested_code = "print('hello java')"
-        command = [JBANG_CMD, "--verbose", hello_java_file, tested_code]
+        command = JBANG_CMD + ['--verbose', hello_java_file, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
@@ -265,7 +198,7 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
 
         if not 'win32' in sys.platform:
-            command = [JBANG_CMD, "--verbose", "--native", hello_java_file, tested_code]
+            command = JBANG_CMD + ["--verbose", "--native", hello_java_file, tested_code]
             out, result = run_cmd(command, cwd=work_dir)
 
             self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
@@ -295,63 +228,63 @@ def hello():
                 f"GraalPyResources.contextBuilder(java.nio.file.Path.of(\"{rd}\")).build()")
 
         tested_code = "import hello; hello.hello()"
-        command = [JBANG_CMD, "--verbose", hello_java_file, tested_code]
+        command = JBANG_CMD + ['--verbose', hello_java_file, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-        self.assertTrue("Successfully installed termcolor" in out, f"Expected text:\nSuccessfully installed termcolor")
-        self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
+        self.assertIn("Successfully installed termcolor", out)
+        self.assertIn("hello java", out)
 
         # add ujson to PIP comment
         util.replace_in_file(hello_java_file,
                 "//PIP termcolor==2.2",
                 "//PIP termcolor==2.2 ujson")
         tested_code = "import hello; hello.hello()"
-        command = [JBANG_CMD, "--verbose", hello_java_file, tested_code]
+        command = JBANG_CMD + ['--verbose', hello_java_file, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-        self.assertTrue("Successfully installed ujson" in out, f"Expected text:\nSuccessfully installed ujson")
-        self.assertFalse("Successfully installed termcolor" in out, f"Did not expect text:\nSuccessfully installed termcolor")
-        self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
+        self.assertIn("Successfully installed ujson", out)
+        self.assertNotIn("Successfully installed termcolor", out)
+        self.assertIn("hello java", out)
 
         # remove ujson from PIP comment
         util.replace_in_file(hello_java_file,
                 "//PIP termcolor==2.2 ujson",
                 "//PIP termcolor==2.2\n")
         tested_code = "import hello; hello.hello()"
-        command = [JBANG_CMD, "--verbose", hello_java_file, tested_code]
+        command = JBANG_CMD + ['--verbose', hello_java_file, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-        self.assertFalse("ujson" in out, f"Did not expect text:\n ujson")
-        self.assertTrue("Successfully installed termcolor" in out, f"Did not expect text:\nSuccessfully installed termcolor")
-        self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
+        self.assertNotIn("ujson", out)
+        self.assertIn("Successfully installed termcolor", out)
+        self.assertIn("hello java", out)
 
         # add ujson in additional PIP comment
         util.replace_in_file(hello_java_file,
                 "//PIP termcolor==2.2",
                 "//PIP termcolor==2.2\n//PIP ujson")
         tested_code = "import hello; hello.hello()"
-        command = [JBANG_CMD, "--verbose", hello_java_file, tested_code]
+        command = JBANG_CMD + ['--verbose', hello_java_file, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
 
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-        self.assertTrue("Successfully installed ujson" in out, f"Expected text:\nSuccessfully installed ujson")
-        self.assertFalse("Successfully installed termcolor" in out, f"Did not expect text:\nSuccessfully installed termcolor")
-        self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
+        self.assertIn("Successfully installed ujson", out)
+        self.assertNotIn("Successfully installed termcolor", out)
+        self.assertIn("hello java", out)
 
         if not 'win32' in sys.platform:
-            command = [JBANG_CMD, "--verbose", "--native", hello_java_file, tested_code]
+            command = JBANG_CMD + ['--verbose', "--native", hello_java_file, tested_code]
             out, result = run_cmd(command, cwd=work_dir)
 
             self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
-            self.assertFalse("Successfully installed termcolor" in out, f"Did not expect text:\nSuccessfully installed termcolor")
-            self.assertFalse("Successfully installed ujson" in out, f"Did not expect text:\nSuccessfully installed ujson")
-            self.assertTrue("hello java" in out, f"Expected text:\nhello java\nbut in stdout was:\n{out}")
+            self.assertNotIn("Successfully installed ujson", out)
+            self.assertNotIn("Successfully installed termcolor", out)
+            self.assertIn("hello java", out)
 
     def check_empty_comments(self, work_dir, java_file):
-        command = [JBANG_CMD, "--verbose", java_file]
+        command = JBANG_CMD + [java_file]
         out, result = run_cmd(command, cwd=work_dir)
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
         self.assertFalse("[graalpy jbang integration]" in out, f"Did not expect text:\n[graalpy jbang integration]")
@@ -378,7 +311,7 @@ def hello():
 
         java_file = os.path.join(work_dir, "NoPackagesResourcesDir.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "NoPackagesResourcesDir.j"), java_file)
-        command = [JBANG_CMD, "--verbose", java_file]
+        command = JBANG_CMD + [java_file]
         out, result = run_cmd(command, cwd=work_dir)
         self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
         self.assertFalse("[graalpy jbang integration] python packages" in out, f"Did not expect text:\n[graalpy jbang integration] python packages")
@@ -392,7 +325,7 @@ def hello():
 
         java_file = os.path.join(work_dir, "TwoPythonResourceComments.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "TwoPythonResourceComments.j"), java_file)
-        command = [JBANG_CMD, "--verbose", java_file]
+        command = JBANG_CMD + [java_file]
         out, result = run_cmd(command, cwd=work_dir)
         self.assertTrue(result == 1, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}")
         self.assertTrue("only one //PYTHON_RESOURCES_DIRECTORY comment is allowed" in out, f"Expected text:\nonly one //PYTHON_RESOURCES_DIRECTORY comment is allowed")
