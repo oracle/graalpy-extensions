@@ -52,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
+    parser.add_argument('--gradle-java-home', default=os.environ['JAVA_HOME'], help='Java to be used to run Gradle (by default $JAVA_HOME)')
     args, remaining_args = parser.parse_known_args()
 
     if 'JAVA_HOME' not in os.environ:
@@ -66,5 +67,6 @@ if __name__ == "__main__":
     util.no_clean = args.no_clean
     util.test_native_image = not args.skip_native_image
     util.jbang_graalpy_version = args.jbang_graalpy_version if args.jbang_graalpy_version else args.graalpy_version
+    util.gradle_java_home = args.gradle_java_home
 
     unittest.main(argv=[sys.argv[0]] + remaining_args, module=None, exit=True)

@@ -766,7 +766,7 @@ public final class VFSUtils {
 
     private static boolean install(Path venvDirectory, InstalledPackages installedPackages, LockFile lockFile, BuildToolLog log) throws IOException {
         if (installedPackages.packages.size() != lockFile.packages.size() || deleteUnwantedPackages(venvDirectory, lockFile.packages, installedPackages.packages, log)) {
-            runPip(venvDirectory, "install", log, "-r", lockFile.path.toString());
+            runPip(venvDirectory, "install", log, "--compile", "-r", lockFile.path.toString());
             return true;
         } else {
             info(log, "Virtual environment is up to date with lock file, skipping install");
@@ -929,7 +929,10 @@ public final class VFSUtils {
         if (pkgsToInstall.isEmpty()) {
             return false;
         }
-        runPip(venvDirectory, "install", log, pkgsToInstall.toArray(new String[pkgsToInstall.size()]));
+        List<String> args = new ArrayList<>(pkgsToInstall.size() + 1);
+        args.add("--compile");
+        args.addAll(pkgsToInstall);
+        runPip(venvDirectory, "install", log, args.toArray(new String[0]));
         return true;
     }
 

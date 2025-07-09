@@ -13,6 +13,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.polyglot.version>${revision}</project.polyglot.version>
+        <!-- JAVA_HOME to be used for Gradle plugin build and for Gradle integration tests -->
+        <gradle.java.home>${java.home}</gradle.java.home>
         <project.python.artifact>python-community</project.python.artifact>
         <project.junit.version>5.7.0</project.junit.version>
         <!-- TODO: default test to run in GitHub CI for now -->
@@ -41,8 +43,7 @@
         <module>org.graalvm.python.embedding.tools</module>
         <module>org.graalvm.python.jbang</module>
         <module>javainterfacegen</module>
-        <!-- TODO: see the Gradle plugin pom.xml -->
-        <!-- <module>org.graalvm.python.gradle.plugin</module> -->
+        <module>org.graalvm.python.gradle.plugin</module>
     </modules>
 
     <dependencyManagement>
@@ -154,7 +155,7 @@
                 </executions>
                 <configuration>
                     <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
-                    <commandlineArgs>${project.basedir}/integration-tests/run.py -v --graalpy-version ${project.polyglot.version} ${integration.tests.args}</commandlineArgs>
+                    <commandlineArgs>${project.basedir}/integration-tests/run.py -v --gradle-java-home ${gradle.java.home} --graalpy-version ${project.polyglot.version} ${integration.tests.args}</commandlineArgs>
                     <!-- Maven should pull all the dependencies, e.g., GraalPy itself, into local cache before running the integration tests,
                         so that the integration tests can just use local repo even if this Maven script uses some additional repositories
                         (e.g., via settings.xml) -->

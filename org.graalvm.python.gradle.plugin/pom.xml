@@ -52,12 +52,52 @@ SOFTWARE.
   <artifactId>org.graalvm.python.gradle.plugin</artifactId>
   <description>Maven script that delegates to Gradle.</description>
 
-  <!-- TODO: this is not finished yet and so not referenced from the parent pom -->
-  <!-- TODO: do we need to disable Maven based publishing -->
-  <!-- TODO: disable compile plugin (can we disable all default plugins somehow?) -->
+  <!-- to make Maven happy even when we don't produce a jar from Maven POV -->
+  <packaging>pom</packaging>
+
+  <!-- TODO: hook into Maven deploy and delegate to Gradle -->
 
   <build>
     <plugins>
+      <plugin>
+        <!-- prevent deployment of the pom by Maven, it should be deployed from Gradle -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <version>3.1.4</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <!-- prevent installation of the pom by Maven, it should be done from Gradle -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>3.1.4</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+
+      <!-- Disable the default plugins -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <executions>
+          <!-- empty -->
+        </executions>
+      </plugin>
+
+      <!-- Delegate to Gradle -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -73,6 +113,7 @@ SOFTWARE.
               <executable>${project.basedir}/gradlew</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
+                <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                 <argument>build</argument>
               </arguments>
             </configuration>
@@ -87,6 +128,7 @@ SOFTWARE.
               <executable>${project.basedir}/gradlew</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
+                <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                 <argument>publishToMavenLocal</argument>
               </arguments>
             </configuration>
