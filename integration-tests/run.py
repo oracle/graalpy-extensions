@@ -46,13 +46,22 @@ if __name__ == "__main__":
 
     os.chdir(os.path.dirname(__file__))
 
-    parser = argparse.ArgumentParser(description="Sets up the testing harness and then forwards remaining arguments to the stdlib unittest module")
+    parser = argparse.ArgumentParser(description="Sets up the testing harness and then forwards remaining arguments to the stdlib unittest module.",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     epilog="If executed via Maven: \n"
+                                             "    Arguments are passed as `-Dintegration.tests.args='--no-clean --skip-long-running'`.\n"
+                                             "    Maven passes --graalpy-version and --gradle-java-home automatically. Gradle Java home is taken from -Dgradle.java.home=...")
     parser.add_argument('--graalpy-version', help='The version of GraalPy and other Maven artifacts to use', required=True)
     parser.add_argument('--skip-native-image', action='store_true', help='Skips tests that build projects with GraalVM Native Image (TODO: not fully honored by all tests)')
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
+    parser.add_argument('--gradle-java-home', default=os.environ['JAVA_HOME'], help='Java to be used to run Gradle (by default $JAVA_HOME)')
+    parser.add_argument('--help-unittest', action='store_true', help='Print help of the stdlib unittest CLI and exits')
     args, remaining_args = parser.parse_known_args()
+
+    if args.help_unittest:
+        unittest.main(argv=[sys.argv[0], '--help'], module=None, exit=True)
 
     if 'JAVA_HOME' not in os.environ:
         print("WARNING: JAVA_HOME not in environment.\n")
@@ -66,5 +75,6 @@ if __name__ == "__main__":
     util.no_clean = args.no_clean
     util.test_native_image = not args.skip_native_image
     util.jbang_graalpy_version = args.jbang_graalpy_version if args.jbang_graalpy_version else args.graalpy_version
+    util.gradle_java_home = args.gradle_java_home
 
     unittest.main(argv=[sys.argv[0]] + remaining_args, module=None, exit=True)

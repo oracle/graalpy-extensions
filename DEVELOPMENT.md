@@ -1,5 +1,18 @@
 ## How to develop against the latest GraalPy, GraalVM SDK, and Truffle:
 
+### Option 1: Use pre-built Maven bundle
+
+There is script that downloads the latest Maven bundle from GraalVM GitHub EA releases page, unpacks it to given
+destination directory, and in the project root generates `settings.xml` that configures that bundle as additional
+Maven repository. The `settings.xml` file can be then passed to Maven using `-s settings.xml`.
+
+```
+./scripts/setup-maven-bundle.sh ./maven-bundle
+mvn -s ./settings.xml ...
+```
+
+### Option 2: Build and install GraalPy/Truffle from sources
+
 Checkout out and build the [GraalPy](https://github.com/oracle/graalpython)
 following instructions in its documentation. We need to build all the necessary
 dependencies. Make sure that you use the latest Java version that is supported,
@@ -8,7 +21,6 @@ otherwise multi-release jars will not be complete.
 ```
 mx --dy /tools,/sdk,/truffle build
 ```
-
 
 Run the `mx maven-deploy` (full command below) from the `graal/vm` directory.
 Make sure to replace the version with what is the current development version
@@ -35,19 +47,23 @@ to the local repository also omits the license checks.
 This repository is structured as a Maven multi-module project. There is also a Gradle project
 for the Gradle plugin: `org.graalvm.python.gradle.plugin`.
 
-To be implemented: A Maven project and pom.xml
-exist for the Gradle plugin, but solely to delegate most of the lifecycle tasks to Gradle.
-This allows you to run those tasks with a single Maven command.
+A Maven project and pom.xml exist for the Gradle plugin, but solely to delegate most of the
+lifecycle tasks to Gradle. This allows you to run those tasks with a single Maven command.
 
-Some subprojects contain standard JUnit tests, and there are also Python-driven
-integration tests.
+Some subprojects contain standard JUnit tests, and there are also Python-driven integration tests.
+
+To package/clean/install/test/etc. only one module, use, for example:
+
+```
+mvn -pl org.graalvm.python.gradle.plugin -am clean
+```
 
 ### Integration tests
 
 tl;dr:
 
 ```
-mvn install exec:java@integration-tests -Dintegration.test.args="test_maven_plugin.py"
+mvn install exec:java@integration-tests -Dintegration.test.args="test_maven_plugin.py" -Dgradle.java.home=...
 ```
 
 The integration tests are driven by Python and implemented using unittest framework, which is
@@ -64,5 +80,4 @@ verbosity level.
 ## Changing version
 
 - property `revision` in top level `pom.xml`
-- property `version` in `gradle.build` of the Gradle plugin (TODO: propagate from revision)
 - property `graalpy.version` in `graalpy-archetype-polyglot-app/src/main/resources/archetype-resources/pom.xml` (TODO: propagate from revision)

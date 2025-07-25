@@ -58,7 +58,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 
 public class ArgumentsTest {
 
@@ -214,8 +215,8 @@ public class ArgumentsTest {
         keyArgs.put("null", none);
 
         String result = module.fn(KeywordArguments.from(keyArgs));
-        assertTrue(result.contains("[true:True],"));
-        assertTrue(result.contains("[jedna:1],"));
-        assertTrue(result.contains("[null:None],"));
+        assertThat(result, containsString("[true:True],"));
+        assertThat(result, containsString("[jedna:1],"));
+        assertThat(result, containsString("[null:None],"));
     }
 }

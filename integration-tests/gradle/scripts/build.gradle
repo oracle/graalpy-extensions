@@ -1,0 +1,18 @@
+plugins {
+    id "application"
+    id 'org.graalvm.python' version '$VERSION$'
+    id "org.graalvm.buildtools.native" version "0.10.2"
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+application {
+    mainClass = "org.example.GraalPy"
+}
+
+run {
+    enableAssertions = true
+}

@@ -65,6 +65,8 @@ import java.util.logging.Logger;
 
 import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 
 public class VirtualFileSystemIntegrationTest {
 
@@ -684,7 +686,7 @@ public class VirtualFileSystemIntegrationTest {
     @SuppressWarnings("unchecked")
     private static void checkPaths(List<Object> l, String pathPrefix) {
         // option python.PythonPath
-        assertTrue(((List<Object>) l.get(0)).contains(pathPrefix + File.separator + "src"));
+        assertThat(((List<Object>) l.get(0)), hasItem(pathPrefix + File.separator + "src"));
         // option python.Executable
         assertEquals(l.get(1), pathPrefix + (IS_WINDOWS ? "\\venv\\Scripts\\python.exe" : "/venv/bin/python"));
     }

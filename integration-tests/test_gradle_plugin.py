@@ -41,6 +41,7 @@ import os
 import shutil
 import sys
 import textwrap
+import unittest
 
 import util
 from util import TemporaryTestDirectory, Logger, long_running_test
@@ -72,10 +73,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
 
     def copy_build_files(self, target_dir):
         build_file = os.path.join(target_dir, self.build_file_name)
-        shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "build", self.build_file_name), build_file)
+        shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.build_file_name), build_file)
         util.replace_in_file(build_file, "$VERSION$", util.get_graalvm_version())
         settings_file = os.path.join(target_dir, self.settings_file_name)
-        shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "build", self.settings_file_name), settings_file)
+        shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.settings_file_name), settings_file)
 
     def empty_plugin(self, community):
         pass
@@ -115,6 +116,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                     shutil.move(os.path.join(root, file), os.path.join(root, file[0:len(file)- 1] + "java"))
 
         self.copy_build_files(target_dir)
+
+        # at the moment the gradle demon does not run with jdk <= 22
+        assert util.gradle_java_home, "in order to run standalone gradle tests, the 'GRADLE_JAVA_HOME' env var has to be set to a jdk <= 22"
+        util.replace_in_file(os.path.join(target_dir, "gradle.properties"), "{GRADLE_JAVA_HOME}", util.gradle_java_home.replace("\\", "\\\\"))
 
         meta_inf_native_image_dir = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
         os.makedirs(meta_inf_native_image_dir, exist_ok=True)
@@ -195,6 +200,11 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             self.check_filelist(target_dir2, log)
 
     def check_lock_packages(self, community):
+        raise unittest.SkipTest("Gradle complains that it does not know how some *.pyc was created, GR-68083")
+        # Gradle does not know how file 'build/generated/graalpy/resources/org.graalvm.python.vfs/venv/lib/python3.11/site-packages/urllib3/util/__pycache__/wait.graalpy250dev4a25dcd3c4-311.pyc'
+        # was created (output property 'output'). Task output caching requires exclusive access to output paths to guarantee correctness (i.e. multiple tasks are not allowed to
+        # produce output in the same location). See https://github.com/oracle/graalpy-extensions/actions/runs/16169031895/job/45637716521?pr=7
+
         with util.TemporaryTestDirectory() as tmpdir:
 
             target_dir = os.path.join(str(tmpdir), "lock_packages" + self.target_dir_name_sufix())

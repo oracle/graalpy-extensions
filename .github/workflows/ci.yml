@@ -16,6 +16,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Setup Java 21
+        id: java21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set GRADLE_JAVA_HOME
+        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
+
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -26,7 +36,7 @@ jobs:
         run: ./scripts/setup-maven-bundle.sh "${{ github.workspace }}/maven-resource-bundle"
 
       - name: Build project (skip tests)
-        run: mvn --batch-mode -DskipTests -s settings.xml package install
+        run: mvn --batch-mode -DskipTests -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME package install
 
       - name: Archive Maven build outputs (all targets)
         # We need all "target" directories from submodules
@@ -47,7 +57,7 @@ jobs:
     strategy:
       matrix:
         # TODO: enable more integration tests
-        test_name: [ test_jbang_integration.py, test_maven_plugin.py ]
+        test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
 
     steps:
       - name: Checkout code
@@ -72,6 +82,16 @@ jobs:
         run: |
           tar -xzf all-targets.tgz
 
+      - name: Setup Java 21
+        id: java21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set GRADLE_JAVA_HOME
+        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
+
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -82,7 +102,7 @@ jobs:
         run: ./scripts/setup-maven-bundle.sh "${{ github.workspace }}/maven-resource-bundle"
 
       - name: Run Maven install
-        run: mvn --batch-mode -DskipTests -s settings.xml install
+        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
 
       - name: Install JBang
         if: matrix.test_name == 'test_jbang_integration.py'
@@ -92,7 +112,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          mvn --batch-mode -s settings.xml exec:java@integration-tests \
+          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests \
               -Dintegration.tests.args="${{ matrix.test_name }} $TEST_FLAGS"
 
   unit-tests:
@@ -124,17 +144,27 @@ jobs:
         run: |
           tar -xzf all-targets.tgz
 
+      - name: Setup Java 21
+        id: java21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
           java-version: ${{ env.graalvm_version }}
 
+      - name: Set GRADLE_JAVA_HOME
+        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
+
       - name: Setup Polyglot Maven bundle
         run: ./scripts/setup-maven-bundle.sh "${{ github.workspace }}/maven-resource-bundle"
 
       - name: Run Maven install
-        run: mvn --batch-mode -DskipTests -s settings.xml install
+        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
 
       - name: Run Maven tests
-        run: mvn --batch-mode -s settings.xml ${{ matrix.maven_args }}
+        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
