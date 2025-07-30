@@ -47,9 +47,23 @@
     <module>org.graalvm.python.embedding</module>
     <module>org.graalvm.python.embedding.tools</module>
     <module>org.graalvm.python.jbang</module>
-    <module>javainterfacegen</module>
     <module>org.graalvm.python.gradle.plugin</module>
   </modules>
+
+  <!-- javainterfacegen module is excluded on Windows -->
+  <profiles>
+    <profile>
+      <id>javainterfacegen-unix</id>
+      <activation>
+        <os>
+          <family>unix</family>
+        </os>
+      </activation>
+      <modules>
+        <module>javainterfacegen</module>
+      </modules>
+    </profile>
+  </profiles>
 
   <dependencyManagement>
     <dependencies>
