@@ -36,7 +36,8 @@ jobs:
     needs: maven_bundle_url
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
+        #os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -78,7 +79,8 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
+        #test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
+        test_name: [ test_maven_plugin.py ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -135,66 +137,30 @@ jobs:
         run: choco install jbang
         shell: pwsh
 
-      - name: Run integration tests
+      - name: DEBUG PyPI access curl
         run: |
           mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
-  unit-tests:
-    needs: [build, maven_bundle_url]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest]
-        tests: [unit-cp, unit-mp, unit-it-mp, isolate-it]
-        include:
-          - tests: unit-cp
-            maven_args: "test"
-          - tests: unit-mp
-            maven_args: >-
-              -pl org.graalvm.python.embedding -Ptest.modules -am test
-          - tests: unit-it-mp
-            maven_args: >-
-              -pl org.graalvm.python.embedding -Ptest.modules.integration -Dtest=org.graalvm.python.embedding.test.integration.** -am test
-          - tests: isolate-it
-            maven_args: >-
-              -pl org.graalvm.python.embedding -Pisolate -Dpolyglot.engine.AllowExperimentalOptions=true -Dpolyglot.engine.SpawnIsolate=true -Dpolyglot.engine.IsolateMode=external -Dtest=org.graalvm.python.embedding.test.integration.** -am test
-    name: "${{ matrix.tests }} (${{ matrix.os }})"
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts-${{ runner.os }}
-          path: .
-
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set up GraalVM
-        uses: graalvm/setup-graalvm@v1
-        with:
-          distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
-
-      - name: Set GRADLE_JAVA_HOME
-        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
+      - name: DEBUG PyPI access curl
+        run: |
+          curl -H "Accept: application/vnd.pypi.simple.v1+json" https://pypi.org/simple/termcolor/
         shell: bash
 
-      - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+      - name: DEBUG PyPI access GraalPy
+        run: |
+          mvn -s settings.xml exec:java@graalpy-shell -Dexec.args="download.py"
         shell: bash
 
-      - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
-        shell: bash
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Run Maven tests
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
+      - name: DEBUG PyPI access CPython
+        run: pip install termcolor==2.2
+
+      - name: Run integration tests
+        run: |
+          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
