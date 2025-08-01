@@ -42,9 +42,23 @@
     <module>org.graalvm.python.embedding</module>
     <module>org.graalvm.python.embedding.tools</module>
     <module>org.graalvm.python.jbang</module>
-    <module>javainterfacegen</module>
     <module>org.graalvm.python.gradle.plugin</module>
   </modules>
+
+  <!-- javainterfacegen module is excluded on Windows -->
+  <profiles>
+    <profile>
+      <id>javainterfacegen-unix</id>
+      <activation>
+        <os>
+          <family>unix</family>
+        </os>
+      </activation>
+      <modules>
+        <module>javainterfacegen</module>
+      </modules>
+    </profile>
+  </profiles>
 
   <dependencyManagement>
     <dependencies>
@@ -85,11 +99,27 @@
             <source>21</source>
             <target>21</target>
             <release>21</release>
+            <compilerArgs>
+              <arg>-Xlint:all</arg>
+              <arg>-Werror</arg>
+            </compilerArgs>
           </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.2.5</version>
+        </plugin>
+        <!-- by default no JavaDoc linting, we override this in modules that provide public API -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.11.2</version>
+          <configuration>
+            <failOnError>false</failOnError>
+            <additionalJOptions>
+              <additionalJOption>-Xdoclint:none</additionalJOption>
+            </additionalJOptions>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -157,19 +187,31 @@
             <goals>
               <goal>java</goal>
             </goals>
+            <configuration>
+              <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
+              <commandlineArgs>
+                ${project.basedir}/integration-tests/run.py -v --gradle-java-home ${gradle.java.home} --graalpy-version ${project.polyglot.version} ${integration.tests.args}
+              </commandlineArgs>
+              <!-- Maven should pull all the dependencies, e.g., GraalPy itself, into local cache before running the integration tests,
+                  so that the integration tests can just use local repo even if this Maven script uses some additional repositories
+                  (e.g., via settings.xml) -->
+              <includeProjectDependencies>true</includeProjectDependencies>
+              <includePluginDependencies>true</includePluginDependencies>
+            </configuration>
+          </execution>
+          <execution>
+            <id>graalpy-shell</id>
+            <phase>none</phase>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
+              <includeProjectDependencies>true</includeProjectDependencies>
+              <includePluginDependencies>true</includePluginDependencies>
+            </configuration>
           </execution>
         </executions>
-        <configuration>
-          <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
-          <commandlineArgs>
-            ${project.basedir}/integration-tests/run.py -v --gradle-java-home ${gradle.java.home} --graalpy-version ${project.polyglot.version} ${integration.tests.args}
-          </commandlineArgs>
-          <!-- Maven should pull all the dependencies, e.g., GraalPy itself, into local cache before running the integration tests,
-              so that the integration tests can just use local repo even if this Maven script uses some additional repositories
-              (e.g., via settings.xml) -->
-          <includeProjectDependencies>true</includeProjectDependencies>
-          <includePluginDependencies>true</includePluginDependencies>
-        </configuration>
         <dependencies>
           <dependency>
             <groupId>org.graalvm.python</groupId>

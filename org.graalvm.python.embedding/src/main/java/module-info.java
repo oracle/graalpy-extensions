@@ -41,7 +41,7 @@
 module org.graalvm.python.embedding {
 	requires java.logging;
 	requires org.graalvm.nativeimage;
-	requires org.graalvm.polyglot;
+	requires transitive org.graalvm.polyglot;
 	requires transitive org.graalvm.word;
 	exports org.graalvm.python.embedding;
 }

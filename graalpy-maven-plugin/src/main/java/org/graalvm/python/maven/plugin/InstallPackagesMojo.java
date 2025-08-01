@@ -44,9 +44,11 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.ProjectBuilder;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils.PackagesChangedException;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -76,6 +78,11 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 			For more details on managing Python dependencies, please refer to https://www.graalvm.org/latest/reference-manual/python/Embedding-Build-Tools#Python-Dependency-Management
 
 			""";
+
+	@Inject
+	public InstallPackagesMojo(ProjectBuilder projectBuilder) {
+		super(projectBuilder);
+	}
 
 	public void execute() throws MojoExecutionException {
 		preExec(true);

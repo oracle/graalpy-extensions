@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
  * Java resources and makes them available to Python code running in GraalPy.
  *
  * @see GraalPyResources for more information on Python resources in GraalPy
- *      embedding and how to use the {@link VirtualFileSystem} together with a
+ *      embedding and how to use the {@code VirtualFileSystem} together with a
  *      GraalPy context.
  *
  * @since 24.2.0
@@ -119,7 +119,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * directory will be accessible as {@link #unixMountPoint(String)} or
 		 * {@link #windowsMountPoint(String)} from Python code. The recommended
 		 * convention is to use {@code GRAALPY-VFS/{groupId}/{artifactId}}.
-		 * <p/>
+		 * <p>
 		 * User scripts, data files, and other resources that should be accessible in
 		 * Python should be put into this resource directory, e.g.,
 		 * {@code src/main/resources/org.graalvm.python.vfs/src} where:
@@ -129,21 +129,21 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * of the {@code resourceDirectory} option</li>
 		 * <li>and the following {@code src} directory is the folder used by
 		 * {@link GraalPyResources convention} for Python application files and is
-		 * configured as the default search path for Python module files.</i>
+		 * configured as the default search path for Python module files.</li>
 		 * </ul>
-		 * <p/>
+		 * <p>
 		 * When Maven or Gradle GraalPy plugin is used to build the virtual environment,
 		 * it should be configured to generate the virtual environment into the same
 		 * directory using the {@code <resourceDirectory>} tag in Maven or the
 		 * {@code resourceDirectory} field in Gradle.
-		 * <p/>
+		 * <p>
 		 * Note regarding Java module system: resources in named modules are subject to
 		 * the encapsulation rules. This is also the case of the default virtual
 		 * filesystem location. When a resources directory is not a valid Java package
 		 * name, such as the recommended "GRAALPY-VFS", the resources are not subject to
 		 * the encapsulation rules and do not require additional module system
 		 * configuration.
-		 * <p/>
+		 * <p>
 		 * The value must be relative resources path, i.e., not starting with `/`, and
 		 * must use '/' as path separator regardless of the host OS.
 		 *
