@@ -963,7 +963,10 @@ public final class VFSUtils {
 	private static void runPip(Path venvDirectory, String command, BuildToolLog log, String... args)
 			throws IOException {
 		try {
-			GraalPyRunner.runPip(venvDirectory, command, log, args);
+			String[] newArgs = new String[args.length + 1];
+			System.arraycopy(args, 0, newArgs, 1, args.length);
+			newArgs[0] = "-vvv";
+			GraalPyRunner.runPip(venvDirectory, command, log, newArgs);
 		} catch (IOException | InterruptedException e) {
 			throw new IOException(String.format("failed to execute pip %s", List.of(args)), e);
 		}
