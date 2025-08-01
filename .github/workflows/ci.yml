@@ -36,7 +36,8 @@ jobs:
     needs: maven_bundle_url
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
+        #os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -78,7 +79,8 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
+        # test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
+        test_name: [ test_maven_plugin.py ]
         include:
           # We need to skip native-image tests on Gradle and MacOS runners: it seems that with
           # Gradle the tests require more RAM and cannot reliably build native image.
@@ -149,7 +151,7 @@ jobs:
         run: choco install jbang
         shell: pwsh
 
-      - name: Run integration tests
+      - name: DEBUG PyPI access curl
         run: |
           mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
@@ -208,14 +210,20 @@ jobs:
         run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
         shell: bash
 
-      - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+      - name: DEBUG PyPI access GraalPy
+        run: |
+          mvn -s settings.xml exec:java@graalpy-shell -Dexec.args="download.py"
         shell: bash
 
-      - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
-        shell: bash
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: Run Maven tests
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
+      - name: DEBUG PyPI access CPython
+        run: pip install termcolor==2.2
+
+      - name: Run integration tests
+        run: |
+          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
