@@ -43,7 +43,41 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
   <profiles>
+    <profile>
+      <!-- We'd have to have a *.bat script for Windows
+           and checking on Linux/MacOS in the CI is enough -->
+      <id>sigtest-on-unix</id>
+      <activation>
+        <os>
+          <family>Unix</family>
+        </os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>sigtest-embedding</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>${project.basedir}/../scripts/sigtest-check-embedding.sh</executable>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Profiles for unit test configurations -->
     <profile>
       <id>isolate</id>
       <dependencies>
@@ -93,6 +127,25 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <failOnError>true</failOnError>
+          <failOnWarnings>true</failOnWarnings>
+          <additionalJOptions>
+            <additionalJOption>-Xdoclint:all</additionalJOption>
+          </additionalJOptions>
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <!-- graalpy.embedding and tests on class-path -->
         <groupId>org.apache.maven.plugins</groupId>

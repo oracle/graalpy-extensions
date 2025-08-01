@@ -52,7 +52,7 @@ import java.util.regex.Pattern;
  * Java resources and makes them available to Python code running in GraalPy.
  *
  * @see GraalPyResources for more information on Python resources in GraalPy
- *      embedding and how to use the {@link VirtualFileSystem} together with a
+ *      embedding and how to use the {@code VirtualFileSystem} together with a
  *      GraalPy context.
  *
  * @since 24.2.0
@@ -119,7 +119,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * directory will be accessible as {@link #unixMountPoint(String)} or
 		 * {@link #windowsMountPoint(String)} from Python code. The recommended
 		 * convention is to use {@code GRAALPY-VFS/{groupId}/{artifactId}}.
-		 * <p/>
+		 * <p>
 		 * User scripts, data files, and other resources that should be accessible in
 		 * Python should be put into this resource directory, e.g.,
 		 * {@code src/main/resources/org.graalvm.python.vfs/src} where:
@@ -129,24 +129,26 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * of the {@code resourceDirectory} option</li>
 		 * <li>and the following {@code src} directory is the folder used by
 		 * {@link GraalPyResources convention} for Python application files and is
-		 * configured as the default search path for Python module files.</i>
+		 * configured as the default search path for Python module files.</li>
 		 * </ul>
-		 * <p/>
+		 * <p>
 		 * When Maven or Gradle GraalPy plugin is used to build the virtual environment,
 		 * it should be configured to generate the virtual environment into the same
 		 * directory using the {@code <resourceDirectory>} tag in Maven or the
 		 * {@code resourceDirectory} field in Gradle.
-		 * <p/>
+		 * <p>
 		 * Note regarding Java module system: resources in named modules are subject to
 		 * the encapsulation rules. This is also the case of the default virtual
 		 * filesystem location. When a resources directory is not a valid Java package
 		 * name, such as the recommended "GRAALPY-VFS", the resources are not subject to
 		 * the encapsulation rules and do not require additional module system
 		 * configuration.
-		 * <p/>
+		 * <p>
 		 * The value must be relative resources path, i.e., not starting with `/`, and
 		 * must use '/' as path separator regardless of the host OS.
 		 *
+		 * @param directory The directory within Java resources
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder resourceDirectory(String directory) {
@@ -161,6 +163,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * Sets the file system to be case-insensitive. Defaults to true on Windows and
 		 * false elsewhere.
 		 *
+		 * @param value the value to be set
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder caseInsensitive(boolean value) {
@@ -172,10 +176,12 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * Determines if and how much host IO is allowed outside the
 		 * {@link VirtualFileSystem}.
 		 *
+		 * @param hostIO the host IO access level
+		 * @return the builder
 		 * @since 24.2.0
 		 */
-		public Builder allowHostIO(HostIO b) {
-			allowHostIO = b;
+		public Builder allowHostIO(HostIO hostIO) {
+			allowHostIO = hostIO;
 			return this;
 		}
 
@@ -188,9 +194,10 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * trailing separator. If that file or directory actually exists, it will not be
 		 * accessible.
 		 *
-		 * @throws IllegalArgumentException
-		 *             if the provided mount point isn't absolute or ends with a
-		 *             trailing separator
+		 * @throws IllegalArgumentException if the provided mount point isn't absolute
+		 *                                  or ends with a trailing separator
+		 * @param windowsMountPoint the mount point path
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder windowsMountPoint(String windowsMountPoint) {
@@ -209,9 +216,10 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * trailing separator. If that file or directory actually exists, it will not be
 		 * accessible.
 		 *
-		 * @throws IllegalArgumentException
-		 *             if the provided mount point isn't absolute or ends with a
-		 *             trailing separator
+		 * @throws IllegalArgumentException if the provided mount point isn't absolute
+		 *                                  or ends with a trailing separator
+		 * @param unixMountPoint the mount point path
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder unixMountPoint(String unixMountPoint) {
@@ -228,6 +236,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * cases when for example <code>VirtualFileSystem</code> is on module path and
 		 * the jar containing the resources is on class path.
 		 *
+		 * @param c the class for loading the resources
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder resourceLoadingClass(Class<?> c) {
@@ -246,9 +256,9 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * the operating system loader. Setting this filter to <code>null</code> denies
 		 * any extraction. Any other filter is combined with the default filter.
 		 *
-		 * @param filter
-		 *            the extraction filter, where the provided path is an absolute path
-		 *            from the VirtualFileSystem.
+		 * @param filter the extraction filter, where the provided path is an absolute
+		 *               path from the VirtualFileSystem.
+		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder extractFilter(Predicate<Path> filter) {
@@ -264,12 +274,12 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * Build a new {@link VirtualFileSystem} instance from the configuration
 		 * provided in the builder.
 		 *
+		 * @return new {@link VirtualFileSystem} instance
 		 * @since 24.2.0
 		 */
 		public VirtualFileSystem build() {
 			if (mountPoint == null) {
-				mountPoint = VirtualFileSystemImpl.isWindows()
-						? Path.of(DEFAULT_WINDOWS_MOUNT_POINT)
+				mountPoint = VirtualFileSystemImpl.isWindows() ? Path.of(DEFAULT_WINDOWS_MOUNT_POINT)
 						: Path.of(DEFAULT_UNIX_MOUNT_POINT);
 			}
 			return new VirtualFileSystem(extractFilter, mountPoint, allowHostIO, resourceLoadingClass,
@@ -299,6 +309,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 	 * Creates a builder for constructing a {@link VirtualFileSystem} with a custom
 	 * configuration.
 	 *
+	 * @return new {@link Builder} instance
 	 * @since 24.2.0
 	 */
 	public static Builder newBuilder() {
@@ -306,8 +317,10 @@ public final class VirtualFileSystem implements AutoCloseable {
 	}
 
 	/**
-	 * Creates a {@link VirtualFileSystem}.
+	 * Creates a {@link VirtualFileSystem} with default configuration. Use
+	 * {@link #newBuilder()} to customize the configuration.
 	 *
+	 * @return new {@link VirtualFileSystem} instance
 	 * @since 24.2.0
 	 */
 	public static VirtualFileSystem create() {
@@ -320,6 +333,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 	 * @see VirtualFileSystem.Builder#windowsMountPoint(String)
 	 * @see VirtualFileSystem.Builder#unixMountPoint(String)
 	 *
+	 * @return the mount point
 	 * @since 24.2.0
 	 */
 	public String getMountPoint() {
@@ -329,8 +343,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 	/**
 	 * Closes the VirtualFileSystem and frees up potentially allocated resources.
 	 *
-	 * @throws IOException
-	 *             if the resources could not be freed.
+	 * @throws IOException if the resources could not be freed.
 	 */
 	@Override
 	public void close() throws IOException {

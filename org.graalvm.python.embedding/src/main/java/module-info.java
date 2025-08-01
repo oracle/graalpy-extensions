@@ -38,10 +38,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+/**
+ * Utilities for GraalPy embedding scenarios.
+ *
+ * <p>
+ * For an overview on how to create and configure a GraalPy context to get
+ * access to Python related resources in GraalPy embedding scenarios see
+ * {@link org.graalvm.python.embedding.GraalPyResources}.
+ * <p>
+ * For passing python keyword and positional arguments from java to python, see:
+ * {@link org.graalvm.python.embedding.KeywordArguments} and
+ * {@link org.graalvm.python.embedding.PositionalArguments}
+ *
+ * @since 24.2.0
+ */
 module org.graalvm.python.embedding {
 	requires java.logging;
 	requires org.graalvm.nativeimage;
-	requires org.graalvm.polyglot;
+	requires transitive org.graalvm.polyglot;
 	requires transitive org.graalvm.word;
 	exports org.graalvm.python.embedding;
 }

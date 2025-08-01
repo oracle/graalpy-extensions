@@ -67,7 +67,7 @@ import java.nio.file.Paths;
  * or made available from an <b>external directory</b>.
  * </p>
  *
- * <h3>Virtual Filesystem</h3>
+ * <h2>Virtual Filesystem</h2>
  * <p>
  * If the resource files are part of an <b>application file</b> (jar file or a
  * native image executable), then at runtime they will be accessed as standard
@@ -87,7 +87,7 @@ import java.nio.file.Paths;
  * more details.
  * </p>
  *
- * <h3>External Directory</h3>
+ * <h2>External Directory</h2>
  * <p>
  * As an alternative to Java resources with the Virtual Filesystem, it is also
  * possible to configure the GraalPy context to use an external directory, which
@@ -95,7 +95,7 @@ import java.nio.file.Paths;
  * code will access the files directly from the real filesystem.
  * </p>
  *
- * <h3>Conventions</h3>
+ * <h2>Conventions</h2>
  * <p>
  * The factory methods in GraalPyResources rely on the following conventions:
  * <ul>
@@ -109,12 +109,10 @@ import java.nio.file.Paths;
  * </ul>
  * where ${resources_root} is either the resource root
  * <code>/org.graalvm.python.vfs</code> or an external directory.
- * </p>
  *
  * <p>
  * <b>Example</b> creating a GraalPy context configured for the usage with a
  * {@link VirtualFileSystem}:
- * </p>
  *
  * <pre>
  * VirtualFileSystem.Builder builder = VirtualFileSystem.newBuilder();
@@ -139,10 +137,10 @@ import java.nio.file.Paths;
  * {@link VirtualFileSystem}</li>
  * <li>use the context to invoke a python snippet reading a resource file</li>
  * </ul>
- * </p>
  * <p>
  * <b>GraalPy context</b> instances created by factory methods in this class are
  * preconfigured with some particular resource paths:
+ * <ul>
  * <li><code>${resources_root}/venv</code> - is reserved for a python virtual
  * environment holding third-party packages. The context will be configured as
  * if it were executed from this virtual environment. Notably packages installed
@@ -154,7 +152,6 @@ import java.nio.file.Paths;
  * </ul>
  * where <code>${resources_root}</code> is either an external directory or the
  * virtual filesystem resource root <code>/org.graalvm.python.vfs</code>.
- * </p>
  * <p>
  * <b>Example</b> creating a GraalPy context configured for the usage with an
  * external resource directory:
@@ -180,7 +177,7 @@ import java.nio.file.Paths;
  * package installed in <code>python-resources/venv</code> (python virtual
  * environment)</li>
  * </ul>
- * </p>
+ * <p>
  *
  * For <b>more examples</b> on how to use this class refer to <a href=
  * "https://github.com/graalvm/graal-languages-demos/tree/main/graalpy">GraalPy
@@ -237,7 +234,7 @@ public final class GraalPyResources {
 	 * <li><code>/org.graalvm.python.vfs/src</code> - is set as the python sources
 	 * location</li>
 	 * </ul>
-	 * </p>
+	 * <p>
 	 * <b>Example</b> creating a GraalPy context and overriding the verbose option.
 	 *
 	 * <pre>
@@ -283,7 +280,6 @@ public final class GraalPyResources {
 	 * <li><code>/org.graalvm.python.vfs/src</code> - is set as the python sources
 	 * location</li>
 	 * </ul>
-	 * </p>
 	 * <p>
 	 * <b>Example</b> creating a GraalPy context configured for the usage with a
 	 * virtual {@link FileSystem}:
@@ -312,7 +308,6 @@ public final class GraalPyResources {
 	 * {@link VirtualFileSystem}</li>
 	 * <li>use the context to invoke a python snippet reading a resource file</li>
 	 * </ul>
-	 * </p>
 	 *
 	 * @param vfs
 	 *            the {@link VirtualFileSystem} to be used with the created
@@ -351,7 +346,6 @@ public final class GraalPyResources {
 	 * <li><code>${externalResourcesDirectory}/src</code> - is set as the python
 	 * sources location</li>
 	 * </ul>
-	 * </p>
 	 * <p>
 	 * <b>Example</b>
 	 *
@@ -379,7 +373,6 @@ public final class GraalPyResources {
 	 * <li>note that in this scenario, the Python context has access to the
 	 * extracted resources as well as the rest of the real filesystem</li>
 	 * </ul>
-	 * </p>
 	 *
 	 * <p>
 	 * External resources directory is often used for better compatibility with
@@ -392,14 +385,12 @@ public final class GraalPyResources {
 	 * <pre>
 	 * GraalPyResources.contextBuilder(Path.of("python-resources")).option("python.PosixModuleBackend", "native")
 	 * </pre>
-	 * </p>
+	 * <p>
 	 *
-	 * <p/>
 	 * When Maven or Gradle GraalPy plugin is used to build the virtual environment,
 	 * it also has to be configured to generate the virtual environment into the
 	 * same directory using the {@code <externalDirectory>} tag in Maven or the
 	 * {@code externalDirectory} field in Gradle.
-	 * <p/>
 	 *
 	 * @param externalResourcesDirectory
 	 *            the root directory with GraalPy specific embedding resources
@@ -469,7 +460,6 @@ public final class GraalPyResources {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
-	 * </p>
 	 *
 	 * @return the native executable path if it could be retrieved, otherwise
 	 *         <code>null</code>.
@@ -506,8 +496,6 @@ public final class GraalPyResources {
 	 * <li><code>${externalResourcesDirectory}/src</code> - the python sources
 	 * location</li>
 	 * </ul>
-	 * </p>
-	 * </p>
 	 * <p>
 	 * <b>Example</b>
 	 *
@@ -519,7 +507,6 @@ public final class GraalPyResources {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
-	 * </p>
 	 *
 	 * @param vfs
 	 *            the {@link VirtualFileSystem} from which resources are to be

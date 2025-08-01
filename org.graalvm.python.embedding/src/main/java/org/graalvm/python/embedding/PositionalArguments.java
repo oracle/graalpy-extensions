@@ -59,7 +59,7 @@ import java.util.List;
  * were passed to a Python function using the `*args` syntax.
  * </p>
  *
- * <h3>Creating PositionalArguments</h3>
+ * <h2>Creating PositionalArguments</h2>
  *
  * <p>
  * You can create an instance of {@code PositionalArguments} using one of the

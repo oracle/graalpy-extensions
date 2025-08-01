@@ -54,7 +54,7 @@ import java.util.NoSuchElementException;
  * Represents a set of keyword arguments, typically used for interfacing with
  * Python functions that accept {@code **kwargs}.
  *
- * <h3>When to Use</h3> {@link KeywordArguments} must be used whenever a Python
+ * <h2>When to Use</h2> {@link KeywordArguments} must be used whenever a Python
  * function accepts named arguments (both required and optional). This ensures
  * proper mapping of Java arguments to Python function parameters, especially
  * when working with Python methods that utilize {@code **kwargs}.

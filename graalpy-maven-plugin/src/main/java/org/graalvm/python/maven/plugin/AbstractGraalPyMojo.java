@@ -58,6 +58,7 @@ import org.apache.maven.project.ProjectBuildingResult;
 import org.eclipse.aether.graph.Dependency;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -86,6 +87,10 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	private static final String PYTHON_COMMUNITY_ARTIFACT_ID = "python-community";
 	private static final String PYTHON_ARTIFACT_ID = "python";
 	private static final String GRAALPY_MAVEN_PLUGIN_ARTIFACT_ID = "graalpy-maven-plugin";
+
+	public AbstractGraalPyMojo(ProjectBuilder projectBuilder) {
+		this.projectBuilder = projectBuilder;
+	}
 
 	@Parameter(defaultValue = "${project}", required = true, readonly = true)
 	MavenProject project;
@@ -119,7 +124,6 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	@Parameter(defaultValue = "${session}", readonly = true, required = true)
 	private MavenSession session;
 
-	@Component
 	private ProjectBuilder projectBuilder;
 
 	private Set<String> launcherClassPath;
@@ -151,7 +155,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		graalPyLockFile = normalizeEmpty(graalPyLockFile);
 		packages = packages != null
 				? packages.stream().filter(p -> p != null && !p.trim().isEmpty()).toList()
-				: Collections.EMPTY_LIST;
+				: List.of();
 
 		if (pythonResourcesDirectory != null) {
 			if (externalDirectory != null) {

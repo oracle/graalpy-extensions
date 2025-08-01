@@ -139,8 +139,7 @@ public class KwArgBuilderGenerator {
 	private static final String KW_ARGS_BUILDER_JAVADOC_PARAM = """
 			{{indent+1}} * @param {{arg_name}}
 			{{indent+1}} *        the value of the argument; can be null, which translates
-			{{indent+1}} *        to the Python value {@code None}
-			         """;
+			{{indent+1}} *        to the Python value {@code None}""";
 
 	public static String getBuilderName(GeneratorContext context, FuncDef fn) {
 		String name = fn.getName();
@@ -162,7 +161,7 @@ public class KwArgBuilderGenerator {
 		return GeneratorUtils.convertToJavaClassName(name) + "KwArgsBuilder";
 	}
 
-	private static final Map<String, String> generatedGenerators = new HashMap();
+	private static final Map<String, String> generatedGenerators = new HashMap<>();
 
 	public static boolean isAlreadyGenerated(FuncDef fn) {
 		return generatedGenerators.containsKey(fn.fullname());

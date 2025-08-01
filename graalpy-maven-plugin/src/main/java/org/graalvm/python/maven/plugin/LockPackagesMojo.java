@@ -44,8 +44,10 @@ package org.graalvm.python.maven.plugin;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.ProjectBuilder;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -62,6 +64,11 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 			This file contains a list of all required Python packages with their specific versions,
 			based on the packages defined in the plugin configuration and their dependencies.
 			""";
+
+	@Inject
+	public LockPackagesMojo(ProjectBuilder projectBuilder) {
+		super(projectBuilder);
+	}
 
 	public void execute() throws MojoExecutionException {
 		preExec(false);
