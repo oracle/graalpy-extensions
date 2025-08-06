@@ -79,6 +79,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest] # TODO: windows-latest
         test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
+        include:
+          # We need to skip native-image tests on MacOS runners, because they do not have enough
+          # RAM to reliably build a native image of GraalPy from Gradle (somehow Maven native-image
+          # tests seems to work, but we may need to disable them in the future too)
+          - test_name: test_gradle_plugin.py
+            os: macos-latest
+            extra_test_args: "--skip-native-image"
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -137,7 +144,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} $TEST_FLAGS"
+          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
   unit-tests:

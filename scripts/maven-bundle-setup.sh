@@ -32,7 +32,7 @@ head -n 20 github_releases.json
 echo "==========================================="
 
 if [ -z "$2" ]; then
-    asset_url=$("${project_root}/scripts/maven-bundle-url" | tail -n 1)
+    asset_url=$("${project_root}/scripts/maven-bundle-url.sh" | tail -n 1)
 else
     echo "Using given Maven bundle URL: $2"
     asset_url="$2"
