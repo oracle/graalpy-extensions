@@ -5,7 +5,7 @@ import org.graalvm.polyglot.Value;
 {{generated}}
 
 public class GuestValueDefaultImpl implements GuestValue {
-    
+
     private final Value value;
 
     public GuestValueDefaultImpl(Value value) {
@@ -21,6 +21,5 @@ public class GuestValueDefaultImpl implements GuestValue {
     public String toString() {
         return value.toString();
     }
-    
-}
 
+}
