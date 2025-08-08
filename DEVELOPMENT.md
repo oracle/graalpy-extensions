@@ -1,3 +1,14 @@
+## Building for a Release
+
+* Verify that the following properties in `pom.xml` match the expected versions for the release:
+  * `revision`: the version for graalpy-extensions artifacts, e.g., `org.graalvm.python.embedding`
+  * `project.polyglot.version`: version of the polyglot artifacts to use, e.g., the version of `org.graalvm.polyglot:polyglot` dependency
+* The polyglot artifacts of given version must be available in Maven central or some additional
+  Maven repository that can be configured, for example, using Maven's setting.xml mechanism
+* Run Maven with `-P release` to sign the artifacts
+* Note: the files that are expected to be deployed include usual: `*.jar`, `*.asc`, `*.pom`,
+  and in case of `org.graalvm.python.embedding` also `*.sigfile`, which is used for API stability checking
+
 ## How to develop against the latest GraalPy, GraalVM SDK, and Truffle:
 
 ### Option 1: Use pre-built Maven bundle
@@ -67,9 +78,9 @@ mvn install exec:java@integration-tests -Dintegration.test.args="test_maven_plug
 ```
 
 The integration tests are driven by Python and implemented using unittest framework, which is
-part of Python standard library. The tests expect that the relevant Maven artifacts are available, 
+part of Python standard library. The tests expect that the relevant Maven artifacts are available,
 which can be achieved, for example, by `mvn install`. But they can also run on released artifacts
-published in Mavencentral or some snapshot repository configured in Maven settings. 
+published in Mavencentral or some snapshot repository configured in Maven settings.
 
 The whole execution of the tests is wrapped in Maven goal `exec:java@integration-tests`, which passes
 some necessary arguments to the test driver Python script. One can pass additional arguments for the

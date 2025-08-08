@@ -95,11 +95,12 @@ meth public org.graalvm.python.embedding.VirtualFileSystem build()
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder allowHostIO(org.graalvm.python.embedding.VirtualFileSystem$HostIO)
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder caseInsensitive(boolean)
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder extractFilter(java.util.function.Predicate<java.nio.file.Path>)
+meth public org.graalvm.python.embedding.VirtualFileSystem$Builder resourceDirectory(java.lang.String)
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder resourceLoadingClass(java.lang.Class<?>)
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder unixMountPoint(java.lang.String)
 meth public org.graalvm.python.embedding.VirtualFileSystem$Builder windowsMountPoint(java.lang.String)
 supr java.lang.Object
-hfds DEFAULT_EXTRACT_FILTER,DEFAULT_UNIX_MOUNT_POINT,DEFAULT_WINDOWS_MOUNT_POINT,allowHostIO,caseInsensitive,extractFilter,mountPoint,resourceLoadingClass
+hfds DEFAULT_EXTRACT_FILTER,DEFAULT_EXTRACT_REGEX,DEFAULT_UNIX_MOUNT_POINT,DEFAULT_WINDOWS_MOUNT_POINT,allowHostIO,caseInsensitive,extractFilter,mountPoint,resourceDirectory,resourceLoadingClass
 
 CLSS public final static !enum org.graalvm.python.embedding.VirtualFileSystem$HostIO
  outer org.graalvm.python.embedding.VirtualFileSystem
@@ -109,4 +110,6 @@ fld public final static org.graalvm.python.embedding.VirtualFileSystem$HostIO RE
 meth public static org.graalvm.python.embedding.VirtualFileSystem$HostIO valueOf(java.lang.String)
 meth public static org.graalvm.python.embedding.VirtualFileSystem$HostIO[] values()
 supr java.lang.Enum<org.graalvm.python.embedding.VirtualFileSystem$HostIO>
+
+CLSS abstract interface org.graalvm.python.embedding.package-info
 

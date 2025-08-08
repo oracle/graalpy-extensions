@@ -23,11 +23,13 @@
       <groupId>org.graalvm.polyglot</groupId>
       <artifactId>polyglot</artifactId>
       <version>${project.polyglot.version}</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.graalvm.python</groupId>
       <artifactId>${project.python.artifact}</artifactId>
       <version>${project.polyglot.version}</version>
+      <scope>runtime</scope>
       <type>pom</type>
     </dependency>
     <dependency>
@@ -127,6 +129,22 @@
 
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.netbeans.tools</groupId>
+        <artifactId>sigtest-maven-plugin</artifactId>
+        <version>${project.sigtest.version}</version>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <packages>org.graalvm.python.embedding</packages>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
