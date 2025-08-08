@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                              "    Arguments are passed as `-Dintegration.tests.args='--no-clean --skip-long-running'`.\n"
                                              "    Maven passes --graalpy-version and --gradle-java-home automatically. Gradle Java home is taken from -Dgradle.java.home=...")
     parser.add_argument('--graalpy-version', help='The version of GraalPy and other Maven artifacts to use', required=True)
-    parser.add_argument('--skip-native-image', action='store_true', help='Skips tests that build projects with GraalVM Native Image (TODO: not fully honored by all tests)')
+    parser.add_argument('--skip-native-image', action='store_true', help='Skips tests that build projects with GraalVM Native Image (TODO: only recognized by gradle tests for now)')
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')

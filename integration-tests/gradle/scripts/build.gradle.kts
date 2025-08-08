@@ -17,4 +17,3 @@ application {
 val r = tasks.run.get()
 r.enableAssertions = true
 r.outputs.upToDateWhen {false}
-
