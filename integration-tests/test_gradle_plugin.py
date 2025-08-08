@@ -323,19 +323,20 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("hello java", out)
 
-            # prepare for native build
-            meta_inf = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
-            os.makedirs(meta_inf, exist_ok=True)
-            shutil.copyfile(os.path.join(self.test_prj_path, "src", "main", "resources", "META-INF", "native-image", "proxy-config.json"), os.path.join(meta_inf, "proxy-config.json"))
+            if util.test_native_image:
+                # prepare for native build
+                meta_inf = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
+                os.makedirs(meta_inf, exist_ok=True)
+                shutil.copyfile(os.path.join(self.test_prj_path, "src", "main", "resources", "META-INF", "native-image", "proxy-config.json"), os.path.join(meta_inf, "proxy-config.json"))
 
-            cmd = gradle_cmd + ["nativeCompile"]
-            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
-            util.check_ouput("BUILD SUCCESS", out)
+                cmd = gradle_cmd + ["nativeCompile"]
+                out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+                util.check_ouput("BUILD SUCCESS", out)
 
-            # execute and check native image
-            cmd = [os.path.join(target_dir, "build", "native", "nativeCompile", "graalpy-gradle-test-project")]
-            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
-            util.check_ouput("hello java", out)
+                # execute and check native image
+                cmd = [os.path.join(target_dir, "build", "native", "nativeCompile", "graalpy-gradle-test-project")]
+                out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+                util.check_ouput("hello java", out)
 
     def check_gradle_fail_with_mismatching_graalpy_dep(self):
         pass # TODO: we need build with python and python-community artifacts, may be obsolete soon
@@ -371,6 +372,9 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("the python language home is always available", out, contains=True, logger=log)
 
     def check_gradle_check_home(self, community):
+        if not util.test_native_image:
+            raise unittest.SkipTest("native-image tests disabled")
+
         with TemporaryTestDirectory() as tmpdir:
             target_dir = os.path.join(str(tmpdir), "check_home_test" + self.target_dir_name_sufix())
             self.generate_app(target_dir)
@@ -563,13 +567,14 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("1: hello java", out)
             assert return_code == 0, out
 
-            out, return_code = util.run_cmd(app2_gradle_cmd + ['nativeCompile'], self.env, cwd=app2_dir)
-            assert return_code == 0, out
+            if util.test_native_image:
+                out, return_code = util.run_cmd(app2_gradle_cmd + ['nativeCompile'], self.env, cwd=app2_dir)
+                assert return_code == 0, out
 
-            out, return_code = util.run_cmd([os.path.join(app2_dir, 'build', 'native', 'nativeCompile', 'graalpy-gradle-test-project')], self.env, cwd=app2_dir)
-            util.check_ouput("0: Hi there java", out)
-            util.check_ouput("1: hello java", out)
-            assert return_code == 0, out
+                out, return_code = util.run_cmd([os.path.join(app2_dir, 'build', 'native', 'nativeCompile', 'graalpy-gradle-test-project')], self.env, cwd=app2_dir)
+                util.check_ouput("0: Hi there java", out)
+                util.check_ouput("1: hello java", out)
+                assert return_code == 0, out
 
 
 class GradlePluginGroovyTest(GradlePluginTestBase):
