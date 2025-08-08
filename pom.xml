@@ -60,6 +60,9 @@
         <os>
           <family>unix</family>
         </os>
+        <property>
+          <name>!skipJavainterfacegen</name>
+        </property>
       </activation>
       <modules>
         <module>javainterfacegen</module>
