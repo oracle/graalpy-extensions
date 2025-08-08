@@ -61,7 +61,7 @@ public class GraalPy {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            
+
             context.eval(source);
 
             // retrieve the python PyHello class
@@ -70,7 +70,7 @@ public class GraalPy {
             // and cast it to the Hello interface which matches PyHello
             Hello hello = pyHello.as(Hello.class);
             hello.hello("java");
-            
+
         } catch (PolyglotException e) {
             if (e.isExit()) {
                 System.exit(e.getExitStatus());

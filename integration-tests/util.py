@@ -140,7 +140,7 @@ def run_cmd(cmd, env, cwd=None, print_out=False, logger:LoggerBase=NullLogger())
         logger = StdOutLogger(logger)
     out = []
     out.append(f"Executing:\n    {cmd=}\n")
-    
+
     logger.log(f"Executing command: {' '.join(cmd)}")
     process = subprocess.Popen(cmd, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, errors='backslashreplace')
     for line in iter(process.stdout.readline, ""):
@@ -227,4 +227,3 @@ def replace_main_body(filename, new_main_body):
         f.write(new_main_body)
         f.write('    }\n')
         f.write('}\n')
-

@@ -147,7 +147,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * The value must be relative resources path, i.e., not starting with `/`, and
 		 * must use '/' as path separator regardless of the host OS.
 		 *
-		 * @param directory The directory within Java resources
+		 * @param directory
+		 *            The directory within Java resources
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -163,7 +164,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * Sets the file system to be case-insensitive. Defaults to true on Windows and
 		 * false elsewhere.
 		 *
-		 * @param value the value to be set
+		 * @param value
+		 *            the value to be set
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -176,7 +178,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * Determines if and how much host IO is allowed outside the
 		 * {@link VirtualFileSystem}.
 		 *
-		 * @param hostIO the host IO access level
+		 * @param hostIO
+		 *            the host IO access level
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -194,9 +197,11 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * trailing separator. If that file or directory actually exists, it will not be
 		 * accessible.
 		 *
-		 * @throws IllegalArgumentException if the provided mount point isn't absolute
-		 *                                  or ends with a trailing separator
-		 * @param windowsMountPoint the mount point path
+		 * @throws IllegalArgumentException
+		 *             if the provided mount point isn't absolute or ends with a
+		 *             trailing separator
+		 * @param windowsMountPoint
+		 *            the mount point path
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -216,9 +221,11 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * trailing separator. If that file or directory actually exists, it will not be
 		 * accessible.
 		 *
-		 * @throws IllegalArgumentException if the provided mount point isn't absolute
-		 *                                  or ends with a trailing separator
-		 * @param unixMountPoint the mount point path
+		 * @throws IllegalArgumentException
+		 *             if the provided mount point isn't absolute or ends with a
+		 *             trailing separator
+		 * @param unixMountPoint
+		 *            the mount point path
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -236,7 +243,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * cases when for example <code>VirtualFileSystem</code> is on module path and
 		 * the jar containing the resources is on class path.
 		 *
-		 * @param c the class for loading the resources
+		 * @param c
+		 *            the class for loading the resources
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -256,8 +264,9 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * the operating system loader. Setting this filter to <code>null</code> denies
 		 * any extraction. Any other filter is combined with the default filter.
 		 *
-		 * @param filter the extraction filter, where the provided path is an absolute
-		 *               path from the VirtualFileSystem.
+		 * @param filter
+		 *            the extraction filter, where the provided path is an absolute path
+		 *            from the VirtualFileSystem.
 		 * @return the builder
 		 * @since 24.2.0
 		 */
@@ -279,7 +288,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 */
 		public VirtualFileSystem build() {
 			if (mountPoint == null) {
-				mountPoint = VirtualFileSystemImpl.isWindows() ? Path.of(DEFAULT_WINDOWS_MOUNT_POINT)
+				mountPoint = VirtualFileSystemImpl.isWindows()
+						? Path.of(DEFAULT_WINDOWS_MOUNT_POINT)
 						: Path.of(DEFAULT_UNIX_MOUNT_POINT);
 			}
 			return new VirtualFileSystem(extractFilter, mountPoint, allowHostIO, resourceLoadingClass,
@@ -343,7 +353,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 	/**
 	 * Closes the VirtualFileSystem and frees up potentially allocated resources.
 	 *
-	 * @throws IOException if the resources could not be freed.
+	 * @throws IOException
+	 *             if the resources could not be freed.
 	 */
 	@Override
 	public void close() throws IOException {
