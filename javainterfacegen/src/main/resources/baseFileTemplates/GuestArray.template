@@ -5,7 +5,7 @@ import java.util.AbstractList;
 {{generated}}
 
 public class GuestArray<T> extends AbstractList<T> implements GuestValue {
-    
+
     private final org.graalvm.polyglot.Value instance;
     private final java.util.List<org.graalvm.polyglot.Value> instanceList;
     private final java.util.function.Function<org.graalvm.polyglot.Value, T> mapper;
@@ -151,4 +151,3 @@ public class GuestArray<T> extends AbstractList<T> implements GuestValue {
         return this.instanceList.stream().skip(fromIndex).limit(toIndex - fromIndex).map(this.mapper).collect(java.util.stream.Collectors.toList());
     }
 }
-
