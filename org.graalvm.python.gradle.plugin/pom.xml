@@ -56,6 +56,23 @@ SOFTWARE.
   <packaging>pom</packaging>
 
   <!-- TODO: hook into Maven deploy and delegate to Gradle -->
+  <properties>
+    <gradlew>gradlew</gradlew>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>windows-exec</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <gradlew>gradlew.bat</gradlew>
+      </properties>
+    </profile>
+  </profiles>
 
   <build>
     <plugins>
@@ -110,7 +127,7 @@ SOFTWARE.
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.basedir}/gradlew</executable>
+              <executable>${project.basedir}/${gradlew}</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
@@ -127,7 +144,7 @@ SOFTWARE.
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.basedir}/gradlew</executable>
+              <executable>${project.basedir}/${gradlew}</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
@@ -144,7 +161,7 @@ SOFTWARE.
               <goal>exec</goal>
             </goals>
             <configuration>
-              <executable>${project.basedir}/gradlew</executable>
+              <executable>${project.basedir}/${gradlew}</executable>
               <workingDirectory>${project.basedir}</workingDirectory>
               <arguments>
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>

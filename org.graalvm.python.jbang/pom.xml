@@ -57,11 +57,13 @@ SOFTWARE.
       <groupId>${project.groupId}</groupId>
       <artifactId>python-embedding-tools</artifactId>
       <version>${project.version}</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>python-embedding</artifactId>
       <version>${project.version}</version>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 </project>
