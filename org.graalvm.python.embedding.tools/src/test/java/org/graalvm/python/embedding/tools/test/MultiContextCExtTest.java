@@ -55,6 +55,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
@@ -68,7 +69,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class MultiContextCExtTest {
 	@BeforeAll
 	public static void setUpClass() {
-		Assumptions.assumeFalse(System.getProperty("os.name").toLowerCase().contains("mac"));
+		// see GR-60656 and GR-60658 for what's missing in darwin and windows support
+		Assumptions.assumeFalse(System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("mac"));
+		Assumptions.assumeFalse(System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows"));
 	}
 
 	static final class TestLog extends Handler implements BuildToolLog {
