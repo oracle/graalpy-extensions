@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  graalvm_version: '26-ea'
+  graalvm_version: '25-ea'
 
 jobs:
   # This is done as one single separate step to work around rate limits for the API
