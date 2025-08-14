@@ -90,5 +90,4 @@ verbosity level.
 
 ## Changing version
 
-- property `revision` in top level `pom.xml`
-- property `graalpy.version` in `graalpy-archetype-polyglot-app/src/main/resources/archetype-resources/pom.xml` (TODO: propagate from revision)
+- just update property `revision` in top level `pom.xml`, everything else should be derived from it
