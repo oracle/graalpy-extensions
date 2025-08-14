@@ -5,6 +5,7 @@
   <groupId>org.graalvm.python</groupId>
   <artifactId>graalpy-extensions</artifactId>
   <version>${revision}</version>
+  <url>https://graalvm.org/python</url>
   <packaging>pom</packaging>
   <properties>
     <!-- NOTE: revision is special and one can change it from cmd line: `mvn -Drevision=... package` -->
@@ -18,6 +19,7 @@
     <project.python.artifact>python-community</project.python.artifact>
     <project.junit.version>5.7.0</project.junit.version>
     <project.hamcrest.version>3.0</project.hamcrest.version>
+    <project.sigtest.version>1.3</project.sigtest.version>
     <integration.tests.args>--help</integration.tests.args>
   </properties>
 
@@ -63,6 +65,34 @@
         <module>javainterfacegen</module>
       </modules>
     </profile>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.8</version>
+            <configuration>
+              <!-- For headless in-process signing using provided private key uncomment: -->
+              <!-- <signer>bc</signer> -->
+              <!-- The key contents must be provided via an environment variable MAVEN_GPG_KEY, which should contain
+                   private key in binary or ASCII-armored form (specifically in the GPG TSK export format).
+                   See https://maven.apache.org/plugins/maven-gpg-plugin/sign-mojo.html -->
+            </configuration>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <dependencyManagement>
@@ -99,7 +129,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.12.1</version>
+          <version>3.14.0</version>
           <configuration>
             <source>21</source>
             <target>21</target>
@@ -111,8 +141,78 @@
           </configuration>
         </plugin>
         <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-plugin-plugin</artifactId>
+          <version>3.15.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>3.7.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.8.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>3.1.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.21.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.4.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.graalvm.python</groupId>
+          <artifactId>graalpy-maven-plugin</artifactId>
+          <version>${revision}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.5</version>
+          <version>3.5.3</version>
         </plugin>
         <!-- by default no JavaDoc linting, we override this in modules that provide public API -->
         <plugin>
@@ -136,9 +236,10 @@
         <!-- See https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html -->
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>flatten-maven-plugin</artifactId>
-        <version>1.7.1</version>
+        <version>1.7.2</version>
         <configuration>
           <flattenMode>ossrh</flattenMode>
+          <embedBuildProfileDependencies>true</embedBuildProfileDependencies>
         </configuration>
         <executions>
           <execution>
@@ -161,7 +262,6 @@
         <!-- prevent deployment of the parent pom, intentionally not inherited by submodules -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-deploy-plugin</artifactId>
-        <version>3.1.4</version>
         <inherited>false</inherited>
         <configuration>
           <skip>true</skip>
@@ -171,7 +271,6 @@
         <!-- prevent installation of the parent pom, intentionally not inherited by submodules -->
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-install-plugin</artifactId>
-        <version>3.1.4</version>
         <inherited>false</inherited>
         <configuration>
           <skip>true</skip>
@@ -180,7 +279,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.1.0</version>
         <inherited>false</inherited>
         <executions>
           <execution>
@@ -245,7 +343,7 @@
           <dependency>
             <groupId>org.netbeans.tools</groupId>
             <artifactId>sigtest-maven-plugin</artifactId>
-            <version>1.3</version>
+            <version>${project.sigtest.version}</version>
           </dependency>
         </dependencies>
       </plugin>
@@ -269,6 +367,28 @@
         <configuration>
           <excludeFilterFile>../configs/SpotBugsFilters.xml</excludeFilterFile>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-plugin-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <banDuplicatePomDependencyVersions/>
+                <requireExplicitDependencyScope/>
+                <requirePluginVersions>
+                  <unCheckedPluginList>org.graalvm.python:graalpy-maven-plugin</unCheckedPluginList>
+                </requirePluginVersions>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

@@ -76,12 +76,7 @@ SOFTWARE.
       <groupId>${project.groupId}</groupId>
       <artifactId>python-embedding-tools</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.graalvm.python</groupId>
-      <artifactId>python-launcher</artifactId>
-      <version>${project.polyglot.version}</version>
-      <scope>runtime</scope>
+      <scope>compile</scope>
     </dependency>
   </dependencies>
 </project>
