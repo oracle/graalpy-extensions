@@ -175,8 +175,9 @@ public final class VFSUtils {
 			""";
 
 	private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
+	private static final boolean IS_MAC = System.getProperty("os.name").startsWith("Mac");
 
-	public static final String LAUNCHER_NAME = IS_WINDOWS ? "graalpy.exe" : "graalpy.sh";
+	public static final String LAUNCHER_NAME = IS_WINDOWS ? "graalpy.exe" : IS_MAC ? "graalpy" : "graalpy.sh";
 
 	private static final String GRAALPY_MAIN_CLASS = "com.oracle.graal.python.shell.GraalPythonMain";
 
@@ -917,7 +918,42 @@ public final class VFSUtils {
 		Path java = Paths.get(System.getProperty("java.home"), "bin", "java");
 		String classpath = String.join(File.pathSeparator, launcherArgs.computeClassPath());
 		String extraJavaOptions = String.join(" ", GraalPyRunner.getExtraJavaOptions());
-		if (!IS_WINDOWS) {
+		if (IS_MAC) {
+			var script = formatMultiline("""
+					import os, shutil, struct, venv
+					from pathlib import Path
+					adjusted = os.path.dirname(os.path.dirname(venv.__path__[0]))
+					vl = os.path.join(adjusted, 'venv', 'scripts', 'macos', 'graalpy')
+					tl = os.path.join(r'%s')
+					os.makedirs(Path(tl).parent.absolute(), exist_ok=True)
+					shutil.copy(vl, tl)
+					cmd = r'%s --enable-native-access=ALL-UNNAMED %s -classpath "%s" %s'
+					pyvenvcfg = os.path.join(os.path.dirname(tl), "pyvenv.cfg")
+					with open(pyvenvcfg, 'w', encoding='utf-8') as f:
+					    f.write('venvlauncher_command = ')
+					    f.write(cmd)
+					""", launcherArgs.launcherPath, java, extraJavaOptions, classpath, GRAALPY_MAIN_CLASS);
+			File tmp;
+			try {
+				tmp = File.createTempFile("create_launcher", ".py");
+			} catch (IOException e) {
+				throw new IOException("failed to create tmp launcher", e);
+			}
+			System.out.println("Created temporary launcher file: " + tmp);
+			tmp.deleteOnExit();
+			try (var wr = new FileWriter(tmp, StandardCharsets.UTF_8)) {
+				wr.write(script);
+			} catch (IOException e) {
+				throw new IOException(String.format("failed to write tmp launcher %s", tmp), e);
+			}
+
+			try {
+				GraalPyRunner.run(classpath, log, tmp.getAbsolutePath());
+			} catch (InterruptedException e) {
+				throw new IOException("failed to run Graalpy launcher", e);
+			}
+		}
+		else if (!IS_WINDOWS) {
 			// we do not bother checking if it exists and has correct java home, since it is
 			// simple
 			// to regenerate the launcher
