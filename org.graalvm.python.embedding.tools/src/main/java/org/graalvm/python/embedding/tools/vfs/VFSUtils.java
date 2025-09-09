@@ -922,8 +922,7 @@ public final class VFSUtils {
 			var script = formatMultiline("""
 					import os, shutil, struct, venv
 					from pathlib import Path
-					adjusted = os.path.dirname(os.path.dirname(venv.__path__[0]))
-					vl = os.path.join(adjusted, 'venv', 'scripts', 'macos', 'graalpy')
+					vl = os.path.join(venv.__path__[0], 'scripts', 'macos', 'graalpy')
 					tl = os.path.join(r'%s')
 					os.makedirs(Path(tl).parent.absolute(), exist_ok=True)
 					shutil.copy(vl, tl)
