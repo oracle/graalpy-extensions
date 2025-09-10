@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                              "    Arguments are passed as `-Dintegration.tests.args='--no-clean --skip-long-running'`.\n"
                                              "    Maven passes --graalpy-version and --gradle-java-home automatically. Gradle Java home is taken from -Dgradle.java.home=...")
     parser.add_argument('--graalpy-version', help='The version of GraalPy and other Maven artifacts to use', required=True)
-    parser.add_argument('--skip-native-image', action='store_true', help='Skips tests that build projects with GraalVM Native Image (TODO: only recognized by gradle tests for now)')
+    parser.add_argument('--native-image', choices=['none', 'all', 'smoke'], default='all', help='Specifies which native image tests to run: "none" skips all, "all" runs all (default), "smoke" runs a basic subset. Use this instead of the deprecated --skip-native-image.')
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     if 'JAVA_HOME' not in os.environ:
         print("WARNING: JAVA_HOME not in environment.\n")
-    elif not args.skip_native_image:
+    if args.native_image != 'none':
         suffix = '.exe' if sys.platform == 'win32' else ''
         if not os.path.exists(os.path.join(os.environ['JAVA_HOME'], 'bin', 'native-image' + suffix)):
             print("WARNING: JAVA_HOME is not a GraalVM distribution. Tests using Native Image will fail.\n")
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     util.graalvmVersion = args.graalpy_version
     util.long_running_test_disabled = args.skip_long_running
     util.no_clean = args.no_clean
-    util.test_native_image = not args.skip_native_image
+    util.native_image_mode = args.native_image
     util.jbang_graalpy_version = args.jbang_graalpy_version if args.jbang_graalpy_version else args.graalpy_version
     util.gradle_java_home = args.gradle_java_home
 

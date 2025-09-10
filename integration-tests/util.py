@@ -57,7 +57,14 @@ graalvmVersion = None
 jbang_graalpy_version = None
 long_running_test_disabled = False
 no_clean = False
-test_native_image = True
+native_image_mode = "all"
+
+def native_image_all():
+    return native_image_mode == "all"
+
+def native_image_smoke():
+    return native_image_mode in ("all", "smoke")
+
 gradle_java_home = os.environ['JAVA_HOME']
 
 def long_running_test(func):

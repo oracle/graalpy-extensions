@@ -45,7 +45,7 @@ import sys
 import textwrap
 
 import util
-from util import TemporaryTestDirectory, Logger, long_running_test
+from util import TemporaryTestDirectory, Logger, long_running_test, native_image_all
 
 MISSING_FILE_WARNING = "The list of installed Python packages does not match the packages specified in the graalpy-maven-plugin configuration."
 PACKAGES_CHANGED_ERROR = "but packages and their version constraints in graalpy-maven-plugin configuration are different then previously used to generate the lock file"
@@ -103,8 +103,12 @@ class MavenPluginTest(util.BuildToolTestBase):
 
             mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
 
+            native_image_arg = []
+            if util.native_image_smoke():
+                native_image_arg = ['-Pnative']
+
             # build
-            cmd = mvnw_cmd + ["package", "-Pnative", "-DmainClass=it.pkg.GraalPy"]
+            cmd = mvnw_cmd + ["package"] + native_image_arg + ["-DmainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, contains=use_default_vfs_path, logger=log)
@@ -117,10 +121,16 @@ class MavenPluginTest(util.BuildToolTestBase):
             vfs_prefix_in_res = vfs_prefix.replace("\\", "/")
             assert "/" + vfs_prefix_in_res + "/\n" in lines, "'/" + vfs_prefix_in_res + "/' not found in: \n\n" + ''.join(lines) + log
 
-            # execute and check native image
-            cmd = [os.path.join(target_dir, "target", target_name)]
+            # Execute and check in JVM mode
+            cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("hello java", out, logger=log)
+
+            if util.native_image_smoke():
+                # execute and check native image
+                cmd = [os.path.join(target_dir, "target", target_name)]
+                out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
+                util.check_ouput("hello java", out, logger=log)
 
             # 2.) check java build and exec
             # run with java asserts on
@@ -301,15 +311,25 @@ class MavenPluginTest(util.BuildToolTestBase):
 
             mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
 
+            native_image_arg = []
+            if util.native_image_all():
+                native_image_arg = ['-Pnative']
+
             # build
-            cmd = mvnw_cmd + ["package", "-Pnative", "-DmainClass=it.pkg.GraalPy"]
+            cmd = mvnw_cmd + ["package"] + native_image_arg + ["-DmainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out)
 
-            # execute and check native image
-            cmd = [os.path.join(target_dir, "target", target_name)]
+            # execute and check JVM mode
+            cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("hello java", out)
+
+            if util.native_image_all():
+                # execute and check native image
+                cmd = [os.path.join(target_dir, "target", target_name)]
+                out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+                util.check_ouput("hello java", out)
 
             # 2.) check java build and exec
             # run with java asserts on
@@ -363,6 +383,8 @@ class MavenPluginTest(util.BuildToolTestBase):
 
     @long_running_test
     def test_check_home(self):
+        if not util.native_image_all():
+            self.skipTest("native-image tests disabled")
         with TemporaryTestDirectory() as tmpdir:
             target_name = "check_home_test"
             target_dir = os.path.join(str(tmpdir), target_name)
@@ -556,6 +578,8 @@ class MavenPluginTest(util.BuildToolTestBase):
 
     @long_running_test
     def test_multiple_merged_vfs(self):
+        if not util.native_image_all():
+            self.skipTest("native-image tests disabled")
         with util.TemporaryTestDirectory() as tmpdir:
             # Setup: app2 depends on app1
             #        app1 depends on termcolor and in it user script hello.py it calls termcolor
@@ -659,6 +683,8 @@ class MavenPluginTest(util.BuildToolTestBase):
 
 
     def test_multiple_namespaced_vfs(self):
+        if not util.native_image_all():
+            self.skipTest("native-image tests disabled")
         with util.TemporaryTestDirectory() as tmpdir:
             # Setup: app2 with default vfs location depends on app1, which has namespaced vfs
             # We should be able to load and execute the "hello.py" script from both libraries within one Java app
@@ -694,23 +720,24 @@ class MavenPluginTest(util.BuildToolTestBase):
             os.makedirs(vfs_parent_dir, exist_ok=True)
             shutil.move(os.path.join(app1_dir, "src", "main", "resources", "org.graalvm.python.vfs"), os.path.join(vfs_parent_dir, "app1"))
 
-            out, return_code = util.run_cmd(app1_mvnw_cmd + ['package', 'install'], self.env, cwd=app1_dir)
-            util.check_ouput("BUILD SUCCESS", out)
+            log = Logger()
+            out, return_code = util.run_cmd(app1_mvnw_cmd + ['package', 'install'], self.env, cwd=app1_dir, logger=log)
+            util.check_ouput("BUILD SUCCESS", out, logger=log)
 
             cmd = app2_mvnw_cmd + ["package", "exec:java", "-Dexec.mainClass=app2.GraalPy"]
-            out, return_code = util.run_cmd(cmd, self.env, cwd=app2_dir)
-            util.check_ouput("0: Hi there java", out)
-            util.check_ouput("1: hello java", out)
-            assert return_code == 0, out
+            out, return_code = util.run_cmd(cmd, self.env, cwd=app2_dir, logger=log)
+            util.check_ouput("0: Hi there java", out, logger=log)
+            util.check_ouput("1: hello java", out, logger=log)
+            assert return_code == 0, log
 
             cmd = app2_mvnw_cmd + ["-Pnative", "package"]
-            out, return_code = util.run_cmd(cmd, self.env, cwd=app2_dir)
-            assert return_code == 0, out
+            out, return_code = util.run_cmd(cmd, self.env, cwd=app2_dir, logger=log)
+            assert return_code == 0, log
 
-            out, return_code = util.run_cmd(os.path.join(app2_dir, "target", "app2"), self.env, cwd=app2_dir)
-            util.check_ouput("0: Hi there java", out)
-            util.check_ouput("1: hello java", out)
-            assert return_code == 0, out
+            out, return_code = util.run_cmd(os.path.join(app2_dir, "target", "app2"), self.env, cwd=app2_dir, logger=log)
+            util.check_ouput("0: Hi there java", out, logger=log)
+            util.check_ouput("1: hello java", out, logger=log)
+            assert return_code == 0, log
 
 
 if __name__ == "__main__":
