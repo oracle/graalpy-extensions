@@ -18,7 +18,7 @@ destination directory, and in the project root generates `settings.xml` that con
 Maven repository. The `settings.xml` file can be then passed to Maven using `-s settings.xml`.
 
 ```
-./scripts/setup-maven-bundle.sh ./maven-bundle
+./scripts/maven-bundle-setup.sh ./maven-bundle
 mvn -s ./settings.xml ...
 ```
 
