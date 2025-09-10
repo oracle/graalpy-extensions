@@ -147,6 +147,13 @@ jobs:
           mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
+      - name: Upload JBang native-image log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jbang-native-image-log
+          path: /tmp/jbang*native-image
+
   unit-tests:
     needs: [build, maven_bundle_url]
     runs-on: ${{ matrix.os }}
