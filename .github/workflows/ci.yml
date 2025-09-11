@@ -31,9 +31,36 @@ jobs:
         run: echo "maven_bundle_url=$(./scripts/maven-bundle-url.sh | tail -n 1)" >> $GITHUB_OUTPUT
         shell: bash
 
+  pre_commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Java 21
+        id: java21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pip pre-commit
+        shell: bash
+
+      - name: run pre-commit
+        run: pre-commit run --all-files
+        shell: bash
+
   build:
     runs-on: ${{ matrix.os }}
-    needs: maven_bundle_url
+    # pre_commit not needed, but is in 'needs' to avoid wasting CI cycles in case it doesn't pass
+    needs: [maven_bundle_url, pre_commit]
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]

@@ -7,4 +7,3 @@ import org.graalvm.polyglot.Value;
 public interface GuestValue {
     public Value getValue();
 }
-
