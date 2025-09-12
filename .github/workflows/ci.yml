@@ -104,7 +104,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # TODO: windows-latest
+        os: [ubuntu-latest, macos-latest, windows-latest]
         test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
         include:
           # We need to skip native-image tests on Gradle and MacOS runners: it seems that with
@@ -176,6 +176,14 @@ jobs:
         run: choco install jbang
         shell: pwsh
 
+      # - name: Setup MSVC on Windows
+      #   if: runner.os == 'Windows'
+      #   uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Add git utils to $PATH on Windows
+        if: runner.os == 'Windows'
+        run: echo "C:\Program Files\Git\usr\bin" >> $env:GITHUB_PATH
+
       - name: Run integration tests
         run: |
           mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
@@ -193,10 +201,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest] # TODO: windows-latest
+        os: [ubuntu-latest, macos-latest, windows-latest]
         tests: [unit-cp, unit-mp, unit-it-mp, isolate-it]
-        exclude: # TODO: find out why the resources are not in the bundle (the same for Windows)
+        exclude: # TODO: isolate resources seem to not be in the bundle for those
           - os: macos-latest
+            tests: isolate-it
+          - os: windows-latest
             tests: isolate-it
         include:
           - tests: unit-cp
