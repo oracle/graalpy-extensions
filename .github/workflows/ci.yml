@@ -194,7 +194,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jbang-native-image-log
-          path: /tmp/jbang*native-image
+          path: |
+            /tmp/jbang*native-image
+            /var/folders/sw/**/T/jbang*native-image
 
   unit-tests:
     needs: [build, maven_bundle_url]
