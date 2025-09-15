@@ -39,7 +39,25 @@ dependencies {
 }
 
 publishing {
+    repositories {
+        // Accept Maven's -DaltDeploymentRepository=id::layout::url
+        def repoSpec = findProperty('altDeploymentRepository') as String
+        if (repoSpec) {
+            def parts = repoSpec.split('::')
+            if (parts.length >= 3) {
+                maven {
+                    name = parts[0]
+                    url = uri(parts[2])
+                }
+            } else {
+                logger.warn("altDeploymentRepository should be 'id::layout::url', got: ${repoSpec}")
+            }
+        }
+    }
     publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
         pluginMaven(MavenPublication) {
             // TODO: why this does not appear in the generated pom.xml for Mavencentral/local?
             pom {
