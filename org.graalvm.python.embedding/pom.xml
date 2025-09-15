@@ -71,6 +71,9 @@
                 </goals>
                 <configuration>
                   <executable>${project.basedir}/../scripts/sigtest-check-embedding.sh</executable>
+                  <arguments>
+                    <argument>${session.request.userSettingsFile.path}</argument>
+                  </arguments>
                 </configuration>
               </execution>
             </executions>
