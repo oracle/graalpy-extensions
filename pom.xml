@@ -21,6 +21,8 @@
     <project.hamcrest.version>3.0</project.hamcrest.version>
     <project.sigtest.version>1.3</project.sigtest.version>
     <integration.tests.args>--help</integration.tests.args>
+    <!-- intentionally empty: the default value, override with a URL the use a local repository -->
+    <local.repo.url></local.repo.url>
   </properties>
 
   <developers>
