@@ -1,4 +1,9 @@
 #!/bin/bash
+
+if [ $# -eq 0 ]; then
+    echo "$0 requires one argument: path to settings.xml to use for Maven invocations"
+    exit 1
+fi
 set -xe
 
 source="${BASH_SOURCE[0]}"
@@ -14,10 +19,10 @@ done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
 cd "${project_root}"
-classpath="$(mvn -q -pl org.graalvm.python.embedding exec:exec -Dexec.executable="echo" -Dexec.args='%classpath')"
+classpath="$(./mvnw -s "$1" -q -pl org.graalvm.python.embedding exec:exec -Dexec.executable="echo" -Dexec.args='%classpath')"
 exec_args="-BootCP -Static -Mode bin -FileName ./org.graalvm.python.embedding/snapshot.sigtest -ClassPath ${classpath} -b -PackageWithoutSubpackages org.graalvm.python.embedding"
 rc=0
-mvn exec:java@sigtest-tool -Dexec.args="${exec_args}" || rc=$?
+./mvnw -s "$1" exec:java@sigtest-tool -Dexec.args="${exec_args}" || rc=$?
 echo "Exit code from sigtest tool: ${rc}"
 if [ $rc -ne 95 ]; then
   exit 1
