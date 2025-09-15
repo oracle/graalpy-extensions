@@ -23,6 +23,6 @@ jobs:
       - name: Run JBang integration tests
         run: |
           mvn --batch-mode exec:java@integration-tests \
-              -Dproject.polyglot.version=24.1.2 \
+              -Dproject.polyglot.version=24.2.2 \
               -Dintegration.tests.args="test_jbang_integration.py \
-              --jbang-graalpy-version=24.2.1"
+              --jbang-graalpy-version=24.2.2"

@@ -585,6 +585,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def setUpClass(cls):
         super().setUpClass()
 
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_gradle_generated_app(self):
         self.check_gradle_generated_app(community=True)
 
@@ -749,6 +750,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
         super().setUpClass()
 
     @long_running_test
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_gradle_generated_app(self):
         self.check_gradle_generated_app(community=True)
 
