@@ -20,17 +20,6 @@ while [ -h "$source" ] ; do
 done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
-revision="$(mvn -f "${project_root}/pom.xml" help:evaluate -Dexpression=revision -q -DforceStdout)"
-revision="${revision%-SNAPSHOT}" # remove -SNAPSHOT
-revision_quoted_for_jq="${revision//./\\\\.}"
-
-echo "Trying to find the release for revision: ${revision}"
-curl -sSL "https://api.github.com/repos/graalvm/oracle-graalvm-ea-builds/releases" -o github_releases.json
-
-echo "Downloaded releases JSON from GitHub, head:"
-head -n 20 github_releases.json
-echo "==========================================="
-
 if [ -z "$2" ]; then
     asset_url=$("${project_root}/scripts/maven-bundle-url.sh" | tail -n 1)
 else
@@ -42,5 +31,4 @@ echo "Downloading: $asset_url"
 curl -L -o maven-resource-bundle.zip "$asset_url"
 unzip -q -o maven-resource-bundle.zip -d "$1"
 rm maven-resource-bundle.zip
-rm github_releases.json
 "${project_root}/scripts/maven-bundle-create-settings.sh" "$(realpath "$1")"
