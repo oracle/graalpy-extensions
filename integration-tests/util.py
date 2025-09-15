@@ -70,6 +70,9 @@ gradle_java_home = os.environ['JAVA_HOME']
 def long_running_test(func):
     return unittest.skipIf(long_running_test_disabled, "passed option --skip-long-running")(func)
 
+def skip_on_windows(justification):
+    return unittest.skipIf(sys.platform.startswith("win"), "skipped on Windows: " + justification)
+
 class TemporaryTestDirectory():
     def __init__(self):
         if no_clean:

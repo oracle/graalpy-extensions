@@ -208,6 +208,7 @@ class TestJBangIntegration(unittest.TestCase):
             self.assertIn("Successfully installed termcolor", out)
             self.assertIn("hello java", out)
 
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_external_dir(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)
