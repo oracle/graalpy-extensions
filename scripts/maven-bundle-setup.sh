@@ -31,4 +31,4 @@ echo "Downloading: $asset_url"
 curl -L -o maven-resource-bundle.zip "$asset_url"
 unzip -q -o maven-resource-bundle.zip -d "$1"
 rm maven-resource-bundle.zip
-"${project_root}/scripts/maven-bundle-create-settings.sh" "$(realpath "$1")"
+"${project_root}/scripts/maven-bundle-create-settings.sh" "$(readlink -f "$1")"

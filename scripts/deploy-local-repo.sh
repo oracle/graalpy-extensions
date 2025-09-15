@@ -20,7 +20,7 @@ project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 cd "${project_root}"
 
 set -ex
-repo=$(realpath "$1")
+repo=$(readlink -f "$1")
 shift
 ./mvnw "$@" -DskipJavainterfacegen -DskipTests -DdeployAtEnd=true \
     -DaltDeploymentRepository=local::default::file:${repo} \
