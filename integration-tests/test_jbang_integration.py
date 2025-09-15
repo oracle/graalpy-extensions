@@ -166,7 +166,7 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertIn("Successfully installed termcolor", out)
         self.assertIn("hello java", out)
 
-    @unittest.skipUnless('win32' not in sys.platform, "Currently the jbang native image on Win gate fails.")
+    @util.skip_on_windows("Currently the jbang native image on Win gate fails.")
     def test_graalpy_template_native(self):
         if not util.native_image_all():
             self.skipTest("native-image tests disabled in smoke mode")
@@ -208,7 +208,7 @@ class TestJBangIntegration(unittest.TestCase):
             self.assertIn("Successfully installed termcolor", out)
             self.assertIn("hello java", out)
 
-    @util.skip_on_windows("ujson installation broken on Windows")
+    @util.skip_on_windows("ujson installation broken on Windows (GR-69683)")
     def test_external_dir(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)

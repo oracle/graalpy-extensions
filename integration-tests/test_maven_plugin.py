@@ -187,7 +187,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput("not compatible with the current platform", out, logger=log)
 
 
-    @util.skip_on_windows("ujson installation broken on Windows")
+    @util.skip_on_windows("ujson installation broken on Windows (GR-69683)")
     def test_generated_app(self):
         self.check_generated_app(use_default_vfs_path=False)
 
@@ -578,7 +578,7 @@ class MavenPluginTest(util.BuildToolTestBase):
         return app1_dir, app1_mvnw_cmd, app2_dir, app2_mvnw_cmd
 
     @long_running_test
-    @util.skip_on_windows("ujson installation broken on Windows")
+    @util.skip_on_windows("ujson installation broken on Windows (GR-69683)")
     def test_multiple_merged_vfs(self):
         if not util.native_image_all():
             self.skipTest("native-image tests disabled")
@@ -659,7 +659,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code == 0, out
 
 
-    @util.skip_on_windows("ujson installation broken on Windows")
+    @util.skip_on_windows("ujson installation broken on Windows (GR-69683)")
     def test_multiple_vfs_incompat_libs_error(self):
         with util.TemporaryTestDirectory() as tmpdir:
             app1_dir, app1_mvnw_cmd, app2_dir, app2_mvnw_cmd = \
