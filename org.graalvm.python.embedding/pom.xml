@@ -71,6 +71,11 @@
                 </goals>
                 <configuration>
                   <executable>${project.basedir}/../scripts/sigtest-check-embedding.sh</executable>
+                  <arguments>
+                    <argument>-s</argument>
+                    <argument>${session.request.userSettingsFile.path}</argument>
+                    <argument>-Dlocal.repo.url=${local.repo.url}</argument>
+                  </arguments>
                 </configuration>
               </execution>
             </executions>
