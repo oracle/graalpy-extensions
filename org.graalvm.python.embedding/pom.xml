@@ -75,6 +75,9 @@
                     <argument>-s</argument>
                     <argument>${session.request.userSettingsFile.path}</argument>
                     <argument>-Dlocal.repo.url=${local.repo.url}</argument>
+                    <argument>-Drevision=${revision}</argument>
+                    <argument>-Dproject.sigtest.version=${project.sigtest.version}</argument>
+                    <argument>-Dproject.polyglot.version=${project.polyglot.version}</argument>
                   </arguments>
                 </configuration>
               </execution>
