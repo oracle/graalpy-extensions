@@ -873,7 +873,8 @@ public final class VFSUtils {
 		String classpath = String.join(File.pathSeparator, launcherArgs.computeClassPath());
 		String extraJavaOptions = String.join(" ", GraalPyRunner.getExtraJavaOptions());
 		if (IS_MAC || IS_WINDOWS) {
-			if (Files.exists(launcherArgs.launcherPath) && checkPyVenvCfgFile(launcherArgs.launcherPath.getParent().resolve("pyvenv.cfg"), java)) {
+			if (Files.exists(launcherArgs.launcherPath)
+					&& checkPyVenvCfgFile(launcherArgs.launcherPath.getParent().resolve("pyvenv.cfg"), java)) {
 				return;
 			}
 			var launcherFolder = IS_WINDOWS ? "nt" : "macos";
@@ -890,7 +891,8 @@ public final class VFSUtils {
 					with open(pyvenvcfg, 'w', encoding='utf-8') as f:
 					    f.write('venvlauncher_command = ')
 					    f.write(cmd)
-					""", launcherFolder, launcherName, launcherArgs.launcherPath, java, extraJavaOptions, classpath, GRAALPY_MAIN_CLASS);
+					""", launcherFolder, launcherName, launcherArgs.launcherPath, java, extraJavaOptions, classpath,
+					GRAALPY_MAIN_CLASS);
 			File tmp;
 			try {
 				tmp = File.createTempFile("create_launcher", ".py");
@@ -909,8 +911,7 @@ public final class VFSUtils {
 			} catch (InterruptedException e) {
 				throw new IOException("failed to run Graalpy launcher", e);
 			}
-		}
-		else {
+		} else {
 			// we do not bother checking if it exists and has correct java home, since it is
 			// simple
 			// to regenerate the launcher
