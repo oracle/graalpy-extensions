@@ -58,7 +58,7 @@ publishing {
         pom {
             name.set('GraalPy Plugin')
             description.set('Gradle plugin for GraalPy, a high-performance embeddable Python 3 runtime for Java. The plugin provides support for installing and managing Python packages.')
-            url.set('https://graalvm.org ')
+            url.set('https://graalvm.org/python')
             licenses {
                 license {
                     name.set('Universal Permissive License, Version 1.0')
@@ -68,8 +68,13 @@ publishing {
             developers {
                 developer {
                     name.set('GraalVM Development')
-                    email.set('graalvm-dev@oss.oracle.com ')
+                    email.set('graalvm-dev@oss.oracle.com')
                 }
+            }
+            scm {
+                connection.set('scm:git:git://github.com/oracle/graalpy-extensions.git')
+                developerConnection.set('scm:git:git://github.com/oracle/graalpy-extensions.git')
+                url.set('https://github.com/oracle/graalpy-extensions')
             }
         }
     }

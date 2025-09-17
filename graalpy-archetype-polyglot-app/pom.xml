@@ -51,6 +51,12 @@ SOFTWARE.
   <name>graalpy-archetype-polyglot-app</name>
   <artifactId>graalpy-archetype-polyglot-app</artifactId>
   <description>Maven archetype providing a skeleton GraalPy - Java polyglot application.</description>
+  <url>${project.url.root}</url>
+  <scm>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
+  </scm>
   <packaging>maven-archetype</packaging>
 
   <build>
