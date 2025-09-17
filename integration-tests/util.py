@@ -57,11 +57,21 @@ graalvmVersion = None
 jbang_graalpy_version = None
 long_running_test_disabled = False
 no_clean = False
-test_native_image = True
+native_image_mode = "all"
+
+def native_image_all():
+    return native_image_mode == "all"
+
+def native_image_smoke():
+    return native_image_mode in ("all", "smoke")
+
 gradle_java_home = os.environ['JAVA_HOME']
 
 def long_running_test(func):
     return unittest.skipIf(long_running_test_disabled, "passed option --skip-long-running")(func)
+
+def skip_on_windows(justification):
+    return unittest.skipIf(sys.platform.startswith("win"), "skipped on Windows: " + justification)
 
 class TemporaryTestDirectory():
     def __init__(self):
@@ -133,7 +143,7 @@ def run_cmd(cmd, env, cwd=None, print_out=False, logger:LoggerBase=NullLogger())
         logger = StdOutLogger(logger)
     out = []
     out.append(f"Executing:\n    {cmd=}\n")
-    
+
     logger.log(f"Executing command: {' '.join(cmd)}")
     process = subprocess.Popen(cmd, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, errors='backslashreplace')
     for line in iter(process.stdout.readline, ""):
@@ -220,4 +230,3 @@ def replace_main_body(filename, new_main_body):
         f.write(new_main_body)
         f.write('    }\n')
         f.write('}\n')
-

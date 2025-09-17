@@ -171,6 +171,24 @@ SOFTWARE.
               </arguments>
             </configuration>
           </execution>
+          <execution>
+            <id>gradle-deploy</id>
+            <phase>deploy</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${project.basedir}/${gradlew}</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                  <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
+                  <argument>-Pversion=${revision}</argument>
+                  <argument>-Ppolyglot.version=${project.polyglot.version}</argument>
+                  <argument>-PaltDeploymentRepository=${altDeploymentRepository}</argument>
+                  <argument>publish</argument>
+              </arguments>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
     </plugins>

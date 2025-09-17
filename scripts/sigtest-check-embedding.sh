@@ -1,4 +1,6 @@
 #!/bin/bash
+# Note: any arguments are forwarded to Maven
+
 set -xe
 
 source="${BASH_SOURCE[0]}"
@@ -14,10 +16,10 @@ done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
 cd "${project_root}"
-classpath="$(mvn -q -pl org.graalvm.python.embedding exec:exec -Dexec.executable="echo" -Dexec.args='%classpath')"
+classpath="$(./mvnw "$@" -q -pl org.graalvm.python.embedding exec:exec -Dexec.executable="echo" -Dexec.args='%classpath')"
 exec_args="-BootCP -Static -Mode bin -FileName ./org.graalvm.python.embedding/snapshot.sigtest -ClassPath ${classpath} -b -PackageWithoutSubpackages org.graalvm.python.embedding"
 rc=0
-mvn exec:java@sigtest-tool -Dexec.args="${exec_args}" || rc=$?
+./mvnw "$@" exec:java@sigtest-tool -Dexec.args="${exec_args}" || rc=$?
 echo "Exit code from sigtest tool: ${rc}"
 if [ $rc -ne 95 ]; then
   exit 1

@@ -52,7 +52,7 @@ def set_mypy_cache_folder(folder_path: str) -> None:
 
 def extract_type_info(file_paths: list[str]):
     sources, options = process_options(file_paths)
-    
+
 
     options.incremental = False
     options.fine_grained_incremental=False
@@ -65,8 +65,8 @@ def extract_type_info(file_paths: list[str]):
     options.skip_version_check=True
     options.cache_dir= mypy_cache_dir
 
-    
-    
+
+
     fscache = FileSystemCache()
 
     result =  build(sources, options=options, fscache = fscache)
@@ -75,7 +75,7 @@ def extract_type_info(file_paths: list[str]):
 #    print(f"{result.types}");
 #    print(f"{result.used_cache}");
     return result
-    
+
 def getNodesForFile(file_path: str) -> mypy.nodes.MypyFile :
     result = extract_type_info([file_path])
     absPath = os.path.abspath(file_path)
@@ -90,45 +90,45 @@ def serialize_result(paths: list[str], cache_file_path:str)->dict[str, MypyFile]
     result = extract_type_info(paths)
 
     ast_dict = {file: result.files[file].serialize() for file in result.files}
-    
+
     directory = os.path.dirname(cache_file_path)
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
 
     with open(cache_file_path, 'w') as f:
         json.dump(ast_dict, f, default=str, indent=2)
-    
+
     return result.files
 
-def serialize_mypyfile(mypyfile, output_file:str) -> None:  
+def serialize_mypyfile(mypyfile, output_file:str) -> None:
     import json
     d = {mypyfile['name']: mypyfile}
     with open(output_file, 'w') as f:
         json.dump(d, f, default=str, indent=2)
 
 
-def serialize_mypyfile(mypyfile:MypyFile, output_file:str) -> None:  
+def serialize_mypyfile(mypyfile:MypyFile, output_file:str) -> None:
     import json
-    d = {mypyfile.fullname: mypyfile.serialize()} 
+    d = {mypyfile.fullname: mypyfile.serialize()}
     with open(output_file, 'w') as f:
         json.dump(d, f, default=str, indent=2)
 
 def serialize_mypyFile_toStr(mypyfile: MypyFile) -> str:
     import json
-    d = {mypyfile.fullname: mypyfile.serialize()} 
+    d = {mypyfile.fullname: mypyfile.serialize()}
     return json.dumps(d, default=str, indent=2)
 
 def serialize_ast(ast:str, output_file:str)->None:
     import json
     with open(output_file, 'w') as f:
         json.dump(ast.serialize(), f)
-        
+
 def load_ast(json_filename):
     import json
     import time
-    
+
     with open(json_filename, 'r') as f:
-        ast_data = json.load(f)   
+        ast_data = json.load(f)
 
     start_time = time.time()
     mypyFile = mypy.nodes.MypyFile.deserialize(ast_data)
@@ -154,10 +154,10 @@ def create_mypyfile(data:str)->dict[str, MypyFile]:
 def load_result(json_filename:str, previous: dict[str, MypyFile] = None) -> dict[str, MypyFile]:
     import json
     import time
-    
+
     with open(json_filename, 'r') as f:
         ast_data = json.load(f)
-       
+
     ast_nodes = {file: mypy.nodes.MypyFile.deserialize(ast) for file, ast in ast_data.items()}
 
     for file, mypy_file in ast_nodes.items():
@@ -216,13 +216,13 @@ def test_only_posArgs(*args):
 def test_only_kwArgs(**kwargs):
     print("calling test_only_kwArgs(**kwargs):")
     print(f"    {kwargs=}")
-    
+
 
 def test_posArgs_kwArgs(*args, **kwArgs):
     print("calling test_posArgs_kwArgs(*args, **kwArgs):")
     print(f"    {args=}")
     print(f"    {kwArgs=}")
-    
+
 
 def test_pos_posArgs(arg1, *args):
     print("calling test_pos_posArgs(arg1, *args):")
@@ -239,7 +239,7 @@ def test_pos_posArgs_kwArgs(arg1, *args, **kwArgs):
     print(f"    {arg1=}")
     print(f"    {args=}")
     print(f"    {kwArgs=}")
-    
+
 def test_pos3_posArgs_kwArgs(arg1, arg2, arg3, *args, **kwArgs):
     print("calling test_pos_posArgs_kwArgs(arg1, *args, **kwArgs):")
     print(f"    {arg1=}")
@@ -254,7 +254,7 @@ def test_posArgs_named_args(*args, named1, named2=10):
     print(f"    {args=}")
     print(f"    {named1=}")
     print(f"    {named2=}")
-    
+
 
 def test_posarg(a, b, c):
     print("calling test_posarg(a, b, c):")

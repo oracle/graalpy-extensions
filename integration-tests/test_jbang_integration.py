@@ -168,6 +168,9 @@ class TestJBangIntegration(unittest.TestCase):
 
     @unittest.skipUnless('win32' not in sys.platform, "Currently the jbang native image on Win gate fails.")
     def test_graalpy_template_native(self):
+        if not util.native_image_all():
+            self.skipTest("native-image tests disabled in smoke mode")
+
         template_name = "graalpy"
         test_file = "graalpy_test.java"
         work_dir = self.tmpdir
@@ -197,7 +200,7 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertIn("Successfully installed termcolor", out)
         self.assertIn("hello java", out)
 
-        if not 'win32' in sys.platform:
+        if not 'win32' in sys.platform and util.native_image_smoke():
             command = JBANG_CMD + ["--native", hello_java_file, tested_code]
             out, result = run_cmd(command, cwd=work_dir)
 
@@ -205,6 +208,7 @@ class TestJBangIntegration(unittest.TestCase):
             self.assertIn("Successfully installed termcolor", out)
             self.assertIn("hello java", out)
 
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_external_dir(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)
@@ -274,7 +278,7 @@ def hello():
         self.assertNotIn("Successfully installed termcolor", out)
         self.assertIn("hello java", out)
 
-        if not 'win32' in sys.platform:
+        if not 'win32' in sys.platform and util.native_image_all():
             command = JBANG_CMD + ["--native", hello_java_file, tested_code]
             out, result = run_cmd(command, cwd=work_dir)
 
