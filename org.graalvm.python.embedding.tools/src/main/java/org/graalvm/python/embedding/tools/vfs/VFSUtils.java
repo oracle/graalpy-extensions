@@ -943,7 +943,6 @@ public final class VFSUtils {
 			} catch (IOException e) {
 				throw new IOException("failed to create tmp launcher", e);
 			}
-			System.out.println("Created temporary launcher file: " + tmp);
 			tmp.deleteOnExit();
 			try (var wr = new FileWriter(tmp, StandardCharsets.UTF_8)) {
 				wr.write(script);
