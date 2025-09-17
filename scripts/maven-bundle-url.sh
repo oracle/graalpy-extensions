@@ -25,6 +25,8 @@ echo "==========================================="
 
 asset_url=$(cat github_releases.json \
     | jq -r 'map(select(.tag_name | test("'${revision_quoted_for_jq}'"))) | max_by(.published_at) | .assets[] | select(.name | test("^maven-resource-.*\\.zip$")) | .browser_download_url')
+
+rm github_releases.json
 if [[ -z "$asset_url" ]]; then
   echo "Failed to find a maven-resource-bundle zip" >&2
   exit 1

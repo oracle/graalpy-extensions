@@ -1,5 +1,5 @@
 #Signature file v4.1
-#Version 
+#Version
 
 CLSS public abstract interface java.io.Serializable
 
@@ -112,4 +112,3 @@ meth public static org.graalvm.python.embedding.VirtualFileSystem$HostIO[] value
 supr java.lang.Enum<org.graalvm.python.embedding.VirtualFileSystem$HostIO>
 
 CLSS abstract interface org.graalvm.python.embedding.package-info
-

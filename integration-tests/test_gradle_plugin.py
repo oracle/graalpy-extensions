@@ -154,7 +154,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
 
             gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env)
 
-            if util.test_native_image:
+            if util.native_image_smoke():
                 cmd = gradlew_cmd + ["nativeCompile"]
                 out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
                 util.check_ouput("BUILD SUCCESS", out, logger=log)
@@ -323,7 +323,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("hello java", out)
 
-            if util.test_native_image:
+            if util.native_image_all():
                 # prepare for native build
                 meta_inf = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
                 os.makedirs(meta_inf, exist_ok=True)
@@ -372,7 +372,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("the python language home is always available", out, contains=True, logger=log)
 
     def check_gradle_check_home(self, community):
-        if not util.test_native_image:
+        if not util.native_image_all():
             raise unittest.SkipTest("native-image tests disabled")
 
         with TemporaryTestDirectory() as tmpdir:
@@ -567,7 +567,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("1: hello java", out)
             assert return_code == 0, out
 
-            if util.test_native_image:
+            if util.native_image_all():
                 out, return_code = util.run_cmd(app2_gradle_cmd + ['nativeCompile'], self.env, cwd=app2_dir)
                 assert return_code == 0, out
 
@@ -585,6 +585,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def setUpClass(cls):
         super().setUpClass()
 
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_gradle_generated_app(self):
         self.check_gradle_generated_app(community=True)
 
@@ -749,6 +750,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
         super().setUpClass()
 
     @long_running_test
+    @util.skip_on_windows("ujson installation broken on Windows")
     def test_gradle_generated_app(self):
         self.check_gradle_generated_app(community=True)
 

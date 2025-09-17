@@ -18,7 +18,7 @@ destination directory, and in the project root generates `settings.xml` that con
 Maven repository. The `settings.xml` file can be then passed to Maven using `-s settings.xml`.
 
 ```
-./scripts/setup-maven-bundle.sh ./maven-bundle
+./scripts/maven-bundle-setup.sh ./maven-bundle
 mvn -s ./settings.xml ...
 ```
 
@@ -90,5 +90,4 @@ verbosity level.
 
 ## Changing version
 
-- property `revision` in top level `pom.xml`
-- property `graalpy.version` in `graalpy-archetype-polyglot-app/src/main/resources/archetype-resources/pom.xml` (TODO: propagate from revision)
+- just update property `revision` in top level `pom.xml`, everything else should be derived from it

@@ -749,7 +749,7 @@ public class VirtualFileSystemIntegrationTest {
 						""");
 				Value test = ctx.getBindings("python").getMember("test");
 				Value result = test.execute(vfs.getMountPoint());
-				assertEquals("world", result.asString());
+				assertEquals("world\n", result.asString());
 			}
 		}
 	}

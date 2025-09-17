@@ -21,6 +21,8 @@
     <project.hamcrest.version>3.0</project.hamcrest.version>
     <project.sigtest.version>1.3</project.sigtest.version>
     <integration.tests.args>--help</integration.tests.args>
+    <!-- intentionally empty: the default value, override with a URL the use a local repository -->
+    <local.repo.url></local.repo.url>
   </properties>
 
   <developers>
@@ -60,38 +62,41 @@
         <os>
           <family>unix</family>
         </os>
+        <property>
+          <name>!skipJavainterfacegen</name>
+        </property>
       </activation>
       <modules>
         <module>javainterfacegen</module>
       </modules>
     </profile>
     <profile>
-      <id>release</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-gpg-plugin</artifactId>
-            <version>3.2.8</version>
-            <configuration>
-              <!-- For headless in-process signing using provided private key uncomment: -->
-              <!-- <signer>bc</signer> -->
-              <!-- The key contents must be provided via an environment variable MAVEN_GPG_KEY, which should contain
-                   private key in binary or ASCII-armored form (specifically in the GPG TSK export format).
-                   See https://maven.apache.org/plugins/maven-gpg-plugin/sign-mojo.html -->
-            </configuration>
-            <executions>
-              <execution>
-                <id>sign-artifacts</id>
-                <phase>verify</phase>
-                <goals>
-                  <goal>sign</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
+      <id>local-repo-profile</id>
+      <activation>
+        <property>
+          <name>local.repo.url</name>
+        </property>
+      </activation>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>local-repo</id>
+          <name>local-repo</name>
+          <url>${local.repo.url}</url>
+        </pluginRepository>
+      </pluginRepositories>
+      <repositories>
+        <repository>
+          <id>local-repo</id>
+          <name>local-repo</name>
+          <url>${local.repo.url}</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </repository>
+      </repositories>
     </profile>
   </profiles>
 
