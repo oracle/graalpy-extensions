@@ -229,17 +229,10 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.3</version>
         </plugin>
-        <!-- by default no JavaDoc linting, we override this in modules that provide public API -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
-          <configuration>
-            <failOnError>false</failOnError>
-            <additionalJOptions>
-              <additionalJOption>-Xdoclint:none</additionalJOption>
-            </additionalJOptions>
-          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -288,6 +281,25 @@
         <executions>
           <execution>
             <id>attach-sources</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- by default no JavaDoc linting, we override this in modules that provide public API -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <failOnError>false</failOnError>
+          <additionalJOptions>
+            <additionalJOption>-Xdoclint:none</additionalJOption>
+          </additionalJOptions>
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
             <goals>
               <goal>jar</goal>
             </goals>

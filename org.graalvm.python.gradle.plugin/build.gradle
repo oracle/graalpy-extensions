@@ -30,6 +30,14 @@ java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(Javadoc).configureEach {
+    failOnError = false
+    options.addBooleanOption('Xdoclint:none', true)
+    options.addBooleanOption('quiet', true)
+    options.encoding = 'UTF-8'
 }
 
 sourceSets.main.java.srcDirs += ['../org.graalvm.python.embedding.tools/src/main/java']
