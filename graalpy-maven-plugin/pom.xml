@@ -51,6 +51,12 @@ SOFTWARE.
   <name>graalpy-maven-plugin</name>
   <artifactId>graalpy-maven-plugin</artifactId>
   <description>Handles python related resources in a maven GraalPy - Java polyglot application.</description>
+  <url>${project.url.root}</url>
+  <scm>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
+  </scm>
   <packaging>maven-plugin</packaging>
 
   <dependencies>
