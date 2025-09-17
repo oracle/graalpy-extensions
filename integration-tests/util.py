@@ -58,6 +58,7 @@ jbang_graalpy_version = None
 long_running_test_disabled = False
 no_clean = False
 native_image_mode = "all"
+extra_maven_repos = []
 
 def native_image_all():
     return native_image_mode == "all"
@@ -131,10 +132,6 @@ class BuildToolTestBase(unittest.TestCase):
         cls.env = os.environ.copy()
         cls.env["PYLAUNCHER_DEBUG"] = "1"
         cls.env["GRAALPY_VERSION"] = get_graalvm_version()
-
-        cls.archetypeGroupId = "org.graalvm.python"
-        cls.archetypeArtifactId = "graalpy-archetype-polyglot-app"
-        cls.pluginArtifactId = "graalpy-maven-plugin"
         cls.graalvmVersion = get_graalvm_version()
 
 
@@ -230,3 +227,49 @@ def replace_main_body(filename, new_main_body):
         f.write(new_main_body)
         f.write('    }\n')
         f.write('}\n')
+
+
+def patch_pom_repositories(pom):
+    if extra_maven_repos:
+        repos = []
+        pluginRepos = []
+        for idx, custom_repo in enumerate(extra_maven_repos):
+            repos.append(f"""
+                    <repository>
+                        <id>myrepo{idx}</id>
+                        <url>{custom_repo}</url>
+                        <releases>
+                            <enabled>true</enabled>
+                            <updatePolicy>never</updatePolicy>
+                        </releases>
+                        <snapshots>
+                            <enabled>true</enabled>
+                            <updatePolicy>never</updatePolicy>
+                        </snapshots>
+                    </repository>
+                """)
+            pluginRepos.append(f"""
+                    <pluginRepository>
+                        <id>myrepo{idx}</id>
+                        <url>{custom_repo}</url>
+                        <releases>
+                            <enabled>true</enabled>
+                        </releases>
+                        <snapshots>
+                            <enabled>true</enabled>
+                        </snapshots>
+                    </pluginRepository>
+                """)
+
+        with open(pom, "r") as f:
+            contents = f.read()
+        with open(pom, "w") as f:
+            f.write(contents.replace("</project>", """
+                <repositories>
+                """ + '\n'.join(repos) + """
+                </repositories>
+                <pluginRepositories>
+                """ + '\n'.join(pluginRepos) + """
+                </pluginRepositories>
+                </project>
+                """))

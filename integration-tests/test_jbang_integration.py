@@ -113,6 +113,22 @@ class TestJBangIntegration(unittest.TestCase):
             self.fail(f"Error during reading catalog: {e}")
         return json_data
 
+    def addLocalMavenRepo(self, file):
+        if not util.extra_maven_repos:
+            return
+
+        with open(file, 'r') as script_file:
+            content = script_file.readlines()
+
+        deps_index = next((i for i, line in enumerate(content) if line.startswith("//DEPS")), None)
+        if deps_index is not None:
+            repos = ['//REPOS mc=https://repo1.maven.org/maven2/'] + [f'//REPOS local={r}' for r in util.extra_maven_repos]
+            content.insert(deps_index, '\n'.join(repos) + '\n')
+            with open(file, 'w') as script_file:
+                script_file.writelines(content)
+        else:
+            self.fail(f"No dependencies found in: {file}")
+
     def prepare_hello_example(self, work_dir):
         hello_java_file = os.path.join(work_dir, "hello.java")
         hello_template = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "org.graalvm.python.jbang", "catalog", "examples", "hello.java")
@@ -121,6 +137,7 @@ class TestJBangIntegration(unittest.TestCase):
 
     def prepare_template(self, template, target):
         shutil.copyfile(template, target)
+        self.addLocalMavenRepo(target)
 
     def test_register_catalog(self):
         alias = "graalpy_test_catalog_" + str(int(time.time()))
@@ -158,6 +175,7 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertTrue(result == 0, f"Creating template {template_name} failed")
 
         test_file_path = os.path.join(work_dir, test_file)
+        self.addLocalMavenRepo(test_file_path)
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
         command = JBANG_CMD + [ test_file_path, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
@@ -180,6 +198,7 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertTrue(result == 0, f"Creating template {template_name} failed")
 
         test_file_path = os.path.join(work_dir, test_file)
+        self.addLocalMavenRepo(test_file_path)
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
         command = JBANG_CMD + ["--native", test_file_path, tested_code]
         out, result = run_cmd(command, cwd=work_dir)
