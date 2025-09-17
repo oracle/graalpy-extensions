@@ -77,6 +77,14 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         util.replace_in_file(build_file, "$VERSION$", util.get_graalvm_version())
         settings_file = os.path.join(target_dir, self.settings_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.settings_file_name), settings_file)
+        if util.extra_maven_repos:
+            mvn_repos = ""
+            for idx, custom_repo in enumerate(util.extra_maven_repos):
+                mvn_repos += f"maven {{ url \"{custom_repo}\" }}\n    "
+            util.replace_in_file(build_file,
+                                 "repositories {", f"repositories {{\n    mavenLocal()\n    {mvn_repos}")
+            util.replace_in_file(settings_file,
+                                 "repositories {", f"repositories {{\n        {mvn_repos}")
 
     def empty_plugin(self, community):
         pass

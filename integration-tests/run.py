@@ -58,6 +58,9 @@ if __name__ == "__main__":
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
     parser.add_argument('--gradle-java-home', default=os.environ['JAVA_HOME'], help='Java to be used to run Gradle (by default $JAVA_HOME)')
     parser.add_argument('--help-unittest', action='store_true', help='Print help of the stdlib unittest CLI and exits')
+    parser.add_argument('--extra-maven-repos', default='', help='Semicolon separated list of additional Maven repositories. '
+                                                                'If GraalPy Maven archetype is not available in central, '
+                                                                'then it must be available in the first extra repository.')
     args, remaining_args = parser.parse_known_args()
 
     if args.help_unittest:
@@ -76,5 +79,6 @@ if __name__ == "__main__":
     util.native_image_mode = args.native_image
     util.jbang_graalpy_version = args.jbang_graalpy_version if args.jbang_graalpy_version else args.graalpy_version
     util.gradle_java_home = args.gradle_java_home
+    util.extra_maven_repos = args.extra_maven_repos.split(';') if args.extra_maven_repos else []
 
     unittest.main(argv=[sys.argv[0]] + remaining_args, module=None, exit=True)

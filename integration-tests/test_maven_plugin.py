@@ -43,6 +43,7 @@ import re
 import shutil
 import sys
 import textwrap
+import urllib
 
 import util
 from util import TemporaryTestDirectory, Logger, long_running_test, native_image_all
@@ -52,8 +53,96 @@ PACKAGES_CHANGED_ERROR = "but packages and their version constraints in graalpy-
 VENV_UPTODATE = "Virtual environment is up to date with lock file, skipping install"
 
 class MavenPluginTest(util.BuildToolTestBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.archetypeGroupId = "org.graalvm.python"
+        cls.archetypeArtifactId = "graalpy-archetype-polyglot-app"
+        cls.pluginArtifactId = "graalpy-maven-plugin"
+        cls.extraRemoteRepo = None
+
+        found = False
+        for custom_repo in util.extra_maven_repos:
+            url = urllib.parse.urlparse(custom_repo)
+            if url.scheme != "file":
+                if not cls.extraRemoteRepo:
+                    cls.extraRemoteRepo = custom_repo
+                continue
+
+            jar = os.path.join(
+                urllib.parse.unquote(url.path),
+                cls.archetypeGroupId.replace(".", os.path.sep),
+                cls.archetypeArtifactId,
+                util.graalvmVersion,
+                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.jar",
+            )
+            pom = os.path.join(
+                urllib.parse.unquote(url.path),
+                cls.archetypeGroupId.replace(".", os.path.sep),
+                cls.archetypeArtifactId,
+                util.graalvmVersion,
+                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.pom",
+            )
+            if not os.path.exists(pom):
+                continue
+            cmd = [
+                "mvn",
+                "install:install-file",
+                f"-Dfile={jar}",
+                f"-DgroupId={cls.archetypeGroupId}",
+                f"-DartifactId={cls.archetypeArtifactId}",
+                f"-Dversion={util.graalvmVersion}",
+                "-Dpackaging=jar",
+                f"-DpomFile={pom}",
+                "-DcreateChecksum=true",
+            ]
+            out, return_code = util.run_cmd(cmd, env=cls.env)
+            assert return_code == 0, out
+
+            jar = os.path.join(
+                urllib.parse.unquote(url.path),
+                cls.archetypeGroupId.replace(".", os.path.sep),
+                cls.pluginArtifactId,
+                util.graalvmVersion,
+                f"{cls.pluginArtifactId}-{util.graalvmVersion}.jar",
+            )
+
+            pom = os.path.join(
+                urllib.parse.unquote(url.path),
+                cls.archetypeGroupId.replace(".", os.path.sep),
+                cls.pluginArtifactId,
+                util.graalvmVersion,
+                f"{cls.pluginArtifactId}-{util.graalvmVersion}.pom",
+            )
+
+            cmd = [
+                "mvn",
+                "install:install-file",
+                f"-Dfile={jar}",
+                f"-DgroupId={cls.archetypeGroupId}",
+                f"-DartifactId={cls.pluginArtifactId}",
+                f"-Dversion={util.graalvmVersion}",
+                "-Dpackaging=jar",
+                f"-DpomFile={pom}",
+                "-DcreateChecksum=true",
+            ]
+            out, return_code = util.run_cmd(cmd, env=cls.env)
+            assert return_code == 0, out
+            found = True
+            break
+
+        if util.extra_maven_repos and not found and not cls.extraRemoteRepo:
+            print("WARNING: extra Maven repos passed, but could not find GraalPy Maven archetype "
+                  "in any of the local repos and there is no extra remote repo. This is OK only if "
+                  "GraalPy Maven archetype of the required version is available at Mavencentral, "
+                  "otherwise the tests will fail to generate the example application.")
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
+        extra_repo = []
+        if MavenPluginTest.extraRemoteRepo:
+            # assuming the first repo has the archetype
+            extra_repo = [f'-DarchetypeRepository={MavenPluginTest.extraRemoteRepo}']
+
         cmd = util.GLOBAL_MVN_CMD + [
             "archetype:generate",
             "-B",
@@ -64,12 +153,14 @@ class MavenPluginTest(util.BuildToolTestBase):
             f"-DgroupId={group_id}",
             f"-Dpackage={package}",
             "-Dversion=0.1-SNAPSHOT",
-        ]
+        ] + extra_repo
         out, return_code = util.run_cmd(cmd, self.env, cwd=str(tmpdir), logger=log)
         util.check_ouput("BUILD SUCCESS", out, logger=log)
 
         if pom_template:
             shutil.copyfile(pom_template, os.path.join(target_dir, "pom.xml"))
+
+        util.patch_pom_repositories(os.path.join(target_dir, "pom.xml"))
 
         mvnw_dir = os.path.join(os.path.dirname(__file__), "mvnw")
         shutil.copy(os.path.join(mvnw_dir, "mvnw"), os.path.join(target_dir, "mvnw"))
@@ -377,6 +468,7 @@ class MavenPluginTest(util.BuildToolTestBase):
 
             # 2. process-resources with pythonHome - warning printed
             shutil.copyfile(pom_template, os.path.join(target_dir, "pom.xml"))
+            util.patch_pom_repositories(os.path.join(target_dir, "pom.xml"))
             util.replace_in_file(os.path.join(target_dir, "pom.xml"), "</configuration>", "<pythonHome></pythonHome></configuration>")
             out, return_code = util.run_cmd(process_resources_cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out)
