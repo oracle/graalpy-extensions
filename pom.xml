@@ -105,6 +105,36 @@
         </repository>
       </repositories>
     </profile>
+    <profile>
+      <id>mxurlrewrite</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <inherited>false</inherited>
+            <executions>
+              <execution>
+                <id>patch-gradle-props</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
+                  <commandlineArgs>
+                    ${project.basedir}/scripts/gradle-patch-properties.py ${project.basedir}/org.graalvm.python.gradle.plugin/gradle/wrapper/gradle-wrapper.properties ${project.basedir}/integration-tests/gradle/gradle-test-project/gradle/wrapper/gradle-wrapper.properties
+                  </commandlineArgs>
+                  <!-- See the exec-maven-plugin configuration below in plugins section -->
+                  <includeProjectDependencies>true</includeProjectDependencies>
+                  <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <dependencyManagement>
