@@ -54,18 +54,15 @@ JBANG_CMD = [os.environ.get('JBANG_CMD', 'jbang'), '--verbose']
 ENV = os.environ.copy()
 USE_SHELL = 'win32' == sys.platform
 
-def run_cmd(cmd, cwd=None):
-    print(f"\nExecuting: {cmd=}")
+def run_cmd(cmd, log:util.LoggerBase, cwd=None):
+    log.log(f"\nExecuting: {cmd=}")
     env = os.environ.copy()
     env['GRAALPY_VERSION'] = util.jbang_graalpy_version
     process = subprocess.Popen(cmd, cwd=cwd, env=env, shell=USE_SHELL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True, text=True, errors='backslashreplace')
-    out = []
-    print("============== output =============")
-    for line in iter(process.stdout.readline, ""):
-        print(line, end="")
-        out.append(line)
-    print("========== end of output ==========")
-    return "".join(out), process.wait()
+    out = process.stdout.read()
+    # TODO: check for [jbang\] \[.*\] log:\s*\S+ and add its contents to the logger
+    log.log_block("Output", out)
+    return out, process.wait()
 
 class TestJBangIntegration(unittest.TestCase):
 
@@ -93,7 +90,10 @@ class TestJBangIntegration(unittest.TestCase):
     @staticmethod
     def clearCache():
         command = JBANG_CMD + ["cache", "clear"]
-        run_cmd(command)
+        log = util.Logger()
+        _, res = run_cmd(command, log=log)
+        if res != 0:
+            print(f"WARNING: could not clear JBang cache:\n{log}")
 
     @staticmethod
     def getCatalogFile():
@@ -141,17 +141,18 @@ class TestJBangIntegration(unittest.TestCase):
 
     def test_register_catalog(self):
         alias = "graalpy_test_catalog_" + str(int(time.time()))
+        log = util.Logger()
 
         # jbang checks catalog file sanity when adding
         command = JBANG_CMD + ["catalog", "add", "--name", alias, self.catalog_file]
-        out, result = run_cmd(command, cwd=WORK_DIR)
+        out, result = run_cmd(command, log=log, cwd=WORK_DIR)
         if result != 0:
-            self.fail(f"Problem during registering catalog")
+            self.fail(f"Problem during registering catalog. \n" + str(log))
 
         command = JBANG_CMD + ["catalog", "remove", alias]
-        out, result = run_cmd(command, cwd=WORK_DIR)
+        out, result = run_cmd(command, log=log, cwd=WORK_DIR)
         if result != 0:
-            self.fail(f"Problem during removing catalog")
+            self.fail(f"Problem during removing catalog. \n" + str(log))
 
     def test_catalog(self):
         json_data = self.getCatalogData(self.catalog_file)
@@ -169,20 +170,21 @@ class TestJBangIntegration(unittest.TestCase):
         template_name = "graalpy"
         test_file = "graalpy_test.java"
         work_dir = self.tmpdir
+        log = util.Logger()
 
         command = JBANG_CMD + ["init", f"--template={template_name}@{self.catalog_file}" , test_file]
-        out, result = run_cmd(command, cwd=work_dir)
-        self.assertTrue(result == 0, f"Creating template {template_name} failed")
+        out, result = run_cmd(command, log=log, cwd=work_dir)
+        self.assertTrue(result == 0, f"Creating template {template_name} failed.\n{log}")
 
         test_file_path = os.path.join(work_dir, test_file)
         self.addLocalMavenRepo(test_file_path)
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
         command = JBANG_CMD + [ test_file_path, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
-        self.assertTrue(result == 0, f"Execution failed with code {result}\n    command: {command}\n    stdout: {out}\n")
-        self.assertIn("Successfully installed termcolor", out)
-        self.assertIn("hello java", out)
+        self.assertTrue(result == 0, f"Execution failed with code {result}\n{log}")
+        self.assertIn("Successfully installed termcolor", out, log)
+        self.assertIn("hello java", out, log)
 
     @unittest.skipUnless('win32' not in sys.platform, "Currently the jbang native image on Win gate fails.")
     def test_graalpy_template_native(self):
@@ -192,16 +194,17 @@ class TestJBangIntegration(unittest.TestCase):
         template_name = "graalpy"
         test_file = "graalpy_test.java"
         work_dir = self.tmpdir
+        log = util.Logger()
 
         command = JBANG_CMD + ["init", f"--template={template_name}@{self.catalog_file}" , test_file]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
         self.assertTrue(result == 0, f"Creating template {template_name} failed")
 
         test_file_path = os.path.join(work_dir, test_file)
         self.addLocalMavenRepo(test_file_path)
         tested_code = "from termcolor import colored; print(colored('hello java', 'red', attrs=['reverse', 'blink']))"
         command = JBANG_CMD + ["--native", test_file_path, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("Successfully installed termcolor", out)
@@ -210,10 +213,11 @@ class TestJBangIntegration(unittest.TestCase):
     def test_hello_example(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)
+        log = util.Logger()
 
         tested_code = "print('hello java')"
         command = JBANG_CMD + [hello_java_file, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("Successfully installed termcolor", out)
@@ -221,7 +225,7 @@ class TestJBangIntegration(unittest.TestCase):
 
         if not 'win32' in sys.platform and util.native_image_smoke():
             command = JBANG_CMD + ["--native", hello_java_file, tested_code]
-            out, result = run_cmd(command, cwd=work_dir)
+            out, result = run_cmd(command, log=log, cwd=work_dir)
 
             self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
             self.assertIn("Successfully installed termcolor", out)
@@ -231,6 +235,7 @@ class TestJBangIntegration(unittest.TestCase):
     def test_external_dir(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)
+        log = util.Logger()
 
         # patch hello.java file to use external dir for resources
         resources_dir = os.path.join(work_dir, "python-resources")
@@ -252,7 +257,7 @@ def hello():
 
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("Successfully installed termcolor", out)
@@ -264,7 +269,7 @@ def hello():
                 "//PIP termcolor==2.2 ujson")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("Successfully installed ujson", out)
@@ -277,7 +282,7 @@ def hello():
                 "//PIP termcolor==2.2\n")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertNotIn("ujson", out)
@@ -290,7 +295,7 @@ def hello():
                 "//PIP termcolor==2.2\n//PIP ujson")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
 
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("Successfully installed ujson", out)
@@ -299,43 +304,45 @@ def hello():
 
         if not 'win32' in sys.platform and util.native_image_all():
             command = JBANG_CMD + ["--native", hello_java_file, tested_code]
-            out, result = run_cmd(command, cwd=work_dir)
+            out, result = run_cmd(command, log=log, cwd=work_dir)
 
             self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
             self.assertNotIn("Successfully installed ujson", out)
             self.assertNotIn("Successfully installed termcolor", out)
             self.assertIn("hello java", out)
 
-    def check_empty_comments(self, work_dir, java_file):
+    def check_empty_comments(self, work_dir, java_file, log):
         command = JBANG_CMD + [java_file]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertNotIn("[graalpy jbang integration]", out)
 
     def test_malformed_tag_formats(self):
         jbang_templates_dir = os.path.join(os.path.dirname(__file__), "jbang")
         work_dir = self.tmpdir
+        log = util.Logger()
 
         java_file = os.path.join(work_dir, "EmptyPIPComments.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "EmptyPIPComments.j"), java_file)
-        self.check_empty_comments(work_dir, java_file)
+        self.check_empty_comments(work_dir, java_file, log=log)
 
         java_file = os.path.join(work_dir, "EmptyPythonResourceComment.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "EmptyPythonResourceComment.j"), java_file)
-        self.check_empty_comments(work_dir, java_file)
+        self.check_empty_comments(work_dir, java_file, log=log)
 
         java_file = os.path.join(work_dir, "EmptyPythonResourceCommentWithBlanks.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "EmptyPythonResourceCommentWithBlanks.j"), java_file)
-        self.check_empty_comments(work_dir, java_file)
+        self.check_empty_comments(work_dir, java_file, log=log)
 
     def test_no_pkgs_but_resource_dir(self):
         jbang_templates_dir = os.path.join(os.path.dirname(__file__), "jbang")
         work_dir = self.tmpdir
+        log = util.Logger()
 
         java_file = os.path.join(work_dir, "NoPackagesResourcesDir.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "NoPackagesResourcesDir.j"), java_file)
         command = JBANG_CMD + [java_file]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertNotIn("[graalpy jbang integration] python packages", out)
         self.assertIn("[graalpy jbang integration] python resources directory: python-resources", out)
@@ -345,10 +352,11 @@ def hello():
     def test_two_resource_dirs(self):
         jbang_templates_dir = os.path.join(os.path.dirname(__file__), "jbang")
         work_dir = self.tmpdir
+        log = util.Logger()
 
         java_file = os.path.join(work_dir, "TwoPythonResourceComments.java")
         self.prepare_template(os.path.join(jbang_templates_dir, "TwoPythonResourceComments.j"), java_file)
         command = JBANG_CMD + [java_file]
-        out, result = run_cmd(command, cwd=work_dir)
+        out, result = run_cmd(command, log=log, cwd=work_dir)
         self.assertEqual(1, result, f"command: {command}\n    stdout: {out}")
         self.assertIn("only one //PYTHON_RESOURCES_DIRECTORY comment is allowed", out)

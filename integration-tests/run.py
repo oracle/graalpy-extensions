@@ -70,8 +70,9 @@ if __name__ == "__main__":
         print("WARNING: JAVA_HOME not in environment.\n")
     if args.native_image != 'none':
         suffix = '.exe' if sys.platform == 'win32' else ''
-        if not os.path.exists(os.path.join(os.environ['JAVA_HOME'], 'bin', 'native-image' + suffix)):
-            print("WARNING: JAVA_HOME is not a GraalVM distribution. Tests using Native Image will fail.\n")
+        ni_file = os.path.join(os.environ['JAVA_HOME'], 'bin', 'native-image' + suffix)
+        if not os.path.exists(ni_file):
+            print(f"WARNING: JAVA_HOME is not a GraalVM distribution. Tests using Native Image will fail. File does not exist: {ni_file}\n")
 
     util.graalvmVersion = args.graalpy_version
     util.long_running_test_disabled = args.skip_long_running
