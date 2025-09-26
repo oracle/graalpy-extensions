@@ -53,7 +53,7 @@ SOFTWARE.
   <dependencies>
     <dependency>
       <groupId>org.graalvm.polyglot</groupId>
-      <artifactId>python-community</artifactId>
+      <artifactId>python</artifactId>
       <version>${env.GRAALPY_VERSION}</version>
       <type>pom</type>
     </dependency>

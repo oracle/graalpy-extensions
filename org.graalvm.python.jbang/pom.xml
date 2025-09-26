@@ -51,6 +51,12 @@ SOFTWARE.
   <name>graalpy-jbang-plugin</name>
   <artifactId>jbang</artifactId>
   <description>GraalPy JBang Integration.</description>
+  <url>${project.url.root}</url>
+  <scm>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
+  </scm>
 
   <dependencies>
     <dependency>

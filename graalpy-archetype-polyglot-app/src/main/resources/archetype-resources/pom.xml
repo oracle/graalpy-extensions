@@ -11,7 +11,6 @@
 
   <properties>
     <graalpy.version>${revision}</graalpy.version>
-    <graalpy.edition>python-community</graalpy.edition>
     <native-maven-plugin.version>0.10.4</native-maven-plugin.version>
     <maven.compiler.target>17</maven.compiler.target>
     <maven.compiler.source>17</maven.compiler.source>
@@ -28,7 +27,7 @@
     </dependency>
     <dependency>
       <groupId>org.graalvm.polyglot</groupId>
-      <artifactId>${symbol_dollar}{graalpy.edition}</artifactId>
+      <artifactId>python</artifactId>
       <version>${symbol_dollar}{graalpy.version}</version>
       <type>pom</type>
     </dependency>

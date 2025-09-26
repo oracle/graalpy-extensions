@@ -16,6 +16,12 @@
     Use this dependency if you install additional Python packages with the Maven
     or Gradle plugins for GraalPy.
   </description>
+  <url>${project.url.root}</url>
+  <scm>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
+  </scm>
   <packaging>jar</packaging>
 
   <dependencies>

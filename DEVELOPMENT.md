@@ -1,14 +1,3 @@
-## Building for a Release
-
-* Verify that the following properties in `pom.xml` match the expected versions for the release:
-  * `revision`: the version for graalpy-extensions artifacts, e.g., `org.graalvm.python.embedding`
-  * `project.polyglot.version`: version of the polyglot artifacts to use, e.g., the version of `org.graalvm.polyglot:polyglot` dependency
-* The polyglot artifacts of given version must be available in Maven central or some additional
-  Maven repository that can be configured, for example, using Maven's setting.xml mechanism
-* Run Maven with `-P release` to sign the artifacts
-* Note: the files that are expected to be deployed include usual: `*.jar`, `*.asc`, `*.pom`,
-  and in case of `org.graalvm.python.embedding` also `*.sigfile`, which is used for API stability checking
-
 ## How to develop against the latest GraalPy, GraalVM SDK, and Truffle:
 
 ### Option 1: Use pre-built Maven bundle
@@ -20,6 +9,11 @@ Maven repository. The `settings.xml` file can be then passed to Maven using `-s 
 ```
 ./scripts/maven-bundle-setup.sh ./maven-bundle
 mvn -s ./settings.xml ...
+```
+
+Alternatively pass the local repo URL as property:
+```
+mvn -Dlocal.repo.url=file:///path/to/maven-bundle ...
 ```
 
 ### Option 2: Build and install GraalPy/Truffle from sources

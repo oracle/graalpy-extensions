@@ -15,6 +15,12 @@
     This artifact contains utilities for tools that want to integrate GraalPy
     packages into the build process of Java applications.
   </description>
+  <url>${project.url.root}</url>
+  <scm>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
+  </scm>
   <packaging>jar</packaging>
 
   <dependencies>
