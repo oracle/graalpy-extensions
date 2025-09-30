@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  graalvm_version: '26-ea'
+  graalvm_version: '25'
 
 jobs:
   # This is done as one single separate step to work around rate limits for the API
@@ -28,7 +28,10 @@ jobs:
 
       - name: Set Maven Bundle URL
         id: set_url
-        run: echo "maven_bundle_url=$(./scripts/maven-bundle-url.sh | tail -n 1)" >> $GITHUB_OUTPUT
+        run: |
+          tmp_file="$(mktemp)"
+          ./scripts/maven-bundle-url.sh | tee "$tmp_file"
+          echo "maven_bundle_url=$(tail -n 1 "$tmp_file")" >> $GITHUB_OUTPUT
         shell: bash
 
   pre_commit:
@@ -184,11 +187,16 @@ jobs:
         if: runner.os == 'Windows'
         run: echo "C:\Program Files\Git\usr\bin" >> $env:GITHUB_PATH
 
+      # We scrape the output of integration tests for paths to interesting log files,
+      # so that we can then upload them in the following actions/upload-artifact
       - name: Run integration tests
+        id: tests_run
         run: |
           mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
+      # /var/folders/sw/**/T/jbang*native-image
+      # ^ not using this path on MacOS, because it causes
       - name: Upload JBang native-image log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -196,7 +204,6 @@ jobs:
           name: jbang-native-image-log
           path: |
             /tmp/jbang*native-image
-            /var/folders/sw/**/T/jbang*native-image
 
   unit-tests:
     needs: [build, maven_bundle_url]

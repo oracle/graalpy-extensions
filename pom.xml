@@ -5,7 +5,6 @@
   <groupId>org.graalvm.python</groupId>
   <artifactId>graalpy-extensions</artifactId>
   <version>${revision}</version>
-  <url>https://graalvm.org/python</url>
   <packaging>pom</packaging>
   <properties>
     <!-- NOTE: revision is special and one can change it from cmd line: `mvn -Drevision=... package` -->
@@ -14,9 +13,13 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.polyglot.version>${revision}</project.polyglot.version>
+    <project.url.root>https://graalvm.org/python</project.url.root>
+    <project.scm.connection>scm:git:git://github.com/oracle/graalpy-extensions.git</project.scm.connection>
+    <project.scm.devConnection>${project.scm.connection}</project.scm.devConnection>
+    <project.scm.url>https://github.com/oracle/graalpy-extensions</project.scm.url>
     <!-- JAVA_HOME to be used for Gradle plugin build and for Gradle integration tests -->
     <gradle.java.home>${java.home}</gradle.java.home>
-    <project.python.artifact>python-community</project.python.artifact>
+    <project.python.artifact>python</project.python.artifact>
     <project.junit.version>5.7.0</project.junit.version>
     <project.hamcrest.version>3.0</project.hamcrest.version>
     <project.sigtest.version>1.3</project.sigtest.version>
@@ -24,6 +27,9 @@
     <!-- intentionally empty: the default value, override with a URL the use a local repository -->
     <local.repo.url></local.repo.url>
   </properties>
+
+  <!-- submodules should override the generated URL to this exact value: -->
+  <url>${project.url.root}</url>
 
   <developers>
     <developer>
@@ -39,10 +45,11 @@
       <url>http://opensource.org/licenses/UPL</url>
     </license>
   </licenses>
+  <!-- submodules should override the generated URL: -->
   <scm>
-    <connection>scm:git:git://github.com/oracle/graalpy-extensions.git</connection>
-    <developerConnection>scm:git:git://github.com/oracle/graalpy-extensions.git</developerConnection>
-    <url>https://github.com/oracle/graalpy-extensions/tree/main</url>
+    <connection>${project.scm.connection}</connection>
+    <developerConnection>${project.scm.devConnection}</developerConnection>
+    <url>${project.scm.url}</url>
   </scm>
 
   <modules>
@@ -98,6 +105,36 @@
         </repository>
       </repositories>
     </profile>
+    <profile>
+      <id>mxurlrewrite</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <inherited>false</inherited>
+            <executions>
+              <execution>
+                <id>patch-gradle-props</id>
+                <phase>validate</phase>
+                <goals>
+                  <goal>java</goal>
+                </goals>
+                <configuration>
+                  <mainClass>com.oracle.graal.python.shell.GraalPythonMain</mainClass>
+                  <commandlineArgs>
+                    ${project.basedir}/scripts/gradle-patch-properties.py ${project.basedir}/org.graalvm.python.gradle.plugin/gradle/wrapper/gradle-wrapper.properties ${project.basedir}/integration-tests/gradle/gradle-test-project/gradle/wrapper/gradle-wrapper.properties
+                  </commandlineArgs>
+                  <!-- See the exec-maven-plugin configuration below in plugins section -->
+                  <includeProjectDependencies>true</includeProjectDependencies>
+                  <includePluginDependencies>true</includePluginDependencies>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 
   <dependencyManagement>
@@ -149,6 +186,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
           <version>3.1.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>3.3.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -271,6 +313,19 @@
         <configuration>
           <skip>true</skip>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <!-- prevent installation of the parent pom, intentionally not inherited by submodules -->
