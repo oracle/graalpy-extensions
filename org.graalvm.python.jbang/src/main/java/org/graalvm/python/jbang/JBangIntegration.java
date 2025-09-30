@@ -180,8 +180,11 @@ public class JBangIntegration {
 					resourcesDirectory = Path.of(path);
 				}
 			} else if (comment.startsWith(PIP)) {
-				pkgs.addAll(Arrays.stream(comment.substring(PIP.length()).trim().split(" "))
-						.filter(s -> !s.trim().isEmpty()).collect(Collectors.toList()));
+				String content = comment.substring(PIP.length()).trim();
+				if (!content.isEmpty()) {
+					pkgs.addAll(Arrays.stream(content.split("\\s+")).filter(x -> !x.isBlank())
+							.collect(Collectors.toList()));
+				}
 			}
 		}
 		if (!pkgs.isEmpty()) {
