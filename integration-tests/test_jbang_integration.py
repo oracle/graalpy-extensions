@@ -317,6 +317,7 @@ def hello():
         self.assertEqual(0, result, f"command: {command}\n    stdout: {out}")
         self.assertNotIn("[graalpy jbang integration]", out)
 
+    @unittest.skip # https://github.com/jbangdev/jbang/issues/2236
     def test_malformed_tag_formats(self):
         jbang_templates_dir = os.path.join(os.path.dirname(__file__), "jbang")
         work_dir = self.tmpdir
