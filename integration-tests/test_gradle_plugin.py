@@ -496,6 +496,29 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("Cannot set both 'externalDirectory' and 'resourceDirectory' at the same time", out)
             assert return_code != 0, out
 
+    def check_proxy_settings(self):
+        with TemporaryTestDirectory() as tmpdir:
+            target_dir = os.path.join(str(tmpdir), "proxy_test" + self.target_dir_name_sufix())
+            self.generate_app(target_dir)
+            build_file = os.path.join(target_dir, self.build_file_name)
+            append(build_file, self.packages_termcolor())
+
+            # Create gradle.properties with dummy proxy
+            properties_path = os.path.join(target_dir, "gradle.properties")
+            with open(properties_path, 'a') as f:
+                f.write("\nsystemProp.http.proxyHost=somethingnonexisting.oracle.com\n")
+                f.write("systemProp.http.proxyPort=1234\n")
+                f.write("systemProp.https.proxyHost=somethingnonexisting.oracle.com\n")
+                f.write("systemProp.https.proxyPort=1234\n")
+
+            log = Logger()
+            gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env)
+            cmd = gradlew_cmd + ["--info", "assemble"]
+            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
+            assert return_code != 0, out
+            expected_proxy = "--proxy http://somethingnonexisting.oracle.com:1234"
+            util.check_ouput(expected_proxy, out, contains=True, logger=log)
+
 
     def app1_with_namespaced_vfs(self):
         pass
@@ -614,6 +637,9 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
 
     def test_gradle_python_resources_dir_and_external_dir_error(self):
         self.check_gradle_python_resources_dir_and_external_dir_error()
+
+    def test_proxy_settings(self):
+        self.check_proxy_settings()
 
     def target_dir_name_sufix(self):
         return "_groovy"
@@ -774,6 +800,9 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
     @long_running_test
     def test_gradle_python_resources_dir_and_external_dir_error(self):
         self.check_gradle_python_resources_dir_and_external_dir_error()
+
+    def test_proxy_settings(self):
+        self.check_proxy_settings()
 
     def target_dir_name_sufix(self):
         return "_kotlin"
