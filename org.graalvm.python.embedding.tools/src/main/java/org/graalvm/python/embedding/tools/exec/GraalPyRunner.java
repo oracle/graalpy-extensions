@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.net.InetSocketAddress;
 
 public class GraalPyRunner {
 
@@ -137,28 +138,18 @@ public class GraalPyRunner {
 	}
 
 	private static void addProxy(ArrayList<String> args) {
-		// if set, pip takes environment variables http_proxy and https_proxy
 		if (System.getenv("http_proxy") == null && System.getenv("https_proxy") == null) {
-			// if not set, use --proxy param
 			ProxySelector proxySelector = ProxySelector.getDefault();
 			List<Proxy> proxies = proxySelector.select(URI.create("https://pypi.org"));
-
-			String proxyAddr = null;
 			for (Proxy proxy : proxies) {
-				if (proxy.type() == Proxy.Type.HTTP) {
-					proxyAddr = fixProtocol(proxy.address().toString(), "http");
-					break;
+				if (proxy.type() == Proxy.Type.HTTP && proxy.address() instanceof InetSocketAddress addr) {
+					String proxyAddr = "http://" + addr.getHostName() + ":" + addr.getPort();
+					args.add("--proxy");
+					args.add(proxyAddr);
+					return;
 				}
 			}
-			if (proxyAddr != null) {
-				args.add("--proxy");
-				args.add(proxyAddr);
-			}
 		}
-	}
-
-	private static String fixProtocol(String proxyAddress, String protocol) {
-		return proxyAddress.startsWith(protocol) ? proxyAddress : protocol + "://" + proxyAddress;
 	}
 
 	private static void runProcess(ProcessBuilder pb, BuildToolLog log) throws IOException, InterruptedException {
