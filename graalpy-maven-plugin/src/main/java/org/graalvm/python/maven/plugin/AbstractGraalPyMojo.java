@@ -110,6 +110,9 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	@Parameter
 	List<String> packages;
 
+    @Parameter(property = "requirementsFile", defaultValue = "requirements.txt")
+    String requirementsFile;
+
 	@SuppressFBWarnings("UUF_UNUSED_FIELD")
 	public static class PythonHome {
 		@SuppressWarnings("unused")
@@ -124,7 +127,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	@Parameter(defaultValue = "${session}", readonly = true, required = true)
 	private MavenSession session;
 
-	private ProjectBuilder projectBuilder;
+    private final ProjectBuilder projectBuilder;
 
 	private Set<String> launcherClassPath;
 
@@ -148,14 +151,26 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		}
 	}
 
-	protected void preExec(boolean enableWarnings) throws MojoExecutionException {
-		pythonResourcesDirectory = normalizeEmpty(pythonResourcesDirectory);
-		externalDirectory = normalizeEmpty(externalDirectory);
-		resourceDirectory = normalizeEmpty(resourceDirectory);
-		graalPyLockFile = normalizeEmpty(graalPyLockFile);
-		packages = packages != null
-				? packages.stream().filter(p -> p != null && !p.trim().isEmpty()).toList()
-				: List.of();
+    protected void preExec(boolean enableWarnings) throws MojoExecutionException {
+        pythonResourcesDirectory = normalizeEmpty(pythonResourcesDirectory);
+        externalDirectory = normalizeEmpty(externalDirectory);
+        resourceDirectory = normalizeEmpty(resourceDirectory);
+        graalPyLockFile = normalizeEmpty(graalPyLockFile);
+        Path reqFilePath = resolveReqFile();
+        if (reqFilePath != null) {
+            getLog().info("GraalPy requirements file: " + reqFilePath);
+            if (packages != null) {
+                throw new MojoExecutionException(
+                        "Cannot use <packages> and <requirementsFile> at the same time. "
+                                + "New option <requirementsFile> is a replacement for using <packages> with list of inline <package>.");
+            }
+
+            packages = loadRequirementsPackages(reqFilePath);
+        } else if (packages != null) {
+            packages = packages.stream()
+                    .filter(p -> p != null && !p.trim().isEmpty())
+                    .toList();
+        }
 
 		if (pythonResourcesDirectory != null) {
 			if (externalDirectory != null) {
@@ -201,7 +216,38 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		}
 	}
 
-	protected void postExec() throws MojoExecutionException {
+    private Path resolveReqFile() {
+        if (requirementsFile == null || requirementsFile.isBlank()) {
+            return null;
+        }
+
+        Path path = Path.of(requirementsFile);
+        Path finalPath = path.isAbsolute()
+                ? path
+                : project.getBasedir().toPath().resolve(path).normalize();
+
+        if (Files.exists(finalPath)) {
+            return finalPath;
+        }
+
+        Path defaultReq = project.getBasedir().toPath().resolve("requirements.txt").normalize();
+        if (Files.exists(defaultReq)) {
+            return defaultReq;
+        }
+
+        return null;
+    }
+    private List<String> loadRequirementsPackages(Path path) throws MojoExecutionException {
+        try {
+            return VFSUtils.requirementsPackages(path);
+        } catch (IOException e) {
+            throw new MojoExecutionException(
+                    "Failed to read Python requirements from file: " + requirementsFile
+                            + ". Please verify that the file exists and is readable.", e);
+        }
+    }
+
+    protected void postExec() throws MojoExecutionException {
 		for (Resource r : project.getBuild().getResources()) {
 			if (Files.exists(Path.of(r.getDirectory(), resourceDirectory, "proj"))) {
 				getLog().warn(String.format("usage of %s is deprecated, use %s instead",
@@ -249,12 +295,11 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	}
 
 	protected Launcher createLauncher() {
-		Launcher launcherArg = new Launcher(getLauncherPath()) {
-			public Set<String> computeClassPath() throws IOException {
-				return calculateLauncherClasspath(project);
-			}
-		};
-		return launcherArg;
+        return new Launcher(getLauncherPath()) {
+            public Set<String> computeClassPath() throws IOException {
+                return calculateLauncherClasspath(project);
+            }
+        };
 	}
 
 	protected Path getLockFile() {
@@ -293,7 +338,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 
 	private static Artifact getGraalPyArtifact(MavenProject project) throws IOException {
 		var projectArtifacts = resolveProjectDependencies(project);
-		Artifact graalPyArtifact = projectArtifacts.stream().filter(a -> isPythonArtifact(a)).findFirst().orElse(null);
+		Artifact graalPyArtifact = projectArtifacts.stream().filter(AbstractGraalPyMojo::isPythonArtifact).findFirst().orElse(null);
 		return Optional.ofNullable(graalPyArtifact).orElseThrow(() -> new IOException(
 				"Missing GraalPy dependency. Please add to your pom either %s:%s or %s:%s".formatted(POLYGLOT_GROUP_ID,
 						PYTHON_COMMUNITY_ARTIFACT_ID, POLYGLOT_GROUP_ID, PYTHON_ARTIFACT_ID)));
@@ -326,6 +371,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 							&& PYTHON_LAUNCHER_ARTIFACT_ID.equals(a.getArtifactId()))
 					.findFirst().orElse(null);
 			// python-launcher artifact
+            assert graalPyLauncherArtifact != null;
 			launcherClassPath.add(graalPyLauncherArtifact.getFile().getAbsolutePath());
 			// and transitively all its dependencies
 			launcherClassPath.addAll(resolveDependencies(graalPyLauncherArtifact));
