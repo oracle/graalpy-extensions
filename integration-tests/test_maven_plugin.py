@@ -835,6 +835,51 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code == 0, log
 
 
+    def test_requirements_txt_packages(self):
+      with util.TemporaryTestDirectory() as dir:
+        target_name = "requirements_packages"
+        target_dir = os.path.join(str(dir), target_name)
+        pom_template = os.path.join(
+            os.path.dirname(__file__),
+            "prepare_venv_requirements_pom.xml",
+        )
+        self.generate_app(dir, target_dir, target_name, pom_template)
+
+        requirements_txt = os.path.join(target_dir, "requirements.txt")
+        if not os.path.exists(requirements_txt):
+          with open(requirements_txt, "w", encoding="utf-8") as f:
+            f.write("pyfiglet==1.0.2\n")
+
+        mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
+
+        cmd = mvnw_cmd + ["process-resources"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+        cmd = mvnw_cmd + ["org.graalvm.python:graalpy-maven-plugin:lock-packages"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+        util.check_ouput(
+            "In order to run the lock-packages goal there have to be python packages declared in the graalpy-maven-plugin configuration",
+            out,
+            contains=False,
+        )
+
+        # lock-файл створився
+        lock_file = os.path.join(target_dir, "graalpy.lock")
+        assert os.path.exists(lock_file)
+
+        # 3) перевіряємо, що в lock-файлі є хоча б один пакет з requirements.txt
+        with open(lock_file, encoding="utf-8") as f:
+          lock_content = f.read()
+
+        # підстав назву пакета з requirements.txt
+        assert "pyfiglet==" in lock_content
+
 if __name__ == "__main__":
     run_path = os.path.join(os.path.abspath(__file__), 'run.py')
     print(f"Run this file using the run.py driver ({run_path})")
