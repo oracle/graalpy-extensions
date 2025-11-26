@@ -107,7 +107,8 @@ public final class VirtualFileSystem implements AutoCloseable {
 		private HostIO allowHostIO = HostIO.READ_WRITE;
 		private boolean caseInsensitive = VirtualFileSystemImpl.isWindows();
 
-		private Class<?> resourceLoadingClass;
+        private ClassLoader resourceClassLoader;
+
 		private String resourceDirectory;
 
 		private Builder() {
@@ -238,20 +239,35 @@ public final class VirtualFileSystem implements AutoCloseable {
 
 		/**
 		 * By default, virtual filesystem resources are loaded by delegating to
-		 * <code>VirtualFileSystem.class.getResource(name)</code>. Use
+		 * <code>VirtualFileSystem.class.getClassLoader().getResource(name)</code>. Use
 		 * <code>resourceLoadingClass</code> to determine where to locate resources in
 		 * cases when for example <code>VirtualFileSystem</code> is on module path and
 		 * the jar containing the resources is on class path.
 		 *
-		 * @param c
-		 *            the class for loading the resources
+		 * @param c the class for loading the resources
 		 * @return the builder
 		 * @since 24.2.0
 		 */
 		public Builder resourceLoadingClass(Class<?> c) {
-			resourceLoadingClass = c;
+			resourceClassLoader = c.getClassLoader();
 			return this;
 		}
+
+        /**
+         * By default, virtual filesystem resources are loaded by delegating to
+         * <code>VirtualFileSystem.class.getClassLoader().getResource(name)</code>. Use
+         * <code>resourceClassLoader</code> to determine where to locate resources in
+         * cases when for example <code>VirtualFileSystem</code> is on module path and
+         * the jar containing the resources is on class path.
+         *
+         * @param cl the classloader used to load resources
+         * @return this builder
+         * @since 26.0.0
+         */
+        public Builder resourceClassLoader(ClassLoader cl) {
+            resourceClassLoader = cl;
+            return this;
+        }
 
 		/**
 		 * This filter applied to files in the virtual filesystem treats them as
@@ -292,7 +308,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 						? Path.of(DEFAULT_WINDOWS_MOUNT_POINT)
 						: Path.of(DEFAULT_UNIX_MOUNT_POINT);
 			}
-			return new VirtualFileSystem(extractFilter, mountPoint, allowHostIO, resourceLoadingClass,
+			return new VirtualFileSystem(extractFilter, mountPoint, allowHostIO, resourceClassLoader,
 					resourceDirectory, caseInsensitive);
 		}
 	}
@@ -308,10 +324,10 @@ public final class VirtualFileSystem implements AutoCloseable {
 	}
 
 	private VirtualFileSystem(Predicate<Path> extractFilter, Path mountPoint, HostIO allowHostIO,
-			Class<?> resourceLoadingClass, String resourceDirectory, boolean caseInsensitive) {
+			ClassLoader resourceClassLoader, String resourceDirectory, boolean caseInsensitive) {
 
 		this.impl = new VirtualFileSystemImpl(extractFilter, mountPoint, resourceDirectory, allowHostIO,
-				resourceLoadingClass, caseInsensitive);
+				resourceClassLoader,  caseInsensitive);
 		this.delegatingFileSystem = VirtualFileSystemImpl.createDelegatingFileSystem(impl);
 	}
 
