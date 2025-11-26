@@ -169,12 +169,12 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	 * Maps platform-specific paths to entries.
 	 */
 	private final Map<String, BaseEntry> vfsEntries = new HashMap<>();
-    
-    /**
-     * Classloader used to read resources. By defaut, the classloader of
-     * VirtualFileSystem.class.
-     */
-    private final ClassLoader resourceClassLoader;
+
+	/**
+	 * Classloader used to read resources. By defaut, the classloader of
+	 * VirtualFileSystem.class.
+	 */
+	private final ClassLoader resourceClassLoader;
 
 	static final String PLATFORM_SEPARATOR = Paths.get("").getFileSystem().getSeparator();
 	private static final char RESOURCE_SEPARATOR_CHAR = '/';
@@ -311,11 +311,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	 */
 	VirtualFileSystemImpl(Predicate<Path> extractFilter, Path mountPoint, String resourceDirectory, HostIO allowHostIO,
 			ClassLoader resourceClassLoader, boolean caseInsensitive) {
-        if (resourceClassLoader != null) {
-            this.resourceClassLoader = resourceClassLoader;
-        } else {
-            this.resourceClassLoader = VirtualFileSystem.class.getClassLoader();
-        }
+		if (resourceClassLoader != null) {
+			this.resourceClassLoader = resourceClassLoader;
+		} else {
+			this.resourceClassLoader = VirtualFileSystem.class.getClassLoader();
+		}
 		this.caseInsensitive = caseInsensitive;
 		this.mountPoint = mountPoint;
 		this.mountPointLowerCase = mountPoint.toString().toLowerCase(Locale.ROOT);
@@ -323,12 +323,14 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		this.platformVenvPath = resourcePathToPlatformPath(absoluteResourcePath(vfsRoot, VFS_VENV));
 		this.platformSrcPath = resourcePathToPlatformPath(absoluteResourcePath(vfsRoot, VFS_SRC));
 
-        if (LOGGER.isLoggable(Level.FINE)) {
-            var classLoaderLabel = this.resourceClassLoader == VirtualFileSystem.class.getClassLoader() ? "VirtualFileSystem" : "custom";
-            fine("VirtualFilesystem %s, allowHostIO: %s, resourceClassLoader: %s, caseInsensitive: %s, extractOnStartup: %s%s",
-                mountPoint, allowHostIO.toString(), classLoaderLabel, caseInsensitive,
-                extractOnStartup, extractFilter != null ? "" : ", extractFilter: null");
-        }
+		if (LOGGER.isLoggable(Level.FINE)) {
+			var classLoaderLabel = this.resourceClassLoader == VirtualFileSystem.class.getClassLoader()
+					? "VirtualFileSystem"
+					: "custom";
+			fine("VirtualFilesystem %s, allowHostIO: %s, resourceClassLoader: %s, caseInsensitive: %s, extractOnStartup: %s%s",
+					mountPoint, allowHostIO.toString(), classLoaderLabel, caseInsensitive, extractOnStartup,
+					extractFilter != null ? "" : ", extractFilter: null");
+		}
 		this.extractFilter = extractFilter;
 		if (extractFilter != null) {
 			try {
@@ -747,8 +749,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		// by the Maven/Gradle plugin and should contain "pip freeze" of the venv
 		ArrayList<URL> installedUrls;
 		try {
-			installedUrls = Collections.list(
-                resourceClassLoader.getResources(resourcePath(vfsRoot, INSTALLED_FILE)));
+			installedUrls = Collections.list(resourceClassLoader.getResources(resourcePath(vfsRoot, INSTALLED_FILE)));
 		} catch (IOException e) {
 			warn("Cannot check compatibility of the merged virtual environments. Cannot read list of packages installed in the virtual environments. IOException: "
 					+ e.getMessage());
@@ -792,8 +793,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		// Check compatibility of GraalPy versions that were used to create the VFSs
 		ArrayList<URL> contentsUrls;
 		try {
-			contentsUrls = Collections.list(
-					resourceClassLoader.getResources(resourcePath(vfsRoot, CONTENTS_FILE)));
+			contentsUrls = Collections.list(resourceClassLoader.getResources(resourcePath(vfsRoot, CONTENTS_FILE)));
 		} catch (IOException e) {
 			warn("Cannot check compatibility of the merged virtual environments. Cannot read GraalPy version of the virtual environments. IOException: "
 					+ e.getMessage());
