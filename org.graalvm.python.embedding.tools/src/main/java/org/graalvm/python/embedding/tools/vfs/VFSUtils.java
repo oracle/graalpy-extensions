@@ -402,115 +402,106 @@ public final class VFSUtils {
 	private static final String INPUT_PACKAGES_PREFIX = "# input-packages: ";
 	private static final String INPUT_PACKAGES_DELIMITER = ",";
 
-	private static class LockFile {
+    private record LockFile(Path path, List<String> inputPackages, List<String> packages) {
 
-		final Path path;
-		final List<String> packages;
-		final List<String> inputPackages;
+        static LockFile fromFile(Path file, BuildToolLog log) throws IOException {
+            List<String> packages = new ArrayList<>();
+            List<String> inputPackages = null;
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(file);
+            } catch (IOException e) {
+                throw new IOException(String.format("Cannot read the lock file from '%s'", file), e);
+            }
+            if (lines.isEmpty()) {
+                throw wrongFormat(file, lines, log);
+            }
+            // format:
+            // 1.) a multiline header comment
+            // 2.) graalpy version - 1 line (starting with comment #)
+            // 2.) input packages - 1 line (starting with comment #)
+            // 3.) locked packages - 1 line each (as input for pip install)
+            // see also LockFile.write()
+            Iterator<String> it = lines.iterator();
+            try {
+                // graalpy version, we don't care about it for now, but with future versions the
+                // file format might change, and we will need to know to parse differently
+                String graalPyVersion = null;
+                while (it.hasNext()) {
+                    String line = it.next();
+                    if (line.startsWith(GRAALPY_VERSION_PREFIX)) {
+                        graalPyVersion = line.substring(GRAALPY_VERSION_PREFIX.length()).trim();
+                        if (graalPyVersion.isEmpty()) {
+                            throw wrongFormat(file, lines, log);
+                        }
+                        break;
+                    }
+                }
+                if (graalPyVersion == null) {
+                    throw wrongFormat(file, lines, log);
+                }
+                // input packages
+                String line = it.next();
+                if (!line.startsWith(INPUT_PACKAGES_PREFIX)) {
+                    throw wrongFormat(file, lines, log);
+                }
+                String pkgs = line.substring(INPUT_PACKAGES_PREFIX.length()).trim();
+                if (pkgs.isEmpty()) {
+                    throw wrongFormat(file, lines, log);
+                }
+                inputPackages = Arrays.asList(pkgs.split(INPUT_PACKAGES_DELIMITER));
+                // locked packages
+                while (it.hasNext()) {
+                    packages.add(it.next());
+                }
+            } catch (NoSuchElementException e) {
+                throw wrongFormat(file, lines, log);
+            }
+            return new LockFile(file, inputPackages, packages);
+        }
 
-		private LockFile(Path path, List<String> inputPackages, List<String> packages) {
-			this.path = path;
-			this.packages = packages;
-			this.inputPackages = inputPackages;
-		}
+        private static IOException wrongFormat(Path file, List<String> lines, BuildToolLog log) {
+            if (log.isDebugEnabled()) {
+                log.debug("wrong format of lock file " + file);
+                for (String l : lines) {
+                    log.debug(l);
+                }
+                log.debug("");
+            }
+            return new IOException(String.format(
+                    "Cannot read the lock file from '%s'%n(turn on debug log level to see the contents)", file));
+        }
 
-		static LockFile fromFile(Path file, BuildToolLog log) throws IOException {
-			List<String> packages = new ArrayList<>();
-			List<String> inputPackages = null;
-			List<String> lines;
-			try {
-				lines = Files.readAllLines(file);
-			} catch (IOException e) {
-				throw new IOException(String.format("Cannot read the lock file from '%s'", file), e);
-			}
-			if (lines.isEmpty()) {
-				throw wrongFormat(file, lines, log);
-			}
-			// format:
-			// 1.) a multiline header comment
-			// 2.) graalpy version - 1 line (starting with comment #)
-			// 2.) input packages - 1 line (starting with comment #)
-			// 3.) locked packages - 1 line each (as input for pip install)
-			// see also LockFile.write()
-			Iterator<String> it = lines.iterator();
-			try {
-				// graalpy version, we don't care about it for now, but with future versions the
-				// file format might change, and we will need to know to parse differently
-				String graalPyVersion = null;
-				while (it.hasNext()) {
-					String line = it.next();
-					if (line.startsWith(GRAALPY_VERSION_PREFIX)) {
-						graalPyVersion = line.substring(GRAALPY_VERSION_PREFIX.length()).trim();
-						if (graalPyVersion.isEmpty()) {
-							throw wrongFormat(file, lines, log);
-						}
-						break;
-					}
-				}
-				if (graalPyVersion == null) {
-					throw wrongFormat(file, lines, log);
-				}
-				// input packages
-				String line = it.next();
-				if (!line.startsWith(INPUT_PACKAGES_PREFIX)) {
-					throw wrongFormat(file, lines, log);
-				}
-				String pkgs = line.substring(INPUT_PACKAGES_PREFIX.length()).trim();
-				if (pkgs.isEmpty()) {
-					throw wrongFormat(file, lines, log);
-				}
-				inputPackages = Arrays.asList(pkgs.split(INPUT_PACKAGES_DELIMITER));
-				// locked packages
-				while (it.hasNext()) {
-					packages.add(it.next());
-				}
-			} catch (NoSuchElementException e) {
-				throw wrongFormat(file, lines, log);
-			}
-			return new LockFile(file, inputPackages, packages);
-		}
+        private static void write(
+                Path venvDirectory, Path lockFile, String lockFileHeader, List<String> inputPackages,
+                String graalPyVersion, BuildToolLog log) throws IOException {
+            Objects.requireNonNull(venvDirectory);
+            Objects.requireNonNull(lockFile);
+            Objects.requireNonNull(lockFileHeader);
+            Objects.requireNonNull(log);
 
-		private static IOException wrongFormat(Path file, List<String> lines, BuildToolLog log) {
-			if (log.isDebugEnabled()) {
-				log.debug("wrong format of lock file " + file);
-				for (String l : lines) {
-					log.debug(l);
-				}
-				log.debug("");
-			}
-			return new IOException(String.format(
-					"Cannot read the lock file from '%s'%n(turn on debug log level to see the contents)", file));
-		}
+            assert Files.exists(venvDirectory);
 
-		private static void write(Path venvDirectory, Path lockFile, String lockFileHeader, List<String> inputPackages,
-				String graalPyVersion, BuildToolLog log) throws IOException {
-			Objects.requireNonNull(venvDirectory);
-			Objects.requireNonNull(lockFile);
-			Objects.requireNonNull(lockFileHeader);
-			Objects.requireNonNull(log);
+            InstalledPackages installedPackages = InstalledPackages.fromVenv(venvDirectory);
+            List<String> header = getHeaderList(lockFileHeader);
+            header.add(GRAALPY_VERSION_PREFIX + graalPyVersion);
+            header.add(INPUT_PACKAGES_PREFIX + String.join(INPUT_PACKAGES_DELIMITER, inputPackages));
+            Files.write(lockFile, header, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            Files.write(lockFile, installedPackages.packages, StandardOpenOption.APPEND);
 
-			assert Files.exists(venvDirectory);
+            lifecycle(log, "Created GraalPy lock file: %s", lockFile);
+            logDebug(log, installedPackages.packages, null);
+        }
 
-			InstalledPackages installedPackages = InstalledPackages.fromVenv(venvDirectory);
-			List<String> header = getHeaderList(lockFileHeader);
-			header.add(GRAALPY_VERSION_PREFIX + graalPyVersion);
-			header.add(INPUT_PACKAGES_PREFIX + String.join(INPUT_PACKAGES_DELIMITER, inputPackages));
-			Files.write(lockFile, header, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-			Files.write(lockFile, installedPackages.packages, StandardOpenOption.APPEND);
-
-			lifecycle(log, "Created GraalPy lock file: %s", lockFile);
-			logDebug(log, installedPackages.packages, null);
-		}
-
-		private static List<String> getHeaderList(String lockFileHeader) {
-			List<String> list = new ArrayList<>();
-			String[] lines = lockFileHeader.split("\n");
-			for (String l : lines) {
-				list.add("# " + l);
-			}
-			return list;
-		}
-	}
+        private static List<String> getHeaderList(String lockFileHeader) {
+            List<String> list = new ArrayList<>();
+            String[] lines = lockFileHeader.split("\n");
+            for (String l : lines) {
+                list.add("# " + l);
+            }
+            return list;
+        }
+    }
 
 	public static final class PackagesChangedException extends Exception {
 		@Serial
@@ -537,7 +528,7 @@ public final class VFSUtils {
 	public static void createVenv(Path venvDirectory, List<String> packagesArgs, Launcher launcherArgs,
 			String graalPyVersion, BuildToolLog log) throws IOException {
 		try {
-			createVenv(venvDirectory, packagesArgs, null, null, launcherArgs, graalPyVersion, log);
+			createVenv(venvDirectory, packagesArgs, null, null, launcherArgs, graalPyVersion, log, null);
 		} catch (PackagesChangedException e) {
 			// should not happen
 			assert false;
@@ -545,46 +536,84 @@ public final class VFSUtils {
 		}
 	}
 
-	public static void createVenv(Path venvDirectory, List<String> packages, Path lockFilePath,
-			String missingLockFileWarning, Launcher launcher, String graalPyVersion, BuildToolLog log)
-			throws IOException, PackagesChangedException {
-		Objects.requireNonNull(venvDirectory);
-		Objects.requireNonNull(packages);
-		Objects.requireNonNull(launcher);
-		Objects.requireNonNull(graalPyVersion);
-		Objects.requireNonNull(log);
+    public static void createVenv(Path venvDirectory, List<String> packages, Path lockFilePath,
+            String missingLockFileWarning, Launcher launcher, String graalPyVersion, BuildToolLog log, Path reqFile
+    ) throws IOException, PackagesChangedException {
 
-		logVenvArgs(venvDirectory, packages, lockFilePath, launcher, graalPyVersion, log);
+        Objects.requireNonNull(venvDirectory);
+        Objects.requireNonNull(launcher);
+        Objects.requireNonNull(graalPyVersion);
+        Objects.requireNonNull(log);
 
-		List<String> pluginPackages = trim(packages);
-		LockFile lockFile = null;
-		if (lockFilePath != null && Files.exists(lockFilePath)) {
-			lockFile = LockFile.fromFile(lockFilePath, log);
-		}
+        if (installPackagesFromReqFile(venvDirectory, launcher, graalPyVersion, log, reqFile)) {
+            return;
+        }
 
-		if (!checkPackages(venvDirectory, pluginPackages, lockFile, log)) {
-			return;
-		}
+        installPackages(venvDirectory, packages, lockFilePath, missingLockFileWarning, launcher, graalPyVersion, log);
+    }
 
-		VenvContents venvContents = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
+    static boolean installPackagesFromReqFile(Path venvDirectory, Launcher launcher,
+            String graalPyVersion, BuildToolLog log, Path reqFile) throws IOException {
+        if (reqFile != null) {
+            log.info("Using <requirements.txt> dependency mode.");
+            log.info("Installing Python dependencies from: " + reqFile);
+            log.warning("Lock file is ignored in <requirements.txt> mode.");
+            log.warning("The 'lock-packages' goal should not be used together with <requirementsFile>.");
 
-		InstalledPackages installedPackages = InstalledPackages.fromVenv(venvDirectory);
-		boolean installed;
-		if (lockFile != null) {
-			installed = install(venvDirectory, installedPackages, lockFile, log);
-		} else {
-			installed = install(venvDirectory, pluginPackages, venvContents, log);
-		}
-		if (installed) {
-			venvContents.write(pluginPackages);
-			installedPackages.freeze(log);
-		}
-		if (lockFile == null) {
-			missingLockFileWarning(venvDirectory, pluginPackages, missingLockFileWarning, log);
-		}
-	}
+            ensureVenv(venvDirectory, graalPyVersion, launcher, log);
 
-	private static boolean removedFromPluginPackages(Path venvDirectory, List<String> pluginPackages)
+            runPip(venvDirectory, "install", log, "--compile", "-r", reqFile.toString());
+
+            InstalledPackages installed = InstalledPackages.fromVenv(venvDirectory);
+            installed.freeze(log);
+
+            return true;
+        }
+        return false;
+    }
+
+    static void installPackages(Path venvDirectory, List<String> packages, Path lockFilePath,
+            String missingLockFileWarning, Launcher launcher, String graalPyVersion,
+            BuildToolLog log) throws IOException, PackagesChangedException {
+        Objects.requireNonNull(packages);
+        log.info("Using inline <packages> dependency mode.");
+
+        logVenvArgs(venvDirectory, packages, lockFilePath, launcher, graalPyVersion, log);
+
+        List<String> pluginPackages = trim(packages);
+
+        LockFile lockFile = null;
+        if (lockFilePath != null && Files.exists(lockFilePath)) {
+            log.info("Lock-file detected: " + lockFilePath);
+            lockFile = LockFile.fromFile(lockFilePath, log);
+        }
+
+        if (!checkPackages(venvDirectory, pluginPackages, lockFile, log)) {
+            return;
+        }
+
+        VenvContents venvContents = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
+        InstalledPackages installedPackages = InstalledPackages.fromVenv(venvDirectory);
+
+        boolean installed;
+        if (lockFile != null) {
+            installed = install(venvDirectory, installedPackages, lockFile, log);
+        } else {
+            installed = install(venvDirectory, pluginPackages, venvContents, log);
+        }
+
+        if (installed) {
+            venvContents.write(pluginPackages);
+            installedPackages.freeze(log);
+        }
+
+        if (lockFile == null) {
+            missingLockFileWarning(venvDirectory, pluginPackages, missingLockFileWarning, log);
+        }
+    }
+
+
+    private static boolean removedFromPluginPackages(Path venvDirectory, List<String> pluginPackages)
 			throws IOException {
 		if (Files.exists(venvDirectory)) {
 			// compare with contents from prev install if such already present
@@ -759,7 +788,17 @@ public final class VFSUtils {
 		return contents;
 	}
 
-	private static boolean install(Path venvDirectory, InstalledPackages installedPackages, LockFile lockFile,
+    private static boolean install(Path venvDirectory, Path requirementsFile, BuildToolLog log) throws IOException {
+        if (!Files.exists(requirementsFile)) {
+            throw new IOException("Requirements file not found: " + requirementsFile);
+        }
+        info(log, "Installing Python dependencies from requirements file: " + requirementsFile);
+        runPip(venvDirectory, "install", log, "--compile", "-r", requirementsFile.toString());
+        return true;
+    }
+
+
+    private static boolean install(Path venvDirectory, InstalledPackages installedPackages, LockFile lockFile,
 			BuildToolLog log) throws IOException {
 		if (installedPackages.packages.size() != lockFile.packages.size()
 				|| deleteUnwantedPackages(venvDirectory, lockFile.packages, installedPackages.packages, log)) {

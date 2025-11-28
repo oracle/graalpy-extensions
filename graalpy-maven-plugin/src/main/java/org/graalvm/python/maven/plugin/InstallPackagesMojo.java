@@ -46,6 +46,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.ProjectBuilder;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
+import org.graalvm.python.embedding.tools.vfs.VFSUtils.Launcher;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils.PackagesChangedException;
 
 import javax.inject.Inject;
@@ -98,9 +99,10 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 		Path venvDirectory = getVenvDirectory();
 		MavenDelegateLog log = new MavenDelegateLog(getLog());
 		Path lockFile = getLockFile();
+        Path reqFile = resolveReqFile();
 		try {
 			VFSUtils.createVenv(venvDirectory, packages, lockFile, MISSING_LOCK_FILE_WARNING, createLauncher(),
-					getGraalPyVersion(project), log);
+					getGraalPyVersion(project), log, reqFile);
 		} catch (PackagesChangedException pce) {
 			String pluginPkgsString = pce.getPluginPackages().isEmpty()
 					? "None"

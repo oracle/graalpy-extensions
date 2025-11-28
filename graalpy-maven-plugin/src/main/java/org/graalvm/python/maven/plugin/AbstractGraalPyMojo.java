@@ -40,6 +40,7 @@
  */
 package org.graalvm.python.maven.plugin;
 
+import java.util.ArrayList;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
@@ -110,7 +111,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	@Parameter
 	List<String> packages;
 
-    @Parameter(property = "requirementsFile", defaultValue = "requirements.txt")
+    @Parameter(property = "requirementsFile")
     String requirementsFile;
 
 	@SuppressFBWarnings("UUF_UNUSED_FIELD")
@@ -164,8 +165,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
                         "Cannot use <packages> and <requirementsFile> at the same time. "
                                 + "New option <requirementsFile> is a replacement for using <packages> with list of inline <package>.");
             }
-
-            packages = loadRequirementsPackages(reqFilePath);
+            packages = new ArrayList<>();
         } else if (packages != null) {
             packages = packages.stream()
                     .filter(p -> p != null && !p.trim().isEmpty())
@@ -216,7 +216,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		}
 	}
 
-    private Path resolveReqFile() {
+    protected Path resolveReqFile() {
         if (requirementsFile == null || requirementsFile.isBlank()) {
             return null;
         }
@@ -236,15 +236,6 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
         }
 
         return null;
-    }
-    private List<String> loadRequirementsPackages(Path path) throws MojoExecutionException {
-        try {
-            return VFSUtils.requirementsPackages(path);
-        } catch (IOException e) {
-            throw new MojoExecutionException(
-                    "Failed to read Python requirements from file: " + requirementsFile
-                            + ". Please verify that the file exists and is readable.", e);
-        }
     }
 
     protected void postExec() throws MojoExecutionException {
