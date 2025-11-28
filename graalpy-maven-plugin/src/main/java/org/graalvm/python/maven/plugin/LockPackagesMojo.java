@@ -64,8 +64,46 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 			This file contains a list of all required Python packages with their specific versions,
 			based on the packages defined in the plugin configuration and their dependencies.
 			""";
+    public static final String MISSING_DEPENDENCY_CONFIGURATION_ERROR = """
+            In order to run the lock-packages goal you must declare Python dependencies in the graalpy-maven-plugin configuration.
+            
+            You must configure Python dependencies in one of the following ways:
+            
+              Option 1: Use <packages> with inline versioned package entries:
+            
+                <plugin>
+                  <groupId>org.graalvm.python</groupId>
+                  <artifactId>graalpy-maven-plugin</artifactId>
+                  <configuration>
+                    <packages>
+                      <package>{package_name}=={package_version}</package>
+                    </packages>
+                    ...
+                  </configuration>
+                </plugin>
+            
+              Option 2: Use a pip-compatible requirements file:
+            
+                <plugin>
+                  <groupId>org.graalvm.python</groupId>
+                  <artifactId>graalpy-maven-plugin</artifactId>
+                  <configuration>
+                    <requirementsFile>requirements.txt</requirementsFile>
+                    ...
+                  </configuration>
+                </plugin>
+            
+            NOTE:
+              • The <configuration> section must be declared on the graalpy-maven-plugin itself,
+                not inside the process-graalpy-resources execution goal.
+              • Do not define both <packages> and <requirementsFile> at the same time.
+            
+            For more information, please refer to:
+            https://github.com/oracle/graalpython/blob/master/docs/user/Embedding-Build-Tools.md
+            """;
 
-	@Inject
+
+    @Inject
 	public LockPackagesMojo(ProjectBuilder projectBuilder) {
 		super(projectBuilder);
 	}
@@ -93,33 +131,15 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 		}
 	}
 
-	private void checkEmptyPackages() throws MojoExecutionException {
-		if ((packages == null || packages.isEmpty())) {
-			getLog().error("");
-			getLog().error(
-					"In order to run the lock-packages goal there have to be python packages declared in the graalpy-maven-plugin configuration.");
-			getLog().error("");
-			getLog().error(
-					"NOTE that the <configuration> section has to be declared for the whole graalpy-maven-plugin");
-			getLog().error("and not specifically for the process-graalpy-resources execution goal.");
-			getLog().error("");
-			getLog().error("Please add the <packages> section to your configuration as follows:");
-			getLog().error("<plugin>");
-			getLog().error("  <groupId>org.graalvm.python</groupId>");
-			getLog().error("  <artifactId>graalpy-maven-plugin</artifactId>");
-			getLog().error("  <configuration>");
-			getLog().error("    <packages>");
-			getLog().error("      <package>{package_name}=={package_version}</package>");
-			getLog().error("    </packages>");
-			getLog().error("    ...");
-			getLog().error("  </configuration>");
-			getLog().error("");
-
-			getLog().error(
-					"For more information, please refer to https://github.com/oracle/graalpython/blob/master/docs/user/Embedding-Build-Tools.md");
-			getLog().error("");
-
-			throw new MojoExecutionException("missing python packages in plugin configuration");
-		}
-	}
+    private void checkEmptyPackages() throws MojoExecutionException {
+        Path reqFilePath = resolveReqFile();
+        boolean emptyPackages = packages == null || packages.isEmpty();
+        boolean requirementsExists = reqFilePath != null;
+        if (emptyPackages && !requirementsExists) {
+            getLog().error("");
+            getLog().error(MISSING_DEPENDENCY_CONFIGURATION_ERROR);
+            getLog().error("");
+            throw new MojoExecutionException("Missing Python dependency configuration.");
+        }
+    }
 }
