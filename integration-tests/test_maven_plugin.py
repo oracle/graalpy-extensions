@@ -52,6 +52,7 @@ from util import TemporaryTestDirectory, Logger, long_running_test, native_image
 MISSING_FILE_WARNING = "The list of installed Python packages does not match the packages specified in the graalpy-maven-plugin configuration."
 PACKAGES_CHANGED_ERROR = "but packages and their version constraints in graalpy-maven-plugin configuration are different then previously used to generate the lock file"
 VENV_UPTODATE = "Virtual environment is up to date with lock file, skipping install"
+DEPRECATION_MSG = "Deprecated artifact detected on classpath"
 
 class MavenPluginTest(util.BuildToolTestBase):
     @classmethod
@@ -141,8 +142,9 @@ class MavenPluginTest(util.BuildToolTestBase):
         if util.extra_maven_repos and not found and not cls.extraRemoteRepo:
             print("WARNING: extra Maven repos passed, but could not find GraalPy Maven archetype "
                   "in any of the local repos and there is no extra remote repo. This is OK only if "
-                  "GraalPy Maven archetype of the required version is available at Mavencentral, "
-                  "otherwise the tests will fail to generate the example application. Searched these repositories: \n"
+                  "GraalPy Maven archetype of the required version is available at Mavencentral or "
+                  "it is installed in local repo, otherwise the tests will fail to generate the "
+                  "example application. Searched these repositories: \n"
                   '\n'.join(['    ' + x for x in log]))
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
@@ -212,6 +214,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, contains=use_default_vfs_path, logger=log)
             util.check_ouput("This can cause conflicts if used with other Java libraries that also deploy GraalPy virtual filesystem.", out, contains=use_default_vfs_path, logger=log)
+            util.check_ouput(DEPRECATION_MSG, out, contains=False, logger=log)
 
             # check fileslist.txt
             fl_path = os.path.join(target_dir, "target", "classes", vfs_prefix, "fileslist.txt")
@@ -318,6 +321,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("pip install", out)
             util.check_ouput("BUILD SUCCESS", out)
+            util.check_ouput(DEPRECATION_MSG, out, contains=False)
             util.check_ouput(MISSING_FILE_WARNING, out, contains=True)
             assert not os.path.exists(os.path.join(target_dir, "test-graalpy.lock"))
 
@@ -419,6 +423,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             cmd = mvnw_cmd + ["package"] + native_image_arg + ["-DmainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out)
+            util.check_ouput(DEPRECATION_MSG, out, contains=False)
 
             # execute and check JVM mode
             cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
@@ -456,7 +461,7 @@ class MavenPluginTest(util.BuildToolTestBase):
 
             cmd = mvnw_cmd + ["process-resources"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
-            util.check_ouput("Missing GraalPy dependency. Please add to your pom either org.graalvm.polyglot:python-community or org.graalvm.polyglot:python", out)
+            util.check_ouput("Missing GraalPy dependency. Please add to your pom org.graalvm.polyglot:python", out)
 
 
     def test_check_home_warning(self):
@@ -895,6 +900,22 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput("pip install", out)
             assert return_code == 0
 
+
+    def test_community_dep_deprecation_message(self):
+        with util.TemporaryTestDirectory() as tmpdir:
+            target_name = "community_dep_deprecation_test"
+            target_dir = os.path.join(str(tmpdir), target_name)
+            self.generate_app(tmpdir, target_dir, target_name)
+
+            mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
+            pom_path = os.path.join(target_dir, "pom.xml")
+
+            util.replace_in_file(pom_path, "<artifactId>python</artifactId>", "<artifactId>python-community</artifactId>")
+
+            log = Logger()
+            cmd = mvnw_cmd + ["process-resources"]
+            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
+            util.check_ouput(DEPRECATION_MSG, out, logger=log)
 
 if __name__ == "__main__":
     run_path = os.path.join(os.path.abspath(__file__), 'run.py')

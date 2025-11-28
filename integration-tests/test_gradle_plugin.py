@@ -49,6 +49,7 @@ from util import TemporaryTestDirectory, Logger, long_running_test
 MISSING_FILE_WARNING = "The list of installed Python packages does not match the packages specified in the graalpy-maven-plugin configuration"
 PACKAGES_CHANGED_ERROR = "packages and their version constraints in graalpy-gradle-plugin configuration are different then previously used to generate the lock file"
 VENV_UPTODATE = "Virtual environment is up to date with lock file, skipping install"
+DEPRECATION_MSG = "python-community' is deprecated"
 
 def append(file, txt):
     with open(file, "a") as f:
@@ -156,6 +157,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, logger=log)
             util.check_ouput("This can cause conflicts if used with other Java libraries that also deploy GraalPy virtual filesystem", out, logger=log)
+            util.check_ouput(DEPRECATION_MSG, out, contains=False, logger=log)
             util.check_ouput("Detected user-declared dependency", out, False, logger=log)
             self.check_filelist(target_dir, log)
 
@@ -225,6 +227,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("pip install", out, logger=log)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
+            util.check_ouput(DEPRECATION_MSG, out, contains=False, logger=log)
             util.check_ouput(MISSING_FILE_WARNING, out, contains=True, logger=log)
             assert not os.path.exists(os.path.join(target_dir, "test-graalpy.lock")), log
 
@@ -641,6 +644,23 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
 
     def test_proxy_settings(self):
         self.check_proxy_settings()
+
+    def test_gradle_community_deprecation(self):
+        with TemporaryTestDirectory() as tmpdir:
+            target_dir = os.path.join(str(tmpdir), "community_deprecation_gradle" + self.target_dir_name_sufix())
+            self.generate_app(target_dir)
+            build_file = os.path.join(target_dir, self.build_file_name)
+            append(build_file, textwrap.dedent("""
+                graalPy {
+                    community = true
+                    packages = ["termcolor"]
+                }
+            """))
+            log = Logger()
+            gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env)
+            cmd = gradlew_cmd + ["graalPyInstallPackages"]
+            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
+            util.check_ouput(DEPRECATION_MSG, out, logger=log)
 
     def target_dir_name_sufix(self):
         return "_groovy"
