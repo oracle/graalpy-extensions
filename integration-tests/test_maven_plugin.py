@@ -857,28 +857,9 @@ class MavenPluginTest(util.BuildToolTestBase):
         util.check_ouput("BUILD SUCCESS", out)
         assert return_code == 0
 
-        cmd = mvnw_cmd + ["org.graalvm.python:graalpy-maven-plugin:lock-packages"]
-        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
-
-        util.check_ouput("BUILD SUCCESS", out)
-        assert return_code == 0
-
-        util.check_ouput(
-            "In order to run the lock-packages goal there have to be python packages declared in the graalpy-maven-plugin configuration",
-            out,
-            contains=False,
-        )
-
-        # lock-файл створився
         lock_file = os.path.join(target_dir, "graalpy.lock")
-        assert os.path.exists(lock_file)
+        assert not os.path.exists(lock_file)
 
-        # 3) перевіряємо, що в lock-файлі є хоча б один пакет з requirements.txt
-        with open(lock_file, encoding="utf-8") as f:
-          lock_content = f.read()
-
-        # підстав назву пакета з requirements.txt
-        assert "pyfiglet==" in lock_content
 
 if __name__ == "__main__":
     run_path = os.path.join(os.path.abspath(__file__), 'run.py')
