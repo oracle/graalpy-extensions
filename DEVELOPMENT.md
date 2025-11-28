@@ -68,7 +68,8 @@ mvn -pl org.graalvm.python.gradle.plugin -am clean
 tl;dr:
 
 ```
-mvn install exec:java@integration-tests -Dintegration.test.args="test_maven_plugin.py" -Dgradle.java.home=...
+mvn install exec:java@integration-tests # to view the help
+mvn install exec:java@integration-tests -Dintegration.tests.args="test_maven_plugin.py" -Dgradle.java.home=...
 ```
 
 The integration tests are driven by Python and implemented using unittest framework, which is
@@ -78,7 +79,7 @@ published in Mavencentral or some snapshot repository configured in Maven settin
 
 The whole execution of the tests is wrapped in Maven goal `exec:java@integration-tests`, which passes
 some necessary arguments to the test driver Python script. One can pass additional arguments for the
-unittest framework using system property `integration.test.args`, for example, tests to execute or
+unittest framework using system property `integration.tests.args`, for example, tests to execute or
 verbosity level.
 
 

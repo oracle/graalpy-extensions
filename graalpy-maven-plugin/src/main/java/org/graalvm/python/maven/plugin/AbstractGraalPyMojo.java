@@ -293,16 +293,25 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 
 	private static Artifact getGraalPyArtifact(MavenProject project) throws IOException {
 		var projectArtifacts = resolveProjectDependencies(project);
-		Artifact graalPyArtifact = projectArtifacts.stream().filter(a -> isPythonArtifact(a)).findFirst().orElse(null);
+		Artifact graalPyArtifact = projectArtifacts.stream().filter(AbstractGraalPyMojo::isPythonArtifact)
+                .findFirst()
+				.orElse(null);
 		return Optional.ofNullable(graalPyArtifact).orElseThrow(() -> new IOException(
 				"Missing GraalPy dependency. Please add to your pom either %s:%s or %s:%s".formatted(POLYGLOT_GROUP_ID,
-						PYTHON_COMMUNITY_ARTIFACT_ID, POLYGLOT_GROUP_ID, PYTHON_ARTIFACT_ID)));
+                        PYTHON_ARTIFACT_ID, GRAALPY_GROUP_ID, PYTHON_ARTIFACT_ID)));
 	}
 
 	private static boolean isPythonArtifact(Artifact a) {
-		return (POLYGLOT_GROUP_ID.equals(a.getGroupId()) || GRAALPY_GROUP_ID.equals(a.getGroupId()))
-				&& (PYTHON_COMMUNITY_ARTIFACT_ID.equals(a.getArtifactId())
-						|| PYTHON_ARTIFACT_ID.equals(a.getArtifactId()));
+		return isPythonOrPolyglotGroup(a) && (PYTHON_COMMUNITY_ARTIFACT_ID.equals(a.getArtifactId())
+				|| PYTHON_ARTIFACT_ID.equals(a.getArtifactId()));
+	}
+
+	private static boolean isPythonCommunityArtifact(Artifact a) {
+		return isPythonOrPolyglotGroup(a) && (PYTHON_COMMUNITY_ARTIFACT_ID.equals(a.getArtifactId()));
+	}
+
+	private static boolean isPythonOrPolyglotGroup(Artifact a) {
+		return POLYGLOT_GROUP_ID.equals(a.getGroupId()) || GRAALPY_GROUP_ID.equals(a.getGroupId());
 	}
 
 	private static Collection<Artifact> resolveProjectDependencies(MavenProject project) {
@@ -329,6 +338,15 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 			launcherClassPath.add(graalPyLauncherArtifact.getFile().getAbsolutePath());
 			// and transitively all its dependencies
 			launcherClassPath.addAll(resolveDependencies(graalPyLauncherArtifact));
+
+            // check for deprecated python-community
+            var projectArtifacts = resolveProjectDependencies(project);
+            Optional<Artifact> community = projectArtifacts.stream().filter(AbstractGraalPyMojo::isPythonCommunityArtifact).findFirst();
+            if (community.isPresent()) {
+                getLog().warn("Deprecated artifact detected on classpath: " + community.get().getGroupId() + ":"
+                        + community.get().getArtifactId() + ". Please use '" + POLYGLOT_GROUP_ID + ":"
+                        + PYTHON_ARTIFACT_ID + "' instead.");
+            }
 
 			// 2.) graalpy dependencies
 			Artifact graalPyArtifact = getGraalPyArtifact(project);
