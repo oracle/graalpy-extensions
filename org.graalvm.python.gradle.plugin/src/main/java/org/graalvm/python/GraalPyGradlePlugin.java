@@ -133,6 +133,11 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 						"WARNING: Property 'polyglotVersion' is experimental and should be used only for testing pre-release versions.");
 			}
 
+			if (extension.getCommunity().convention(false).get()) {
+				proj.getLogger().warn(
+						"WARNING: 'python-community' is deprecated. The plugin defaults to 'python'. Support for 'python-community' may be removed in a future release.");
+			}
+
 			if (extension.getPythonResourcesDirectory().isPresent() && extension.getExternalDirectory().isPresent()) {
 				throw new GradleException(
 						"Cannot set both 'externalDirectory' and 'resourceDirectory' at the same time. "
@@ -324,18 +329,23 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 					boolean hasOracleEdition = false;
 					for (Dependency dep : deps) {
 						if (dep instanceof ExternalModuleDependency emd) {
-							if (GRAALPY_GROUP_ID.equals(emd.getModule().getGroup())) {
-								hasCommunityEdition |= PYTHON_COMMUNITY_ARTIFACT_ID.equals(emd.getModule().getName());
-								hasOracleEdition |= PYTHON_ARTIFACT_ID.equals(emd.getModule().getName());
+							String group = emd.getModule().getGroup();
+							String name = emd.getModule().getName();
+							if (GRAALPY_GROUP_ID.equals(group) || POLYGLOT_GROUP_ID.equals(group)) {
+								hasCommunityEdition |= PYTHON_COMMUNITY_ARTIFACT_ID.equals(name);
+								hasOracleEdition |= PYTHON_ARTIFACT_ID.equals(name);
 							}
 						}
 					}
 					if (hasCommunityEdition && hasOracleEdition) {
 						throw new GradleException(
-								"You have both 'org.graalvm.python:python' and 'org.graalvm.python:python-community' on the classpath. "
-										+ "This is likely due to an explicit dependency added, or duplicate dependencies. You may configure "
-										+ "the GraalPy plugin to inject the 'python-community' artifact by using the graalPy { community = true } "
+								"You have both 'org.graalvm.python:python' (or 'org.graalvm.polyglot:python') and 'org.graalvm.python:python-community' (or 'org.graalvm.polyglot:python-community') on the classpath. "
+										+ "The 'python-community' artifact is deprecated. Ensure only one edition is present. You may configure "
+										+ "the GraalPy plugin to inject the deprecated 'python-community' artifact by using the graalPy { community = true } "
 										+ "configuration block instead.");
+					} else if (hasCommunityEdition && !hasOracleEdition) {
+						org.gradle.api.logging.Logging.getLogger(GraalPyGradlePlugin.class).warn(
+								"WARNING: 'python-community' is deprecated. Please depend on 'org.graalvm.python:python' or 'org.graalvm.polyglot:python' instead.");
 					}
 				});
 	}

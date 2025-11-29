@@ -293,10 +293,15 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 
 	private static Artifact getGraalPyArtifact(MavenProject project) throws IOException {
 		var projectArtifacts = resolveProjectDependencies(project);
-		Artifact graalPyArtifact = projectArtifacts.stream().filter(a -> isPythonArtifact(a)).findFirst().orElse(null);
-		return Optional.ofNullable(graalPyArtifact).orElseThrow(() -> new IOException(
-				"Missing GraalPy dependency. Please add to your pom either %s:%s or %s:%s".formatted(POLYGLOT_GROUP_ID,
-						PYTHON_COMMUNITY_ARTIFACT_ID, POLYGLOT_GROUP_ID, PYTHON_ARTIFACT_ID)));
+		Artifact graalPyArtifact = projectArtifacts.stream()
+				.filter(a -> (POLYGLOT_GROUP_ID.equals(a.getGroupId()) || GRAALPY_GROUP_ID.equals(a.getGroupId())))
+				.filter(a -> PYTHON_ARTIFACT_ID.equals(a.getArtifactId())).findFirst()
+				.orElse(projectArtifacts.stream().filter(
+						a -> (POLYGLOT_GROUP_ID.equals(a.getGroupId()) || GRAALPY_GROUP_ID.equals(a.getGroupId())))
+						.filter(a -> PYTHON_COMMUNITY_ARTIFACT_ID.equals(a.getArtifactId())).findFirst().orElse(null));
+		return Optional.ofNullable(graalPyArtifact)
+				.orElseThrow(() -> new IOException("Missing GraalPy dependency. Please add to your pom %s:%s"
+						.formatted(POLYGLOT_GROUP_ID, PYTHON_ARTIFACT_ID)));
 	}
 
 	private static boolean isPythonArtifact(Artifact a) {
@@ -333,6 +338,11 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 			// 2.) graalpy dependencies
 			Artifact graalPyArtifact = getGraalPyArtifact(project);
 			assert graalPyArtifact != null;
+			if (PYTHON_COMMUNITY_ARTIFACT_ID.equals(graalPyArtifact.getArtifactId())) {
+				getLog().warn("Deprecated artifact detected on classpath: " + graalPyArtifact.getGroupId() + ":"
+						+ graalPyArtifact.getArtifactId() + ". Please use '" + POLYGLOT_GROUP_ID + ":"
+						+ PYTHON_ARTIFACT_ID + "' instead.");
+			}
 			launcherClassPath.addAll(resolveDependencies(graalPyArtifact));
 		}
 		return launcherClassPath;
