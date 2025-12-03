@@ -578,6 +578,7 @@ public final class VFSUtils {
         Objects.requireNonNull(packages);
         log.info("Using inline <packages> dependency mode.");
 
+        validatePackagesOrLockFile(packages, lockFilePath);
         logVenvArgs(venvDirectory, packages, lockFilePath, launcher, graalPyVersion, log);
 
         List<String> pluginPackages = trim(packages);
@@ -683,7 +684,19 @@ public final class VFSUtils {
 		}
 	}
 
-	private static void logVenvArgs(Path venvDirectory, List<String> packages, Path lockFile, Launcher launcherArgs,
+    private static void validatePackagesOrLockFile(List<String> packages, Path lockFilePath) {
+        boolean hasPackages = packages != null && !packages.isEmpty();
+        boolean hasLockFile = lockFilePath != null;
+
+        if (hasPackages == hasLockFile) {
+            throw new IllegalArgumentException(
+                    "Invalid configuration: <packages> and lock-file cannot be used together. Provide exactly one."
+            );
+        }
+    }
+
+
+    private static void logVenvArgs(Path venvDirectory, List<String> packages, Path lockFile, Launcher launcherArgs,
 			String graalPyVersion, BuildToolLog log) throws IOException {
 		if (log.isDebugEnabled()) {
 			// avoid computing classpath if not necessary

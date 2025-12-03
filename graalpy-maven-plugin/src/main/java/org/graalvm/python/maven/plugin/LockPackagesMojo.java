@@ -82,7 +82,7 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
                   </configuration>
                 </plugin>
             
-              Option 2: Use a pip-compatible requirements file:
+              Option 2: Use a pip-compatible requirements.txt file:
             
                 <plugin>
                   <groupId>org.graalvm.python</groupId>
@@ -93,12 +93,16 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
                   </configuration>
                 </plugin>
             
-            NOTE:
-              • The <configuration> section must be declared on the graalpy-maven-plugin itself,
-                not inside the process-graalpy-resources execution goal.
+            IMPORTANT:
+              • The requirementsFile workflow follows pip's native behavior.
+              • GraalPy lock files are NOT used or generated when requirementsFile is specified.
+              • The 'lock-packages' goal is NOT supported with <requirementsFile>.
+              • Users are expected to manage locking / freezing themselves using pip conventions (e.g., pip freeze).
               • Do not define both <packages> and <requirementsFile> at the same time.
+              • The <configuration> section must be declared on the graalpy-maven-plugin itself,
+                not inside a specific execution.
             
-            For more information, please refer to:
+            For more details, see:
             https://github.com/oracle/graalpython/blob/master/docs/user/Embedding-Build-Tools.md
             """;
 
