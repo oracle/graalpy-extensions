@@ -216,7 +216,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		}
 	}
 
-    protected Path resolveReqFile() {
+    protected Path resolveReqFile() throws MojoExecutionException {
         if (requirementsFile == null || requirementsFile.isBlank()) {
             return null;
         }
@@ -226,16 +226,14 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
                 ? path
                 : project.getBasedir().toPath().resolve(path).normalize();
 
-        if (Files.exists(finalPath)) {
-            return finalPath;
+        if (!Files.exists(finalPath)) {
+            throw new MojoExecutionException(
+                    "The configured requirementsFile does not exist: " + finalPath
+                            + "\nPlease provide a valid path to a pip-compatible requirements file."
+            );
         }
 
-        Path defaultReq = project.getBasedir().toPath().resolve("requirements.txt").normalize();
-        if (Files.exists(defaultReq)) {
-            return defaultReq;
-        }
-
-        return null;
+        return finalPath;
     }
 
     protected void postExec() throws MojoExecutionException {

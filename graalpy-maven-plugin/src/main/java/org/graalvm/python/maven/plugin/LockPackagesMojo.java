@@ -139,7 +139,10 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
         Path reqFilePath = resolveReqFile();
         boolean emptyPackages = packages == null || packages.isEmpty();
         boolean requirementsExists = reqFilePath != null;
-        if (emptyPackages && !requirementsExists) {
+        // Disallow lock-packages when no packages OR when requirementsFile is used
+        if (emptyPackages || requirementsExists) {
+            getLog().error("");
+            getLog().error("Missing Python dependency configuration.");
             getLog().error("");
             getLog().error(MISSING_DEPENDENCY_CONFIGURATION_ERROR);
             getLog().error("");

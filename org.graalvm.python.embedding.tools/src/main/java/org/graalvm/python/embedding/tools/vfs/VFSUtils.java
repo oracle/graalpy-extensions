@@ -560,9 +560,11 @@ public final class VFSUtils {
             log.warning("Lock file is ignored in <requirements.txt> mode.");
             log.warning("The 'lock-packages' goal should not be used together with <requirementsFile>.");
 
-            ensureVenv(venvDirectory, graalPyVersion, launcher, log);
+            VenvContents vc = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
 
             runPip(venvDirectory, "install", log, "--compile", "-r", reqFile.toString());
+            List<String> reqPackages = requirementsPackages(reqFile);
+            vc.write(reqPackages);
 
             InstalledPackages installed = InstalledPackages.fromVenv(venvDirectory);
             installed.freeze(log);
@@ -578,7 +580,6 @@ public final class VFSUtils {
         Objects.requireNonNull(packages);
         log.info("Using inline <packages> dependency mode.");
 
-        validatePackagesOrLockFile(packages, lockFilePath);
         logVenvArgs(venvDirectory, packages, lockFilePath, launcher, graalPyVersion, log);
 
         List<String> pluginPackages = trim(packages);
@@ -683,18 +684,6 @@ public final class VFSUtils {
 			warning(log, "did not generate new python lock file due to missing python virtual environment");
 		}
 	}
-
-    private static void validatePackagesOrLockFile(List<String> packages, Path lockFilePath) {
-        boolean hasPackages = packages != null && !packages.isEmpty();
-        boolean hasLockFile = lockFilePath != null;
-
-        if (hasPackages == hasLockFile) {
-            throw new IllegalArgumentException(
-                    "Invalid configuration: <packages> and lock-file cannot be used together. Provide exactly one."
-            );
-        }
-    }
-
 
     private static void logVenvArgs(Path venvDirectory, List<String> packages, Path lockFile, Launcher launcherArgs,
 			String graalPyVersion, BuildToolLog log) throws IOException {
@@ -1019,7 +1008,7 @@ public final class VFSUtils {
 			throw new IOException(String.format("failed to execute pip %s", List.of(args)), e);
 		}
 	}
-
+    @SuppressWarnings("SameParameterValue")
 	private static void runVenvBin(Path venvDirectory, String bin, BuildToolLog log, String... args)
 			throws IOException {
 		try {
@@ -1029,10 +1018,12 @@ public final class VFSUtils {
 		}
 	}
 
-	private static List<String> trim(List<String> l) {
+    private static List<String> trim(List<String> l) {
 		Iterator<String> it = l.iterator();
-        for (String s : l) {
-            if (s == null || s.trim().isEmpty()) {
+        // noinspection Java8CollectionRemoveIf
+        while (it.hasNext()) {
+            String p = it.next();
+            if (p == null || p.trim().isEmpty()) {
                 it.remove();
             }
         }
@@ -1050,9 +1041,10 @@ public final class VFSUtils {
 		}
 	}
 
-	private static void lifecycle(BuildToolLog log, Object... args) {
+    @SuppressWarnings("SameParameterValue")
+    private static void lifecycle(BuildToolLog log, String txt, Object... args) {
 		if (log.isLifecycleEnabled()) {
-			log.lifecycle(String.format("Created GraalPy lock file: %s", args));
+            log.lifecycle(String.format(txt, args));
 		}
 	}
 
