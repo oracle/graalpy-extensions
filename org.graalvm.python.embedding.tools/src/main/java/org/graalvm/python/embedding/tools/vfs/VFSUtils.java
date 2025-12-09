@@ -557,8 +557,8 @@ public final class VFSUtils {
         if (reqFile != null) {
             log.info("Using <requirements.txt> dependency mode.");
             log.info("Installing Python dependencies from: " + reqFile);
-            log.warning("Lock file is ignored in <requirements.txt> mode.");
-            log.warning("The 'lock-packages' goal should not be used together with <requirementsFile>.");
+
+            warnIfLockFileExists(venvDirectory,log);
 
             VenvContents vc = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
 
@@ -573,6 +573,14 @@ public final class VFSUtils {
         }
         return false;
     }
+
+    private static void warnIfLockFileExists(Path venvDirectory, BuildToolLog log) {
+        Path lockFile = venvDirectory.resolve("graalpy.lock");
+        if (Files.exists(lockFile)) {
+            log.warning("Lock file is ignored in <requirements.txt> mode.");
+        }
+    }
+
 
     static void installPackages(Path venvDirectory, List<String> packages, Path lockFilePath,
             String missingLockFileWarning, Launcher launcher, String graalPyVersion,

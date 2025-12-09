@@ -848,7 +848,7 @@ class MavenPluginTest(util.BuildToolTestBase):
         requirements_txt = os.path.join(target_dir, "requirements.txt")
         if not os.path.exists(requirements_txt):
           with open(requirements_txt, "w", encoding="utf-8") as f:
-            f.write("pyfiglet==1.0.2\n")
+            f.write("termcolor==2.4.0\n")
 
         mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
 
@@ -858,7 +858,17 @@ class MavenPluginTest(util.BuildToolTestBase):
         assert return_code == 0
 
         lock_file = os.path.join(target_dir, "graalpy.lock")
-        assert not os.path.exists(lock_file)
+        assert not os.path.exists(lock_file), "lock-file must NOT exist for requirements.txt mode"
+        cmd = mvnw_cmd + ["package", "-DmainClass=it.pkg.GraalPy"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+        cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("hello java", out)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
 
 
 if __name__ == "__main__":
