@@ -328,7 +328,7 @@ public class VFSUtilsTest {
 
 		List<String> lockFileList;
 
-        // bogus graalPyVersion line
+		// bogus graalPyVersion line
 		int graalpyVersionLineIdx = LOCK_FILE_HEADER.split("\n").length;
 		lockFileList = new ArrayList<>(validLockFileHeader);
 		lockFileList.set(graalpyVersionLineIdx, "test");
@@ -593,27 +593,40 @@ public class VFSUtilsTest {
 		deleteDirOnShutdown(tmpDir);
 
 		assertFalse(callPackageRemoved(Collections.emptyList(), Collections.emptyList(), Collections.emptyList()));
-		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.emptyList(), Collections.emptyList()));
-		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.emptyList(),
+				Collections.emptyList()));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Arrays.asList("pkg1", "pkg2"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 
-		assertFalse(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1=="), Collections.singletonList("pkg1==1")));
-		assertFalse(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("==pkg1"), Collections.singletonList("pkg1==1")));
-		assertFalse(callPackageRemoved(Collections.singletonList("pkg1==1"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
-		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1=="),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("==pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1==1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 
-		assertTrue(callPackageRemoved(Collections.emptyList(), Collections.singletonList("pkg"), Collections.singletonList("pkg==1")));
-		assertTrue(callPackageRemoved(Collections.singletonList("pkg2"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.emptyList(), Collections.singletonList("pkg"),
+				Collections.singletonList("pkg==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg2"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 		assertTrue(callPackageRemoved(Collections.singletonList("pkg1"), Arrays.asList("pkg1", "pkg2"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 
-		assertTrue(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1=="), Collections.singletonList("pkg1==1")));
-		assertTrue(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
-		assertTrue(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("pkg1"), Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1=="),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 
-		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Collections.singletonList("pkg1==1"), Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Collections.singletonList("pkg1==1"),
+				Collections.singletonList("pkg1==1")));
 		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Arrays.asList("pkg1==1", "pkg2==1"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Arrays.asList("pkg1", "pkg2"),

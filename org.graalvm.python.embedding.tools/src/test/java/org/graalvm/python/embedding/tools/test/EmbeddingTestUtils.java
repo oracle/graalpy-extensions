@@ -71,7 +71,7 @@ public final class EmbeddingTestUtils {
 			Launcher launcher = createLauncher(venvDir);
 			if (lockFile != null) {
 				VFSUtils.createVenv(venvDir, Arrays.asList(packages), lockFile, missingLockFileWarning, launcher,
-						graalPyVersion, log,null);
+						graalPyVersion, log, null);
 			} else {
 				VFSUtils.createVenv(venvDir, Arrays.asList(packages), launcher, graalPyVersion, log);
 			}

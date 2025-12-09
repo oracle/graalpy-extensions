@@ -64,50 +64,49 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 			This file contains a list of all required Python packages with their specific versions,
 			based on the packages defined in the plugin configuration and their dependencies.
 			""";
-    public static final String MISSING_DEPENDENCY_CONFIGURATION_ERROR = """
-            In order to run the lock-packages goal you must declare Python dependencies in the graalpy-maven-plugin configuration.
-            
-            You must configure Python dependencies in one of the following ways:
-            
-              Option 1: Use <packages> with inline versioned package entries:
-            
-                <plugin>
-                  <groupId>org.graalvm.python</groupId>
-                  <artifactId>graalpy-maven-plugin</artifactId>
-                  <configuration>
-                    <packages>
-                      <package>{package_name}=={package_version}</package>
-                    </packages>
-                    ...
-                  </configuration>
-                </plugin>
-            
-              Option 2: Use a pip-compatible requirements.txt file:
-            
-                <plugin>
-                  <groupId>org.graalvm.python</groupId>
-                  <artifactId>graalpy-maven-plugin</artifactId>
-                  <configuration>
-                    <requirementsFile>requirements.txt</requirementsFile>
-                    ...
-                  </configuration>
-                </plugin>
-            
-            IMPORTANT:
-              • The requirementsFile workflow follows pip's native behavior.
-              • GraalPy lock files are NOT used or generated when requirementsFile is specified.
-              • The 'lock-packages' goal is NOT supported with <requirementsFile>.
-              • Users are expected to manage locking / freezing themselves using pip conventions (e.g., pip freeze).
-              • Do not define both <packages> and <requirementsFile> at the same time.
-              • The <configuration> section must be declared on the graalpy-maven-plugin itself,
-                not inside a specific execution.
-            
-            For more details, see:
-            https://github.com/oracle/graalpython/blob/master/docs/user/Embedding-Build-Tools.md
-            """;
+	public static final String MISSING_DEPENDENCY_CONFIGURATION_ERROR = """
+			In order to run the lock-packages goal you must declare Python dependencies in the graalpy-maven-plugin configuration.
 
+			You must configure Python dependencies in one of the following ways:
 
-    @Inject
+			  Option 1: Use <packages> with inline versioned package entries:
+
+			    <plugin>
+			      <groupId>org.graalvm.python</groupId>
+			      <artifactId>graalpy-maven-plugin</artifactId>
+			      <configuration>
+			        <packages>
+			          <package>{package_name}=={package_version}</package>
+			        </packages>
+			        ...
+			      </configuration>
+			    </plugin>
+
+			  Option 2: Use a pip-compatible requirements.txt file:
+
+			    <plugin>
+			      <groupId>org.graalvm.python</groupId>
+			      <artifactId>graalpy-maven-plugin</artifactId>
+			      <configuration>
+			        <requirementsFile>requirements.txt</requirementsFile>
+			        ...
+			      </configuration>
+			    </plugin>
+
+			IMPORTANT:
+			  • The requirementsFile workflow follows pip's native behavior.
+			  • GraalPy lock files are NOT used or generated when requirementsFile is specified.
+			  • The 'lock-packages' goal is NOT supported with <requirementsFile>.
+			  • Users are expected to manage locking / freezing themselves using pip conventions (e.g., pip freeze).
+			  • Do not define both <packages> and <requirementsFile> at the same time.
+			  • The <configuration> section must be declared on the graalpy-maven-plugin itself,
+			    not inside a specific execution.
+
+			For more details, see:
+			https://github.com/oracle/graalpython/blob/master/docs/user/Embedding-Build-Tools.md
+			""";
+
+	@Inject
 	public LockPackagesMojo(ProjectBuilder projectBuilder) {
 		super(projectBuilder);
 	}
@@ -135,18 +134,18 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 		}
 	}
 
-    private void checkEmptyPackages() throws MojoExecutionException {
-        Path reqFilePath = resolveReqFile();
-        boolean emptyPackages = packages == null || packages.isEmpty();
-        boolean requirementsExists = reqFilePath != null;
-        // Disallow lock-packages when no packages OR when requirementsFile is used
-        if (emptyPackages || requirementsExists) {
-            getLog().error("");
-            getLog().error("Missing Python dependency configuration.");
-            getLog().error("");
-            getLog().error(MISSING_DEPENDENCY_CONFIGURATION_ERROR);
-            getLog().error("");
-            throw new MojoExecutionException("Missing Python dependency configuration.");
-        }
-    }
+	private void checkEmptyPackages() throws MojoExecutionException {
+		Path reqFilePath = resolveReqFile();
+		boolean emptyPackages = packages == null || packages.isEmpty();
+		boolean requirementsExists = reqFilePath != null;
+		// Disallow lock-packages when no packages OR when requirementsFile is used
+		if (emptyPackages || requirementsExists) {
+			getLog().error("");
+			getLog().error("Missing Python dependency configuration.");
+			getLog().error("");
+			getLog().error(MISSING_DEPENDENCY_CONFIGURATION_ERROR);
+			getLog().error("");
+			throw new MojoExecutionException("Missing Python dependency configuration.");
+		}
+	}
 }

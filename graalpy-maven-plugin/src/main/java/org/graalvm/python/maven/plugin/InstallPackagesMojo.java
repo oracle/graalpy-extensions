@@ -99,7 +99,7 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 		Path venvDirectory = getVenvDirectory();
 		MavenDelegateLog log = new MavenDelegateLog(getLog());
 		Path lockFile = getLockFile();
-        Path reqFile = resolveReqFile();
+		Path reqFile = resolveReqFile();
 		try {
 			VFSUtils.createVenv(venvDirectory, packages, lockFile, MISSING_LOCK_FILE_WARNING, createLauncher(),
 					getGraalPyVersion(project), log, reqFile);
