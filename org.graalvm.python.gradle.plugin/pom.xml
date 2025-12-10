@@ -133,6 +133,7 @@ SOFTWARE.
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                 <argument>-Pversion=${revision}</argument>
                 <argument>-Ppolyglot.version=${project.polyglot.version}</argument>
+                <argument>-PlocalRepoUrl=${local.repo.url}</argument>
                 <argument>build</argument>
               </arguments>
             </configuration>
@@ -150,6 +151,7 @@ SOFTWARE.
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                 <argument>-Pversion=${revision}</argument>
                 <argument>-Ppolyglot.version=${project.polyglot.version}</argument>
+                <argument>-PlocalRepoUrl=${local.repo.url}</argument>
                 <argument>clean</argument>
               </arguments>
             </configuration>
@@ -167,6 +169,7 @@ SOFTWARE.
                 <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                 <argument>-Pversion=${revision}</argument>
                 <argument>-Ppolyglot.version=${project.polyglot.version}</argument>
+                <argument>-PlocalRepoUrl=${local.repo.url}</argument>
                 <argument>publishToMavenLocal</argument>
               </arguments>
             </configuration>
@@ -184,6 +187,7 @@ SOFTWARE.
                   <argument>-Dorg.gradle.java.home=${gradle.java.home}</argument>
                   <argument>-Pversion=${revision}</argument>
                   <argument>-Ppolyglot.version=${project.polyglot.version}</argument>
+                  <argument>-PlocalRepoUrl=${local.repo.url}</argument>
                   <argument>-PaltDeploymentRepository=${altDeploymentRepository}</argument>
                   <argument>publish</argument>
               </arguments>

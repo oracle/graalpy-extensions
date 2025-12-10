@@ -15,6 +15,14 @@ def polyglotVersion = project.properties.getOrDefault('polyglot.version', versio
 repositories {
     mavenLocal()
     mavenCentral()
+    if (project.hasProperty('localRepoUrl')) {
+        def path = project.localRepoUrl?.trim()
+        if (path) {
+            maven {
+                url uri(project.localRepoUrl)
+            }
+        }
+    }
 }
 
 gradlePlugin {
