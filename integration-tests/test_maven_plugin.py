@@ -784,7 +784,6 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code != 0
 
 
-
     def test_multiple_namespaced_vfs(self):
         if not util.native_image_all():
             self.skipTest("native-image tests disabled")
@@ -877,6 +876,24 @@ class MavenPluginTest(util.BuildToolTestBase):
         util.check_ouput("hello java", out)
         util.check_ouput("BUILD SUCCESS", out)
         assert return_code == 0
+
+
+    def test_packages_trimming(self):
+        with util.TemporaryTestDirectory() as tmpdir:
+            target_name = "packages_trimming_test"
+            target_dir = os.path.join(str(tmpdir), target_name)
+            self.generate_app(tmpdir, target_dir, target_name)
+
+            pom = os.path.join(target_dir, "pom.xml")
+            # Add empty and whitespace entries around the valid package
+            util.replace_in_file(pom, "</packages>", "<package></package><package> </package></packages>")
+
+            mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
+            out, return_code = util.run_cmd(mvnw_cmd + ["process-resources"], self.env, cwd=target_dir)
+            util.check_ouput("BUILD SUCCESS", out)
+            # Sanity: ensure install was attempted from inline packages
+            util.check_ouput("pip install", out)
+            assert return_code == 0
 
 
 if __name__ == "__main__":
