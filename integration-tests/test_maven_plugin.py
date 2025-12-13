@@ -279,6 +279,7 @@ class MavenPluginTest(util.BuildToolTestBase):
 
 
     @util.skip_on_windows("ujson installation broken on Windows")
+    @util.skip_on_macos("native-image execution exceeds CI time limits on macOS")
     def test_generated_app(self):
         self.check_generated_app(use_default_vfs_path=False)
 

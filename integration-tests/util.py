@@ -74,6 +74,9 @@ def long_running_test(func):
 def skip_on_windows(justification):
     return unittest.skipIf(sys.platform.startswith("win"), "skipped on Windows: " + justification)
 
+def skip_on_macos(justification):
+    return unittest.skipIf(sys.platform == "darwin", "skipped on macOS: " + justification)
+
 class TemporaryTestDirectory():
     def __init__(self):
         if no_clean:
