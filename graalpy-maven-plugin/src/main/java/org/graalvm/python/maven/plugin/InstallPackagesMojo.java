@@ -40,6 +40,7 @@
  */
 package org.graalvm.python.maven.plugin;
 
+import java.nio.file.Files;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -100,6 +101,18 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 		MavenDelegateLog log = new MavenDelegateLog(getLog());
 		Path lockFile = getLockFile();
 		Path reqFile = resolveReqFile();
+
+		boolean emptyPackages = packages == null || packages.isEmpty();
+		boolean hasReqFile = reqFile != null && Files.exists(reqFile);
+		boolean hasLockFile = lockFile != null && Files.exists(lockFile);
+
+		if (emptyPackages && !hasReqFile) {
+			if (hasLockFile) {
+				throw new MojoExecutionException(
+						"Lock file is present, but no Python packages or requirements.txt are configured.");
+			}
+			return;
+		}
 		try {
 			VFSUtils.createVenv(venvDirectory, packages, lockFile, MISSING_LOCK_FILE_WARNING, createLauncher(),
 					getGraalPyVersion(project), log, reqFile);

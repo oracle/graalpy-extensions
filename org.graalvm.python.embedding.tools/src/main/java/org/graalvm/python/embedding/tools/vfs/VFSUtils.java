@@ -543,7 +543,7 @@ public final class VFSUtils {
 		Objects.requireNonNull(graalPyVersion);
 		Objects.requireNonNull(log);
 
-		if (installPackagesFromReqFile(venvDirectory, launcher, graalPyVersion, log, reqFile)) {
+		if (installPackagesFromReqFile(venvDirectory, launcher, graalPyVersion, log, lockFilePath, reqFile)) {
 			return;
 		}
 
@@ -551,30 +551,35 @@ public final class VFSUtils {
 	}
 
 	static boolean installPackagesFromReqFile(Path venvDirectory, Launcher launcher, String graalPyVersion,
-			BuildToolLog log, Path reqFile) throws IOException {
-		if (reqFile != null) {
-			log.info("Using <requirements.txt> dependency mode.");
-			log.info("Installing Python dependencies from: " + reqFile);
-
-			warnIfLockFileExists(venvDirectory, log);
-
-			VenvContents vc = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
-
-			runPip(venvDirectory, "install", log, "--compile", "-r", reqFile.toString());
-			List<String> reqPackages = requirementsPackages(reqFile);
-			vc.write(reqPackages);
-
-			InstalledPackages installed = InstalledPackages.fromVenv(venvDirectory);
-			installed.freeze(log);
-
-			return true;
+			BuildToolLog log, Path lockFilePath, Path reqFile) throws IOException {
+		if (reqFile == null) {
+			return false;
 		}
-		return false;
+		if (!Files.exists(reqFile)) {
+			return false;
+		}
+		log.info("Using <requirements.txt> dependency mode.");
+		log.info("Installing Python dependencies from: " + reqFile);
+
+		warnIfLockFileExists(lockFilePath, log);
+
+		VenvContents vc = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
+
+		runPip(venvDirectory, "install", log, "--compile", "-r", reqFile.toString());
+		List<String> reqPackages = requirementsPackages(reqFile);
+		vc.write(reqPackages);
+
+		InstalledPackages installed = InstalledPackages.fromVenv(venvDirectory);
+		installed.freeze(log);
+
+		return true;
 	}
 
-	private static void warnIfLockFileExists(Path venvDirectory, BuildToolLog log) {
-		Path lockFile = venvDirectory.resolve("graalpy.lock");
-		if (Files.exists(lockFile)) {
+	private static void warnIfLockFileExists(Path lockFilePath, BuildToolLog log) {
+		if (lockFilePath == null) {
+			return;
+		}
+		if (Files.exists(lockFilePath)) {
 			log.warning("Lock file is ignored in <requirements.txt> mode.");
 		}
 	}
@@ -589,7 +594,7 @@ public final class VFSUtils {
 
 		List<String> pluginPackages = trim(packages);
 
-		LockFile lockFile = null;
+		VFSUtils.LockFile lockFile = null;
 		if (lockFilePath != null && Files.exists(lockFilePath)) {
 			log.info("Lock-file detected: " + lockFilePath);
 			lockFile = LockFile.fromFile(lockFilePath, log);

@@ -65,7 +65,7 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 			based on the packages defined in the plugin configuration and their dependencies.
 			""";
 	public static final String MISSING_DEPENDENCY_CONFIGURATION_ERROR = """
-			In order to run the lock-packages goal you must declare Python dependencies in the graalpy-maven-plugin configuration.
+			In order to run the lock-packages goal there have to be python packages declared in the graalpy-maven-plugin configuration.
 
 			You must configure Python dependencies in one of the following ways:
 
@@ -141,11 +141,10 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 		// Disallow lock-packages when no packages OR when requirementsFile is used
 		if (emptyPackages || requirementsExists) {
 			getLog().error("");
-			getLog().error("Missing Python dependency configuration.");
-			getLog().error("");
 			getLog().error(MISSING_DEPENDENCY_CONFIGURATION_ERROR);
 			getLog().error("");
-			throw new MojoExecutionException("Missing Python dependency configuration.");
+			throw new MojoExecutionException("In order to run the lock-packages goal there have to be python packages "
+					+ "declared in the graalpy-maven-plugin configuration");
 		}
 	}
 }
