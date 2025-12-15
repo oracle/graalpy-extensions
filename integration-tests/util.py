@@ -60,10 +60,17 @@ no_clean = False
 native_image_mode = "all"
 extra_maven_repos = []
 
+def _native_image_allowed_on_platform():
+    return sys.platform != "darwin"
+
 def native_image_all():
+    if not _native_image_allowed_on_platform():
+        return False
     return native_image_mode == "all"
 
 def native_image_smoke():
+    if not _native_image_allowed_on_platform():
+        return False
     return native_image_mode in ("all", "smoke")
 
 gradle_java_home = os.environ['JAVA_HOME']
@@ -73,9 +80,6 @@ def long_running_test(func):
 
 def skip_on_windows(justification):
     return unittest.skipIf(sys.platform.startswith("win"), "skipped on Windows: " + justification)
-
-def skip_on_macos(justification):
-    return unittest.skipIf(sys.platform == "darwin", "skipped on macOS: " + justification)
 
 class TemporaryTestDirectory():
     def __init__(self):

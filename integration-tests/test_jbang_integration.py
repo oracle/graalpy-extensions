@@ -210,7 +210,6 @@ class TestJBangIntegration(unittest.TestCase):
         self.assertIn("Successfully installed termcolor", out)
         self.assertIn("hello java", out)
 
-    @util.skip_on_macos("JBang native-image is unstable on macOS CI")
     def test_hello_example(self):
         work_dir = self.tmpdir
         hello_java_file = self.prepare_hello_example(work_dir)
