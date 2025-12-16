@@ -60,10 +60,17 @@ no_clean = False
 native_image_mode = "all"
 extra_maven_repos = []
 
+def _native_image_allowed_on_platform():
+    return sys.platform != "darwin"
+
 def native_image_all():
+    if not _native_image_allowed_on_platform():
+        return False
     return native_image_mode == "all"
 
 def native_image_smoke():
+    if not _native_image_allowed_on_platform():
+        return False
     return native_image_mode in ("all", "smoke")
 
 gradle_java_home = os.environ['JAVA_HOME']

@@ -40,12 +40,14 @@
  */
 package org.graalvm.python.maven.plugin;
 
+import java.nio.file.Files;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.ProjectBuilder;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
+import org.graalvm.python.embedding.tools.vfs.VFSUtils.Launcher;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils.PackagesChangedException;
 
 import javax.inject.Inject;
@@ -98,9 +100,22 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 		Path venvDirectory = getVenvDirectory();
 		MavenDelegateLog log = new MavenDelegateLog(getLog());
 		Path lockFile = getLockFile();
+		Path reqFile = resolveReqFile();
+
+		boolean emptyPackages = packages == null || packages.isEmpty();
+		boolean hasReqFile = reqFile != null && Files.exists(reqFile);
+		boolean hasLockFile = lockFile != null && Files.exists(lockFile);
+
+		if (emptyPackages && !hasReqFile) {
+			if (hasLockFile) {
+				throw new MojoExecutionException(
+						"Lock file is present, but no Python packages or requirements.txt are configured.");
+			}
+			return;
+		}
 		try {
 			VFSUtils.createVenv(venvDirectory, packages, lockFile, MISSING_LOCK_FILE_WARNING, createLauncher(),
-					getGraalPyVersion(project), log);
+					getGraalPyVersion(project), log, reqFile);
 		} catch (PackagesChangedException pce) {
 			String pluginPkgsString = pce.getPluginPackages().isEmpty()
 					? "None"

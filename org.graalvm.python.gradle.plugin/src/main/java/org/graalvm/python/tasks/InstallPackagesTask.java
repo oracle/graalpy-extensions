@@ -98,7 +98,7 @@ public abstract class InstallPackagesTask extends AbstractPackagesTask {
 		Path lockFilePath = getLockFilePath();
 		try {
 			VFSUtils.createVenv(venvDirectory, getPackages().get(), lockFilePath, MISSING_LOCK_FILE_WARNING,
-					createLauncher(), getPolyglotVersion().get(), getLog());
+					createLauncher(), getPolyglotVersion().get(), getLog(), null);
 		} catch (PackagesChangedException pce) {
 			String pluginPkgsString = pce.getPluginPackages().isEmpty()
 					? "None"

@@ -835,6 +835,42 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code == 0, log
 
 
+    def test_requirements_txt_packages(self):
+      with util.TemporaryTestDirectory() as dir:
+        target_name = "requirements_packages"
+        target_dir = os.path.join(str(dir), target_name)
+        pom_template = os.path.join(
+            os.path.dirname(__file__),
+            "prepare_venv_requirements_pom.xml",
+        )
+        self.generate_app(dir, target_dir, target_name, pom_template)
+
+        requirements_txt = os.path.join(target_dir, "requirements.txt")
+        if not os.path.exists(requirements_txt):
+          with open(requirements_txt, "w", encoding="utf-8") as f:
+            f.write("termcolor==2.4.0\n")
+
+        mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
+
+        cmd = mvnw_cmd + ["process-resources"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+        lock_file = os.path.join(target_dir, "graalpy.lock")
+        assert not os.path.exists(lock_file), "lock-file must NOT exist for requirements.txt mode"
+        cmd = mvnw_cmd + ["package", "-DmainClass=it.pkg.GraalPy"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+        cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
+        out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
+        util.check_ouput("hello java", out)
+        util.check_ouput("BUILD SUCCESS", out)
+        assert return_code == 0
+
+
 if __name__ == "__main__":
     run_path = os.path.join(os.path.abspath(__file__), 'run.py')
     print(f"Run this file using the run.py driver ({run_path})")

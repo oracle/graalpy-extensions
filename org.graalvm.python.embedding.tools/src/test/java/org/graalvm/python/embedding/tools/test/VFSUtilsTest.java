@@ -108,12 +108,12 @@ public class VFSUtilsTest {
 
 		public void subProcessOut(String s) {
 			println("[subout] ", s);
-			addLine(s.toString());
+			addLine(s);
 		}
 
 		public void subProcessErr(String s) {
 			println("[suberr] ", s);
-			addLine(s.toString());
+			addLine(s);
 		}
 
 		public void info(String s) {
@@ -185,7 +185,7 @@ public class VFSUtilsTest {
 
 	/**
 	 * tests scenarios without lock file logic available, but not used
-	 *
+	 * <p>
 	 * - packages declared only in plugin config - lock file path is provided, but
 	 * does not exist
 	 */
@@ -203,7 +203,7 @@ public class VFSUtilsTest {
 		Path lockFile = tmpDir.resolve("lockFile.txt");
 		Path contents = venvDir.resolve("contents");
 
-		// no packages, lock file file does not exist - does nothing
+		// no packages, lock file does not exist - does nothing
 		log.clearOutput();
 		createVenv(venvDir, "0.1", log, lockFile);
 		assertFalse(Files.exists(venvDir));
@@ -324,23 +324,22 @@ public class VFSUtilsTest {
 
 		createWithLockFile(venvDir, lockFile, log);
 
-		List<String> validLockFileHeader = createLockFileHeader("0.1", "pkg");
+		List<String> validLockFileHeader = createLockFileHeader("pkg");
 
 		List<String> lockFileList;
-		int headerLineCount = LOCK_FILE_HEADER.split("\n").length;
 
 		// bogus graalPyVersion line
-		int graalpVersionLineIdx = headerLineCount;
+		int graalpyVersionLineIdx = LOCK_FILE_HEADER.split("\n").length;
 		lockFileList = new ArrayList<>(validLockFileHeader);
-		lockFileList.set(graalpVersionLineIdx, "test");
+		lockFileList.set(graalpyVersionLineIdx, "test");
 		createWithLockFile(venvDir, lockFile, log, lockFileList);
 
 		// empty graalPyVersion line
 		lockFileList = new ArrayList<>(validLockFileHeader);
-		lockFileList.set(graalpVersionLineIdx, GRAALPY_VERSION_PREFIX);
+		lockFileList.set(graalpyVersionLineIdx, GRAALPY_VERSION_PREFIX);
 		createWithLockFile(venvDir, lockFile, log, lockFileList);
 		lockFileList = new ArrayList<>(validLockFileHeader);
-		lockFileList.set(graalpVersionLineIdx, GRAALPY_VERSION_PREFIX + "   ");
+		lockFileList.set(graalpyVersionLineIdx, GRAALPY_VERSION_PREFIX + "   ");
 		createWithLockFile(venvDir, lockFile, log, lockFileList);
 
 		// bogus input packages line
@@ -379,12 +378,12 @@ public class VFSUtilsTest {
 				"0.1", log);
 	}
 
-	private static List<String> createLockFileHeader(String graalPyVersion, String... packages) {
+	private static List<String> createLockFileHeader(String... packages) {
 		List<String> lines = new ArrayList<>();
 		for (String s : LOCK_FILE_HEADER.split("\n")) {
 			lines.add("# " + s);
 		}
-		lines.add(GRAALPY_VERSION_PREFIX + graalPyVersion);
+		lines.add(GRAALPY_VERSION_PREFIX + "0.1");
 		lines.add(INPUT_PACKAGES_PREFIX + String.join(",", packages));
 		return lines;
 	}
@@ -594,30 +593,43 @@ public class VFSUtilsTest {
 		deleteDirOnShutdown(tmpDir);
 
 		assertFalse(callPackageRemoved(Collections.emptyList(), Collections.emptyList(), Collections.emptyList()));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1"), Collections.emptyList(), Collections.emptyList()));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.emptyList(),
+				Collections.emptyList()));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 		assertFalse(callPackageRemoved(Arrays.asList("pkg1", "pkg2"), Arrays.asList("pkg1", "pkg2"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1=="), Arrays.asList("pkg1=="), Arrays.asList("pkg1==1")));
-		assertFalse(callPackageRemoved(Arrays.asList("==pkg1"), Arrays.asList("==pkg1"), Arrays.asList("pkg1==1")));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1==1"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
-		assertFalse(callPackageRemoved(Arrays.asList("pkg1"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1=="),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("==pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1==1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertFalse(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 
-		assertTrue(callPackageRemoved(Collections.emptyList(), Arrays.asList("pkg"), Arrays.asList("pkg==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("pkg2"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1"), Arrays.asList("pkg1", "pkg2"),
+		assertTrue(callPackageRemoved(Collections.emptyList(), Collections.singletonList("pkg"),
+				Collections.singletonList("pkg==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg2"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1"), Arrays.asList("pkg1", "pkg2"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1"), Arrays.asList("pkg1=="), Arrays.asList("pkg1==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1=="), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("==pkg1"), Arrays.asList("pkg1"), Arrays.asList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1"), Collections.singletonList("pkg1=="),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1=="), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("==pkg1"), Collections.singletonList("pkg1"),
+				Collections.singletonList("pkg1==1")));
 
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1==2"), Arrays.asList("pkg1==1"), Arrays.asList("pkg1==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1==2"), Arrays.asList("pkg1==1", "pkg2==1"),
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Collections.singletonList("pkg1==1"),
+				Collections.singletonList("pkg1==1")));
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Arrays.asList("pkg1==1", "pkg2==1"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
-		assertTrue(callPackageRemoved(Arrays.asList("pkg1==2"), Arrays.asList("pkg1", "pkg2"),
+		assertTrue(callPackageRemoved(Collections.singletonList("pkg1==2"), Arrays.asList("pkg1", "pkg2"),
 				Arrays.asList("pkg1==1", "pkg2==1")));
 	}
 
@@ -714,7 +726,7 @@ public class VFSUtilsTest {
 			throws IOException {
 		assertTrue(Files.exists(lockFile));
 		List<String> lines = Files.readAllLines(lockFile);
-		List<String> header = createLockFileHeader("0.1", inputPackages);
+		List<String> header = createLockFileHeader(inputPackages);
 		assertTrue(lines.size() >= header.size());
 		for (int i = 0; i < header.size(); i++) {
 			assertEquals(header.get(i), lines.get(i));
