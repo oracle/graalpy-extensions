@@ -40,6 +40,7 @@
 import os
 import pathlib
 import re
+import glob
 import shutil
 import sys
 import textwrap
@@ -54,6 +55,62 @@ VENV_UPTODATE = "Virtual environment is up to date with lock file, skipping inst
 
 class MavenPluginTest(util.BuildToolTestBase):
     @classmethod
+    def _install_artifact_from_local_repo(cls, base_path, custom_repo, artifact_id, log):
+        jar_dir = os.path.join(
+            base_path,
+            cls.archetypeGroupId.replace(".", os.path.sep),
+            artifact_id,
+            util.graalvmVersion,
+        )
+        # For SNAPSHOT versions, search for timestamped jars using the base version (without '-SNAPSHOT')
+        is_snapshot = util.graalvmVersion.endswith("-SNAPSHOT")
+        base_version = util.graalvmVersion[:-9] if is_snapshot else util.graalvmVersion
+
+        if is_snapshot:
+            # Only match timestamped SNAPSHOT artifacts without classifiers (e.g., exclude '-sources', '-javadoc', etc.)
+            # Expected JAR basename: {artifactId}-{baseVersion}-{yyyyMMdd}.{HHmmss}-{buildNumber}.jar
+            # Example: graalpy-archetype-polyglot-app-25.1.0-20251201.162741-1.jar
+            jar_glob = os.path.join(jar_dir, f"{artifact_id}-{base_version}-*.jar")
+            all_candidates = glob.glob(jar_glob)
+            pattern = re.compile(rf"^{re.escape(artifact_id)}-{re.escape(base_version)}(?P<suffix>-\d{{8}}\.\d{{6}}-\d+)\.jar$")
+            jar_candidates = [p for p in all_candidates if pattern.match(os.path.basename(p))]
+            if not jar_candidates:
+                log.append(f"'{custom_repo}': no timestamped SNAPSHOT jars matching pattern {pattern.pattern} in: {jar_glob}")
+                return False
+            jar = max(jar_candidates, key=os.path.getmtime)
+
+            jar_base = os.path.basename(jar)
+            m = pattern.match(jar_base)
+            suffix = m.group("suffix") if m else ""
+            pom = os.path.join(jar_dir, f"{artifact_id}-{base_version}{suffix}.pom")
+        else:
+            jar = os.path.join(jar_dir, f"{artifact_id}-{util.graalvmVersion}.jar")
+            if not os.path.exists(jar):
+                log.append(f"'{custom_repo}': could not find: {jar}")
+                return False
+            pom = os.path.join(jar_dir, f"{artifact_id}-{util.graalvmVersion}.pom")
+            jar_base = os.path.basename(jar)
+
+        if not os.path.exists(pom):
+            log.append(f"'{custom_repo}': POM with matching suffix not found for jar {jar_base}")
+            return False
+
+        cmd = [
+            "mvn",
+            "install:install-file",
+            f"-Dfile={jar}",
+            f"-DgroupId={cls.archetypeGroupId}",
+            f"-DartifactId={artifact_id}",
+            f"-Dversion={util.graalvmVersion}",
+            "-Dpackaging=jar",
+            f"-DpomFile={pom}",
+            "-DcreateChecksum=true",
+        ]
+        out, return_code = util.run_cmd(cmd, env=cls.env)
+        assert return_code == 0, out
+        return True
+
+    @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.archetypeGroupId = "org.graalvm.python"
@@ -62,72 +119,22 @@ class MavenPluginTest(util.BuildToolTestBase):
         cls.extraRemoteRepo = None
 
         found = False
+        log = []
         for custom_repo in util.extra_maven_repos:
             url = urllib.parse.urlparse(custom_repo)
             if url.scheme != "file":
+                log.append(f"'{custom_repo}' was identified as a remote repo and skipped")
                 if not cls.extraRemoteRepo:
                     cls.extraRemoteRepo = custom_repo
                 continue
 
-            jar = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.archetypeArtifactId,
-                util.graalvmVersion,
-                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.jar",
-            )
-            pom = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.archetypeArtifactId,
-                util.graalvmVersion,
-                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.pom",
-            )
-            if not os.path.exists(pom):
+            base_path = urllib.parse.unquote(url.path)
+
+            if not cls._install_artifact_from_local_repo(base_path, custom_repo, cls.archetypeArtifactId, log):
                 continue
-            cmd = [
-                "mvn",
-                "install:install-file",
-                f"-Dfile={jar}",
-                f"-DgroupId={cls.archetypeGroupId}",
-                f"-DartifactId={cls.archetypeArtifactId}",
-                f"-Dversion={util.graalvmVersion}",
-                "-Dpackaging=jar",
-                f"-DpomFile={pom}",
-                "-DcreateChecksum=true",
-            ]
-            out, return_code = util.run_cmd(cmd, env=cls.env)
-            assert return_code == 0, out
+            if not cls._install_artifact_from_local_repo(base_path, custom_repo, cls.pluginArtifactId, log):
+                continue
 
-            jar = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.pluginArtifactId,
-                util.graalvmVersion,
-                f"{cls.pluginArtifactId}-{util.graalvmVersion}.jar",
-            )
-
-            pom = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.pluginArtifactId,
-                util.graalvmVersion,
-                f"{cls.pluginArtifactId}-{util.graalvmVersion}.pom",
-            )
-
-            cmd = [
-                "mvn",
-                "install:install-file",
-                f"-Dfile={jar}",
-                f"-DgroupId={cls.archetypeGroupId}",
-                f"-DartifactId={cls.pluginArtifactId}",
-                f"-Dversion={util.graalvmVersion}",
-                "-Dpackaging=jar",
-                f"-DpomFile={pom}",
-                "-DcreateChecksum=true",
-            ]
-            out, return_code = util.run_cmd(cmd, env=cls.env)
-            assert return_code == 0, out
             found = True
             break
 
@@ -135,7 +142,8 @@ class MavenPluginTest(util.BuildToolTestBase):
             print("WARNING: extra Maven repos passed, but could not find GraalPy Maven archetype "
                   "in any of the local repos and there is no extra remote repo. This is OK only if "
                   "GraalPy Maven archetype of the required version is available at Mavencentral, "
-                  "otherwise the tests will fail to generate the example application.")
+                  "otherwise the tests will fail to generate the example application. Searched these repositories: \n"
+                  '\n'.join(['    ' + x for x in log]))
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
         extra_repo = []
@@ -776,7 +784,6 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code != 0
 
 
-
     def test_multiple_namespaced_vfs(self):
         if not util.native_image_all():
             self.skipTest("native-image tests disabled")
@@ -869,6 +876,24 @@ class MavenPluginTest(util.BuildToolTestBase):
         util.check_ouput("hello java", out)
         util.check_ouput("BUILD SUCCESS", out)
         assert return_code == 0
+
+
+    def test_packages_trimming(self):
+        with util.TemporaryTestDirectory() as tmpdir:
+            target_name = "packages_trimming_test"
+            target_dir = os.path.join(str(tmpdir), target_name)
+            self.generate_app(tmpdir, target_dir, target_name)
+
+            pom = os.path.join(target_dir, "pom.xml")
+            # Add empty and whitespace entries around the valid package
+            util.replace_in_file(pom, "</packages>", "<package></package><package> </package></packages>")
+
+            mvnw_cmd = util.get_mvn_wrapper(target_dir, self.env)
+            out, return_code = util.run_cmd(mvnw_cmd + ["process-resources"], self.env, cwd=target_dir)
+            util.check_ouput("BUILD SUCCESS", out)
+            # Sanity: ensure install was attempted from inline packages
+            util.check_ouput("pip install", out)
+            assert return_code == 0
 
 
 if __name__ == "__main__":
