@@ -89,12 +89,15 @@ public interface GraalPyExtension {
 	RegularFileProperty getGraalPyLockFile();
 
 	/**
-	 * Experimental property. Allows overriding the default Polyglot and GraalPy
-	 * version. This is intended only for testing of new unreleased versions. It is
-	 * recommended to use corresponding versions of GraalPy Gradle plugin and the
-	 * polyglot runtime.
+	 * Allows overriding the default Polyglot and GraalPy version used by the Gradle
+	 * plugin.
+	 * <p>
+	 * This property can be used to decouple the GraalPy runtime version from the
+	 * GraalPy Gradle plugin version and allows using a newer GraalPy release than
+	 * the one bundled with the plugin.
+	 * <p>
+	 * If not specified, the plugin uses the GraalPy version it was released with.
 	 */
-	@Incubating
 	Property<String> getPolyglotVersion();
 
 	/**
