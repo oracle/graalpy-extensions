@@ -40,6 +40,7 @@
  */
 package org.graalvm.python;
 
+import java.util.Set;
 import org.graalvm.python.dsl.GraalPyExtension;
 import org.graalvm.python.tasks.AbstractPackagesTask;
 import org.graalvm.python.tasks.LockPackagesTask;
@@ -53,6 +54,8 @@ import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
+import org.gradle.api.artifacts.ResolvedConfiguration;
+import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
@@ -99,6 +102,10 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 	private static final String GRAALPY_META_INF_TASK_TASK = "graalPyMetaInf";
 	private static final String GRAALPY_VFS_FILESLIST_TASK = "graalPyVFSFilesList";
 	private static final String GRAALPY_LOCK_FILE = "graalpy.lock";
+	private static final String PYTHON_GROUP_ID = "org.graalvm.python";
+
+	private static final Set<String> GRAALPY_ARTIFACTS = Set.of("python", "python-community", "python-embedding",
+			"python-launcher");
 
 	GraalPyExtension extension;
 	Project project;
@@ -126,13 +133,9 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 		registerLockPackagesTask(project, launcherClasspath, extension);
 
 		addDependencies();
+		warnOnUserDeclaredConflicts(project, extension);
 
 		project.afterEvaluate(proj -> {
-			if (extension.getPolyglotVersion().isPresent()) {
-				proj.getLogger().warn(
-						"WARNING: Property 'polyglotVersion' is experimental and should be used only for testing pre-release versions.");
-			}
-
 			if (extension.getPythonResourcesDirectory().isPresent() && extension.getExternalDirectory().isPresent()) {
 				throw new GradleException(
 						"Cannot set both 'externalDirectory' and 'resourceDirectory' at the same time. "
@@ -374,4 +377,32 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 		}
 		return version;
 	}
+
+	private void warnOnUserDeclaredConflicts(Project project, GraalPyExtension extension) {
+		Provider<String> expected = project.getProviders()
+				.provider(() -> extension.getPolyglotVersion().getOrElse(determineGraalPyDefaultVersion()));
+
+		project.afterEvaluate(proj -> {
+			for (Configuration config : proj.getConfigurations()) {
+				for (Dependency dependency : config.getDependencies()) {
+					if (dependency instanceof ExternalModuleDependency emd) {
+						String group = emd.getGroup();
+						String name = emd.getName();
+						String version = emd.getVersion();
+						String expectedVersion = expected.get();
+						if (PYTHON_GROUP_ID.equals(group) && GRAALPY_ARTIFACTS.contains(name) && version != null) {
+							if (!version.equals(expectedVersion)) {
+								project.getLogger()
+										.warn("Detected user-declared dependency {}:{}:{} "
+												+ "which conflicts with graalPy.polyglotVersion {}. "
+												+ "Please align versions or remove the explicit dependency.", group,
+												name, version, expectedVersion);
+							}
+						}
+					}
+				}
+			}
+		});
+	}
+
 }
