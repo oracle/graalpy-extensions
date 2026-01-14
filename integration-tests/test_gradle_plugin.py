@@ -156,6 +156,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, logger=log)
             util.check_ouput("This can cause conflicts if used with other Java libraries that also deploy GraalPy virtual filesystem", out, logger=log)
+            util.check_ouput("Detected user-declared dependency", out, False, logger=log)
             self.check_filelist(target_dir, log)
 
             gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env)
