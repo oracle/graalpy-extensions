@@ -26,4 +26,3 @@ object Generation {
 
     fun mainModuleBase(): Path = Path.of("build/pymodule/j2pyi/com/example")
 }
-

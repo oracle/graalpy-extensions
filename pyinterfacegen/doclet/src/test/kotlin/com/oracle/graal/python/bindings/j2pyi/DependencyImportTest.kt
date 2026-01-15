@@ -41,4 +41,3 @@ class DependencyImportTest {
         assertTrue(libPyi.contains("def make(self) -> DepType:"))
     }
 }
-

@@ -878,7 +878,12 @@ class J2PyiDoclet : Doclet {
 
         // type docstring
         if (!t.doc.isNullOrBlank()) {
-            val body = escapeTripleQuotes(t.doc).replace("\n", "\n$indent")
+            val lines = escapeTripleQuotes(t.doc).split('\n')
+            val first = lines.firstOrNull() ?: ""
+            val rest = if (lines.size > 1) {
+                lines.drop(1).joinToString("\n") { ln -> if (ln.isEmpty()) "" else "$indent$ln" }
+            } else ""
+            val body = if (rest.isEmpty()) first else "$first\n$rest"
             sb.appendLine("${indent}\"\"\"$body\"\"\"")
         }
 
@@ -967,7 +972,13 @@ class J2PyiDoclet : Doclet {
             sb.appendLine("${indent}def ${m.name}($params) -> ${m.returnType.render()}:")
             run {
                 val innerIndent = indent.repeat(2)
-                val body = escapeTripleQuotes(m.doc).replace("\n", "\n$innerIndent")
+                val escaped = escapeTripleQuotes(m.doc)
+                val lines = escaped.split('\n')
+                val first = lines.firstOrNull() ?: ""
+                val rest = if (lines.size > 1) {
+                    lines.drop(1).joinToString("\n") { ln -> if (ln.isEmpty()) "" else "$innerIndent$ln" }
+                } else ""
+                val body = if (rest.isEmpty()) first else "$first\n$rest"
                 sb.appendLine("${innerIndent}\"\"\"$body\"\"\"")
             }
             sb.appendLine("${indent.repeat(2)}...")
@@ -978,7 +989,13 @@ class J2PyiDoclet : Doclet {
 
     private fun appendIndentedDocStringAndPass(indent: String, doc: String, sb: StringBuilder) {
         val innerIndent = indent.repeat(2)
-        val body = escapeTripleQuotes(doc).replace("\n", "\n$innerIndent")
+        val escaped = escapeTripleQuotes(doc)
+        val lines = escaped.split('\n')
+        val first = lines.firstOrNull() ?: ""
+        val rest = if (lines.size > 1) {
+            lines.drop(1).joinToString("\n") { ln -> if (ln.isEmpty()) "" else "$innerIndent$ln" }
+        } else ""
+        val body = if (rest.isEmpty()) first else "$first\n$rest"
         sb.appendLine("${innerIndent}\"\"\"$body\"\"\"")
         sb.appendLine("${indent.repeat(2)}...")
     }

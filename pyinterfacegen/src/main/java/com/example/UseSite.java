@@ -14,4 +14,3 @@ public class UseSite {
     @SuppressWarnings({"rawtypes", "unchecked"})
     public List<String> listRaw(List raw) { return null; }
 }
-

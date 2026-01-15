@@ -22,4 +22,3 @@ public class Box<T> {
         this.value = v;
     }
 }
-

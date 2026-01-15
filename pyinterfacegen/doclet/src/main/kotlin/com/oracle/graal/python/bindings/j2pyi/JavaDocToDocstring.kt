@@ -122,6 +122,9 @@ fun DocTrees.javadocFull(el: Element): String? {
         // When a '>>> ' code-start line is preceded by only a single newline, make it two.
         text = text.replace(codeBlockStarterPrecededByNewline, "$1\n\n$2")
 
+        // Finally, remove any trailing spaces from every line and ensure blank lines are truly empty.
+        text = text.lines().joinToString("\n") { it.rstrip() }
+
         return text
     }
 
@@ -187,6 +190,9 @@ fun DocTrees.javadocFull(el: Element): String? {
     val result = out.joinToString("\n").trim()
     return result.ifBlank { null }
 }
+
+// Remove only trailing whitespace from a string line (preserves leading indentation where present).
+private fun String.rstrip(): String = this.replace(Regex("\\s+$"), "")
 
 // Extract first-sentence Javadoc summary as plain text (conservative).
 fun DocTrees.javadocSummary(el: Element): String? {

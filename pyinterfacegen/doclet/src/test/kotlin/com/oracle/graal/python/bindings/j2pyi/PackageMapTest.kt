@@ -40,4 +40,3 @@ class PackageMapTest {
         assertTrue(File(dest, "pyA/sub/__init__.pyi").isFile, "Expected __init__.pyi in pyA/sub")
     }
 }
-

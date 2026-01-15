@@ -60,15 +60,15 @@ class StubDocletTest {
                 def __init__(self) -> None: ...
                 def sample(self) -> list[str]:
                     ${tripleQuote}Does a thing.
-                    
+
                     See below.
-                    
+
                     >>> Encoding encoding = EncodingRegistry.getEncoding(EncodingType.CL100K_BASE);
                         encoding.encode("hello world");
                         // returns [15339, 1917]
                         encoding.encode("hello endoftext world");
                         // raises an UnsupportedOperationException
-                    
+
                     After.${tripleQuote}
                     ...
         """.trimIndent().trimEnd()
@@ -127,7 +127,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from numbers import Number
-            
+
             class NumberTest:
                 def __init__(self) -> None: ...
                 @property
@@ -163,7 +163,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from collections.abc import Sequence
-            
+
             class ArrayThing:
                 def __init__(self) -> None: ...
                 def setBytes(self, data: Sequence[int]) -> None: ...
@@ -191,7 +191,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from collections.abc import Collection, Iterable, Iterator
-            
+
             class C:
                 def __init__(self) -> None: ...
                 def cs(self) -> Collection[int]: ...
@@ -288,7 +288,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from typing import overload
-            
+
             class Over:
                 def __init__(self) -> None: ...
                 @overload
@@ -313,7 +313,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from typing import overload
-            
+
             class V:
                 @overload
                 def __init__(self) -> None: ...
@@ -324,7 +324,7 @@ class StubDocletTest {
              val actual = DocletTestUtil.runDoclet(java)
              assertEquals(expected, actual)
          }
- 
+
          // Properties
          @Test
          fun property_readonly_fromGetter() {
@@ -343,7 +343,7 @@ class StubDocletTest {
              val actual = DocletTestUtil.runDoclet(java)
              assertEquals(expected, actual)
          }
- 
+
          @Test
          fun property_readwrite_fromGetterSetter() {
              val java = """
@@ -364,7 +364,7 @@ class StubDocletTest {
              val actual = DocletTestUtil.runDoclet(java)
              assertEquals(expected, actual)
          }
- 
+
          @Test
          fun property_boolean_isPrefix() {
              val java = """
@@ -382,7 +382,7 @@ class StubDocletTest {
              val actual = DocletTestUtil.runDoclet(java)
              assertEquals(expected, actual)
          }
- 
+
          @Test
          fun property_conflict_withField_skipsSynthesis() {
              val java = """
@@ -401,7 +401,7 @@ class StubDocletTest {
              val actual = DocletTestUtil.runDoclet(java)
              assertEquals(expected, actual)
          }
- 
+
          @Test
          fun property_acronymDecap_URLRemainsUpper() {
              val java = """
@@ -432,7 +432,7 @@ class StubDocletTest {
          """.trimIndent()
          val expected = """
              from typing import Protocol
-             
+
              class Greeter(Protocol):
                  def greet(self, name: str) -> str: ...
                  @staticmethod
@@ -451,7 +451,7 @@ class StubDocletTest {
         """.trimIndent()
         val expected = """
             from enum import Enum
-            
+
             class Color(Enum):
                 BLUE: Color
                 GREEN: Color
@@ -537,19 +537,19 @@ class StubDocletTest {
         val expected = """
             class GreeterDoc:
                 \"\"\"Greeter class summary.
-                
+
                 More details that should not appear in summary.\"\"\"
                 def __init__(self) -> None:
                     \"\"\"Default constructor summary.
-                    
+
                     Extra line not included.\"\"\"
                     ...
                 def greet(self, name: str) -> str:
                     \"\"\"Say hello to a name.
-                    
+
                     Args:
                       name: the name to greet
-                    
+
                     Returns:
                       the greeting\"\"\"
                     ...

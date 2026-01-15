@@ -12,4 +12,3 @@ class Box[T]:
     def set(self, v: T) -> None:
         """Set the contained value."""
         ...
-

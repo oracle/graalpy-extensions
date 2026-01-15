@@ -6,4 +6,3 @@ class Bounded[T: Number]:
     def id(self, x: T) -> T:
         """Identity function for values of type T."""
         ...
-

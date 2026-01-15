@@ -9,4 +9,3 @@ public class Bounded<T extends Number> {
         return x;
     }
 }
-
