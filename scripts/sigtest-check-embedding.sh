@@ -16,6 +16,23 @@ done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
 cd "${project_root}"
+
+# If any argument is -s some/path/to/a/settings.xml, check if that file exists
+# and if not, create an empty one
+was_s=0
+for var in "$@"; do
+    if [[ "$var" == "-s" ]]; then
+        was_s=1
+    elif [[ $was_s -eq 1 ]]; then
+        if [ ! -f "$var" ]; then
+            mkdir -p "$(dirname "$var")"
+            echo "$var does not exist"
+            echo "<settings></settings>" > "$var"
+        fi
+        break
+    fi
+done
+
 classpath="$(./mvnw "$@" -q -pl org.graalvm.python.embedding exec:exec -Dexec.executable="echo" -Dexec.args='%classpath')"
 exec_args="-BootCP -Static -Mode bin -FileName ./org.graalvm.python.embedding/snapshot.sigtest -ClassPath ${classpath} -b -PackageWithoutSubpackages org.graalvm.python.embedding"
 rc=0
