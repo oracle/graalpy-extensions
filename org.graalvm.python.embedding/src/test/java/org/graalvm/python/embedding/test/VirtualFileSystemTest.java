@@ -41,12 +41,17 @@
 
 package org.graalvm.python.embedding.test;
 
-import org.graalvm.polyglot.io.FileSystem;
-import org.graalvm.python.embedding.VirtualFileSystem;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ_WRITE;
+import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -82,18 +87,12 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
-
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ;
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ_WRITE;
-import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.graalvm.polyglot.io.FileSystem;
+import org.graalvm.python.embedding.VirtualFileSystem;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 public class VirtualFileSystemTest {
 
@@ -423,7 +422,7 @@ public class VirtualFileSystemTest {
 		assertThrows(SecurityException.class, () -> fs.checkAccess(Path.of(pathPrefix, "extractme"),
 				Set.of(AccessMode.WRITE), LinkOption.NOFOLLOW_LINKS));
 		fs.checkAccess(Path.of(pathPrefix, "extractme"), Set.of(AccessMode.READ));
-		// even though extracted -> FS is read-only and we are limiting the access to
+		// even though extracted -> FS is read-only, and we are limiting the access to
 		// read-only also
 		// for extracted files
 		assertThrows(IOException.class,
@@ -434,18 +433,23 @@ public class VirtualFileSystemTest {
 		assertThrows(NoSuchFileException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exits", "extractme"), Set.of(AccessMode.READ)));
 
+		// write must still be forbidden in VFS
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "SomeFile"), Set.of(AccessMode.WRITE)),
 				"write access should not be possible with VFS");
+
+		// executable file
+		fs.checkAccess(Path.of(pathPrefix, "bin", "exec.sh"), Set.of(AccessMode.EXECUTE));
+
+		// non-executable file
 		checkException(SecurityException.class,
-				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exist"), Set.of(AccessMode.WRITE)),
-				"execute access should not be possible with VFS");
-		checkException(SecurityException.class,
-				() -> fs.checkAccess(Path.of(pathPrefix, "SomeFile"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible with VFS");
+				() -> fs.checkAccess(Path.of(pathPrefix, "bin", "nonexec.txt"), Set.of(AccessMode.EXECUTE)),
+				"execute access should not be possible for non-executable file");
+
+		// nonexistent paths
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exist"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible with VFS");
+				"execute access should not be possible for non-existent path");
 
 		checkException(NoSuchFileException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exits"), Set.of(AccessMode.READ)),
@@ -785,9 +789,19 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(p, null);
 			Path extractedRoot = p.getParent().getParent().getParent();
 
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency1.so"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2"), null);
-			assertFalse(Files.exists(extractedRoot.resolve("src/package2.libs/not-extracted.so")));
+			Path dep1 = extractedRoot.resolve("src/package1.libs/fake-dependency1.so");
+			Path dep2 = extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2");
+			Path notExtracted = extractedRoot.resolve("src/package2.libs/not-extracted.so");
+
+			checkExtractedFile(dep1, null);
+			checkExtractedFile(dep2, null);
+			assertFalse(Files.exists(notExtracted));
+
+			if (!IS_WINDOWS) {
+				assertTrue(Files.isExecutable(p), "main .so should be executable");
+				assertTrue(Files.isExecutable(dep1), "dependency .so should be executable");
+				assertTrue(Files.isExecutable(dep2), "dependency .so should be executable");
+			}
 		}
 	}
 
@@ -803,10 +817,21 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(p, null);
 			Path extractedRoot = p.getParent().getParent().getParent();
 
-			checkExtractedFile(extractedRoot.resolve("src/pkg1/__init__.py"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency1.so"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2"), null);
-			assertFalse(Files.exists(extractedRoot.resolve("src/package2.libs/not-extracted.so")));
+			Path initPy = extractedRoot.resolve("src/pkg1/__init__.py");
+			Path dep1 = extractedRoot.resolve("src/package1.libs/fake-dependency1.so");
+			Path dep2 = extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2");
+			Path notExtracted = extractedRoot.resolve("src/package2.libs/not-extracted.so");
+
+			checkExtractedFile(initPy, null);
+			checkExtractedFile(dep1, null);
+			checkExtractedFile(dep2, null);
+			assertFalse(Files.exists(notExtracted));
+
+			if (!IS_WINDOWS) {
+				assertFalse(Files.isExecutable(initPy), "__init__.py should not be executable");
+				assertTrue(Files.isExecutable(dep1), "dependency .so should be executable");
+				assertTrue(Files.isExecutable(dep2), "dependency .so should be executable");
+			}
 		}
 	}
 
