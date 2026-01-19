@@ -104,6 +104,12 @@ import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
 
 final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
+	private static final Set<PosixFilePermission> DEFAULT_FILE_PERMISSIONS = PosixFilePermissions
+			.fromString("rw-r--r--"); // 0644
+
+	private static final Set<PosixFilePermission> DEFAULT_DIR_PERMISSIONS = PosixFilePermissions
+			.fromString("rwxr-xr-x"); // 0755
+
 	private static final Logger LOGGER = Logger.getLogger(VirtualFileSystem.class.getName());
 
 	static {
@@ -209,12 +215,6 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	}
 
 	private record FilelistEntry(EntryType type, String resourcePath, Set<PosixFilePermission> permissions) {
-		private static final Set<PosixFilePermission> DEFAULT_FILE_PERMISSIONS = PosixFilePermissions
-				.fromString("rw-r--r--"); // 0644
-
-		private static final Set<PosixFilePermission> DEFAULT_DIR_PERMISSIONS = PosixFilePermissions
-				.fromString("rwxr-xr-x"); // 0755
-
 		enum EntryType {
 			FILE, DIR
 		}
@@ -538,7 +538,6 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		List<URL> filelistUrls = getFilelistURLs(filelistPath);
 		boolean hasNativeFiles = false;
 
-		Set<PosixFilePermission> defaultDirPermissions = PosixFilePermissions.fromString("rwxr-xr-x");
 
 		fine("VFS fileslistPath = %s", filelistPath);
 		for (URL url : filelistUrls) {
@@ -579,7 +578,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 							if (genericEntry instanceof DirEntry de) {
 								dirEntry = de;
 							} else if (genericEntry == null) {
-								dirEntry = new DirEntry(dir, defaultDirPermissions);
+								dirEntry = new DirEntry(dir, DEFAULT_DIR_PERMISSIONS);
 								vfsEntries.put(dirKey, dirEntry);
 								finest("  %s", dirEntry.getResourcePath());
 								if (parent != null) {
