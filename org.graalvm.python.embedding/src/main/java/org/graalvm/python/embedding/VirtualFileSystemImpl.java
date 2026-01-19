@@ -42,6 +42,7 @@ package org.graalvm.python.embedding;
 
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
 import org.graalvm.polyglot.io.FileSystem;
 import org.graalvm.python.embedding.VirtualFileSystem.HostIO;
 
@@ -231,7 +232,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 			// v1 format: only absolute path
 			if (line.startsWith("/")) {
-				return new FilelistEntry(EntryType.FILE, line, DEFAULT_FILE_PERMISSIONS);
+				Set<PosixFilePermission> permissions = isExecutable(line)
+						? DEFAULT_DIR_PERMISSIONS // 0755
+						: DEFAULT_FILE_PERMISSIONS; // 0644
+
+				return new FilelistEntry(EntryType.FILE, line, permissions);
 			}
 
 			// v2 format: <type> <mode> <path>
@@ -273,6 +278,10 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			}
 			return sb.toString();
 		}
+	}
+
+	private static boolean isExecutable(String resourcePath) {
+		return resourcePath.endsWith(".so") || resourcePath.endsWith(".sh") || resourcePath.contains("/bin/");
 	}
 
 	private final class FileEntry extends BaseEntry {
@@ -538,7 +547,6 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		List<URL> filelistUrls = getFilelistURLs(filelistPath);
 		boolean hasNativeFiles = false;
 
-
 		fine("VFS fileslistPath = %s", filelistPath);
 		for (URL url : filelistUrls) {
 			try (InputStream stream = url.openStream()) {
@@ -593,7 +601,14 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 						assert parent != null;
 						if (!platformPath.endsWith(PLATFORM_SEPARATOR)) {
-							FileEntry fileEntry = new FileEntry(platformPath, meta.permissions());
+							Set<PosixFilePermission> permissions = meta.permissions();
+							if (isExecutable(platformPath)) {
+								permissions = EnumSet.copyOf(permissions);
+								permissions.add(PosixFilePermission.OWNER_EXECUTE);
+								permissions.add(PosixFilePermission.GROUP_EXECUTE);
+								permissions.add(PosixFilePermission.OTHERS_EXECUTE);
+							}
+							FileEntry fileEntry = new FileEntry(platformPath, permissions);
 							if (extractFilter != null && extractFilter.test(Paths.get(platformPath))) {
 								fileEntry.toExtract = List.of(fileEntry);
 							}
