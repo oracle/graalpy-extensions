@@ -684,7 +684,6 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert return_code != 0
 
 
-
     def test_multiple_namespaced_vfs(self):
         if not util.native_image_all():
             self.skipTest("native-image tests disabled")
@@ -740,6 +739,172 @@ class MavenPluginTest(util.BuildToolTestBase):
             out, return_code = util.run_cmd(os.path.join(app2_dir, "target", "app2"), self.env, cwd=app2_dir, logger=log)
             util.check_ouput("0: Hi there java", out, logger=log)
             util.check_ouput("1: hello java", out, logger=log)
+            assert return_code == 0, log
+
+
+    def test_plain_java_multiple_custom_vfs(self):
+        with util.TemporaryTestDirectory() as tmpdir:
+            group_id = "org.graalvm.python.tests.plain"
+            version = "1.0-SNAPSHOT"
+            log = Logger()
+
+            def copy_mvnw(dst_dir: str):
+                mvnw_dir_local = os.path.join(os.path.dirname(__file__), "mvnw")
+                shutil.copy(os.path.join(mvnw_dir_local, "mvnw"), os.path.join(dst_dir, "mvnw"))
+                shutil.copy(os.path.join(mvnw_dir_local, "mvnw.cmd"), os.path.join(dst_dir, "mvnw.cmd"))
+                shutil.copytree(os.path.join(mvnw_dir_local, ".mvn"), os.path.join(dst_dir, ".mvn"))
+                return util.get_mvn_wrapper(dst_dir, self.env)
+
+            def generate_pom_xml(path, artifact_id: str, deps):
+                # deps: list of (groupId, artifactId, versionOrNone)
+                deps_xml = []
+                for g, a, v in deps:
+                    deps_xml.append(textwrap.dedent(f"""
+                        <dependency>
+                          <groupId>{g}</groupId>
+                          <artifactId>{a}</artifactId>
+                          <version>{v}</version>
+                        </dependency>
+                    """))
+                deps_joined = "\n".join(deps_xml)
+                content = textwrap.dedent(f"""\
+                    <project xmlns="http://maven.apache.org/POM/4.0.0"
+                             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                      <modelVersion>4.0.0</modelVersion>
+                      <groupId>{group_id}</groupId>
+                      <artifactId>{artifact_id}</artifactId>
+                      <version>{version}</version>
+                      <name>{artifact_id}</name>
+                      <properties>
+                        <maven.compiler.release>21</maven.compiler.release>
+                      </properties>
+                      <dependencies>
+                        {deps_joined}
+                      </dependencies>
+                      <build>
+                        <plugins>
+                          <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-compiler-plugin</artifactId>
+                            <version>3.11.0</version>
+                            <configuration>
+                              <release>${{maven.compiler.release}}</release>
+                            </configuration>
+                          </plugin>
+                        </plugins>
+                      </build>
+                    </project>
+                """)
+                with open(path, "w") as f:
+                    f.write(content)
+
+            # App1: plain Java library with custom VFS resources
+            app1_dir = os.path.join(str(tmpdir), "plain-app1")
+            os.makedirs(os.path.join(app1_dir, "src", "main", "java", "app1"), exist_ok=True)
+            os.makedirs(os.path.join(app1_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "src"), exist_ok=True)
+
+            # Minimal code just to produce a .class
+            app1_java = os.path.join(app1_dir, "src", "main", "java", "app1", "Dummy.java")
+            with open(app1_java, "w") as f:
+                f.write(textwrap.dedent("""\
+                    package app1;
+                    public class Dummy { }
+                """))
+
+            app1_txt = os.path.join(app1_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "src", "app1.txt")
+            with open(app1_txt, "w") as f:
+                f.write("APP1_CONTENT")
+
+            app1_fileslist = os.path.join(app1_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "fileslist.txt")
+            with open(app1_fileslist, "w") as f:
+                f.write("/GRAALPY-CUSTOM-VFS/\n")
+                f.write("/GRAALPY-CUSTOM-VFS/src/\n")
+                f.write("/GRAALPY-CUSTOM-VFS/src/app1.txt\n")
+
+            generate_pom_xml(
+                os.path.join(app1_dir, "pom.xml"),
+                artifact_id="plain-app1",
+                deps=[
+                    ("org.graalvm.python", "python-embedding", self.graalvmVersion),
+                ]
+            )
+
+            app1_mvnw_cmd = copy_mvnw(app1_dir)
+            out, return_code = util.run_cmd(app1_mvnw_cmd + ["package", "install"], self.env, cwd=app1_dir, logger=log)
+            util.check_ouput("BUILD SUCCESS", out, logger=log)
+            assert return_code == 0, log
+
+            # App2: plain Java app depending on app1, sets up VFS root "GRAALPY-CUSTOM-VFS"
+            app2_dir = os.path.join(str(tmpdir), "plain-app2")
+            os.makedirs(os.path.join(app2_dir, "src", "main", "java", "app2"), exist_ok=True)
+            os.makedirs(os.path.join(app2_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "src"), exist_ok=True)
+
+            app2_java = os.path.join(app2_dir, "src", "main", "java", "app2", "GraalPyPlain.java")
+            with open(app2_java, "w") as f:
+                f.write(textwrap.dedent("""\
+                    package app2;
+
+                    import org.graalvm.polyglot.Context;
+                    import org.graalvm.python.embedding.GraalPyResources;
+                    import org.graalvm.python.embedding.VirtualFileSystem;
+
+                    public class GraalPyPlain {
+                        public static void main(String[] args) {
+                            System.out.println("APP START");
+                            VirtualFileSystem vfs = VirtualFileSystem.newBuilder()
+                                    .resourceDirectory("GRAALPY-CUSTOM-VFS")
+                                    .build();
+                            String path1 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app1.txt").toString();
+                            String path2 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app2.txt").toString();
+                            try (Context context = GraalPyResources.contextBuilder(vfs).build()) {
+                                context.eval("python", "def read_vfs_file(path): import os; print(open(path, 'r').read().strip())");
+                                var readVfsFile = context.getBindings("python").getMember("read_vfs_file");
+                                readVfsFile.execute(path1);
+                                readVfsFile.execute(path2);
+                            }
+                            System.out.println("APP END");
+                        }
+                    }
+                """))
+
+            app2_txt = os.path.join(app2_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "src", "app2.txt")
+            with open(app2_txt, "w") as f:
+                f.write("APP2_CONTENT")
+
+            app2_fileslist = os.path.join(app2_dir, "src", "main", "resources", "GRAALPY-CUSTOM-VFS", "fileslist.txt")
+            with open(app2_fileslist, "w") as f:
+                f.write("/GRAALPY-CUSTOM-VFS/\n")
+                f.write("/GRAALPY-CUSTOM-VFS/src/\n")
+                f.write("/GRAALPY-CUSTOM-VFS/src/app2.txt\n")
+
+            generate_pom_xml(
+                os.path.join(app2_dir, "pom.xml"),
+                artifact_id="plain-app2",
+                deps=[
+                    ("org.graalvm.python", "python-embedding", self.graalvmVersion),
+                    (group_id, "plain-app1", version),
+                ]
+            )
+
+            app2_mvnw_cmd = copy_mvnw(app2_dir)
+            out, return_code = util.run_cmd(app2_mvnw_cmd + ["package"], self.env, cwd=app2_dir, logger=log)
+            util.check_ouput("BUILD SUCCESS", out, logger=log)
+            assert return_code == 0, log
+
+            # Run app2, enabling multiple VFS merging and reading both files
+            cmd = app2_mvnw_cmd + [
+                "-Dorg.graalvm.python.vfs.allow_multiple=true",
+                "exec:java",
+                "-Dexec.mainClass=app2.GraalPyPlain"
+            ]
+            out, return_code = util.run_cmd(cmd, self.env, cwd=app2_dir, logger=log)
+
+            app_out = re.findall(r'APP START(.*?)APP END', out, flags=re.DOTALL)
+            assert app_out, f"Did not find expected 'APP START'/'APP END' in the output.\n{log}"
+            assert "WARN" not in app_out, log
+            util.check_ouput("APP1_CONTENT", out, logger=log)
+            util.check_ouput("APP2_CONTENT", out, logger=log)
             assert return_code == 0, log
 
 
