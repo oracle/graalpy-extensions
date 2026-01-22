@@ -120,3 +120,48 @@ This build includes a convenience task that downloads a matching GraalPy distrib
 Notes:
 - Override the GraalPy version with `-PgraalPyVersion=25.0.1` if needed.
 - The task uses the GraalPy community JVM distribution and sets `CLASSPATH` to your compiled classes so Java types are available at runtime.
+
+## Optional: type-check generated stubs
+
+You can run a Python type checker over the generated `.pyi` output to sanity-check internal consistency. A Gradle task type
+`TypeCheckPyiTask` is provided by the plugin. This project registers an example task:
+
+```bash
+./gradlew typecheckGraalPyStubs
+```
+
+By default it runs mypy via `python3 -m mypy`. If mypy isn't installed, the task logs and skips. To use pyright instead:
+
+```kotlin
+tasks.named<TypeCheckPyiTask>("typecheckGraalPyStubs") {
+    typeChecker.set("pyright")
+    // extraArgs.set(listOf("--verifytypes", "your_root_package"))
+}
+```
+
+Tip: install tools as needed:
+ - mypy: `python3 -m pip install mypy`
+ - pyright: `npm i -g pyright`
+
+### Namespace packages and mypy
+
+Generated modules may omit intermediate `__init__.py` files to allow multiple distributions to share a namespace
+(e.g., generating `foo.bar` and `foo.baz` separately without them conflicting on `foo/__init__.py`). This relies on
+[PEP 420] namespace packages.
+
+Mypy needs to be told to treat such directories as packages. The plugin does this automatically by passing:
+ - `--namespace-packages`: opt-in to PEP 420 package discovery.
+ - `--explicit-package-bases`: interpret the provided paths as package roots, improving resolution for PEP 420 trees.
+
+If you run mypy yourself, enable the same in your config:
+
+```ini
+# mypy.ini or pyproject.toml [tool.mypy]
+namespace_packages = true
+explicit_package_bases = true
+```
+
+For code that imports from namespace fragments installed in different locations, ensure mypy sees all fragments in its
+search path (e.g., by activating the venv where they’re installed, or by setting `MYPYPATH` to include those site dirs).
+
+[PEP 420]: https://peps.python.org/pep-0420/

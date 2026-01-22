@@ -1,4 +1,5 @@
 import org.graalvm.python.pyinterfacegen.J2PyiTask
+import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 import org.gradle.internal.os.OperatingSystem
 import java.net.URI
 import java.util.*
@@ -99,6 +100,17 @@ val graalPyBindingsMain by tasks.register<J2PyiTask>("graalPyBindingsMain") {
     setDestinationDir(layout.buildDirectory.dir("pymodule/${project.name}").get().asFile)
 }
 
+// Optional verification: run a Python type checker over the generated module.
+// Not wired into the standard 'check' lifecycle; invoke explicitly.
+tasks.register<TypeCheckPyiTask>("typecheckGraalPyStubs") {
+    description = "Run mypy (or pyright) over the generated .pyi module to detect internal inconsistencies"
+    moduleDir.set(layout.buildDirectory.dir("pymodule/${project.name}"))
+    // Ensure stubs are generated before checking them
+    dependsOn(graalPyBindingsMain)
+    // Default checker is mypy; customize via:
+    //   typeChecker.set("pyright")
+    //   extraArgs.set(listOf("--strict"))
+}
 // Execute a simple GraalPy run that imports the generated module and calls a method
 val graalPyIntegrationTest by tasks.registering {
     group = "verification"
