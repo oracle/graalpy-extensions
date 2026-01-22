@@ -82,19 +82,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         test_name: [ test_jbang_integration.py, test_maven_plugin.py, test_gradle_plugin.py ]
         include:
-          # We need to skip native-image tests on Gradle and MacOS runners: it seems that with
-          # Gradle the tests require more RAM and cannot reliably build native image.
-          # For other tests on MacOS we run just native-image smoke tests, because while building
-          # native-image seems to be feasible there, it is quite slow
+          # We need to skip native-image tests on MacOS runners: it seems that with
+          # the tests require too much memory and cannot reliably build native image.
           - test_name: test_gradle_plugin.py
             os: macos-latest
             extra_test_args: "--native-image=none"
           - test_name: test_maven_plugin.py
             os: macos-latest
-            extra_test_args: "--native-image=smoke"
+            extra_test_args: "--native-image=none"
           - test_name: test_jbang_integration.py
             os: macos-latest
-            extra_test_args: "--native-image=smoke"
+            extra_test_args: "--native-image=none"
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
