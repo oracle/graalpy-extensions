@@ -49,8 +49,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.invoke.VarHandle;
 import java.net.URI;
 import java.net.URL;
@@ -90,11 +88,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
-import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 import java.util.stream.Collectors;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -103,25 +98,6 @@ import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
 final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 	private static final Logger LOGGER = Logger.getLogger(VirtualFileSystem.class.getName());
-
-	static {
-		LOGGER.setUseParentHandlers(false);
-		ConsoleHandler consoleHandler = new ConsoleHandler();
-		consoleHandler.setFormatter(new SimpleFormatter() {
-			@Override
-			public synchronized String format(LogRecord lr) {
-				if (lr.getThrown() != null) {
-					StringWriter sw = new StringWriter();
-					PrintWriter pw = new PrintWriter(sw);
-					lr.getThrown().printStackTrace(pw);
-					pw.close();
-					return String.format("%s: %s%n%s", lr.getLevel().getName(), lr.getMessage(), sw.toString());
-				}
-				return String.format("%s: %s%n", lr.getLevel().getName(), lr.getMessage());
-			}
-		});
-		LOGGER.addHandler(consoleHandler);
-	}
 
 	private static String resourcePath(String... components) {
 		return String.join("/", components);
@@ -741,8 +717,30 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 	private void validateMultipleVFSLocations(List<URL> filelistUrls) {
 		// Check compatibility of installed packages. Use venv/installed.txt, which
-		// should be added
-		// by the Maven/Gradle plugin and should contain "pip freeze" of the venv
+		// should be added by the Maven/Gradle plugin and should contain "pip freeze" of
+		// the venv
+		ArrayList<URL> venvUrls;
+		try {
+			venvUrls = Collections
+					.list(this.resourceLoadingClass.getClassLoader().getResources(resourcePath(vfsRoot, VFS_VENV)));
+		} catch (IOException e) {
+			warn("Cannot check compatibility of the merged virtual environments. Cannot read list of packages installed in the virtual environments. IOException: "
+					+ e.getMessage());
+			return;
+		}
+		if (venvUrls.isEmpty()) {
+			// We are merging virtual filesystems without virtual environments,
+			// nothing to check
+			return;
+		}
+		if (venvUrls.size() > filelistUrls.size()) {
+			reportFailedMultiVFSCheck(String.format("Inconsistent virtual filesystem instances detected. "
+					+ "Found more Python virtual environments in the resources than filelist.txt metadata files.\n\n"
+					+ "Found the following metadata files:\n%s\n\n"
+					+ "Found the following virtual environments:\n%s\n ",
+					filelistUrls.stream().map(URL::toString).collect(Collectors.joining("\n")),
+					venvUrls.stream().map(URL::toString).collect(Collectors.joining("\n"))));
+		}
 		ArrayList<URL> installedUrls;
 		try {
 			installedUrls = Collections.list(
@@ -752,7 +750,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 					+ e.getMessage());
 			return;
 		}
-		if (installedUrls.size() != filelistUrls.size()) {
+		if (installedUrls.size() != venvUrls.size()) {
 			warn("Could not read the list of installed packages for all virtual environments. Lists found:\n%s",
 					installedUrls.stream().map(URL::toString).collect(Collectors.joining("\n")));
 		}
@@ -797,7 +795,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 					+ e.getMessage());
 			return;
 		}
-		if (contentsUrls.size() != filelistUrls.size()) {
+		if (contentsUrls.size() != venvUrls.size()) {
 			warn("Could not read the GraalPy version for all virtual environments. Version files found:\n%s",
 					contentsUrls.stream().map(URL::toString).collect(Collectors.joining("\n")));
 		}
