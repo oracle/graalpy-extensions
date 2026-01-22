@@ -93,6 +93,16 @@ SOFTWARE.
           <escapeString>\</escapeString>
         </configuration>
       </plugin>
+      <!-- Effectively disables the maven-source-plugin inherited from parent pom. -->
+      <!-- The archetype-packaging extensions already contains maven-source-plugin
+           and the two of them would fight each other -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <configuration>
+          <attach>false</attach>
+        </configuration>
+      </plugin>
     </plugins>
 
     <pluginManagement>
