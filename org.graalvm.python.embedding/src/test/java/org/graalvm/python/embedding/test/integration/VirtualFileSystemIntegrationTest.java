@@ -105,7 +105,9 @@ public class VirtualFileSystemIntegrationTest {
 
 	@AfterAll
 	public static void closeEngine() {
-		engine.close();
+		if (engine != null) {
+			engine.close();
+		}
 	}
 
 	/**
@@ -750,6 +752,25 @@ public class VirtualFileSystemIntegrationTest {
 				Value test = ctx.getBindings("python").getMember("test");
 				Value result = test.execute(vfs.getMountPoint());
 				assertEquals("world\n", result.asString());
+			}
+		}
+	}
+
+	@Test
+	public void testVfsWithoutVenv() throws IOException {
+		try (var vfs = VirtualFileSystem.newBuilder().resourceDirectory("SIMPLE-VFS").build()) {
+			try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(vfs)).build()) {
+				eval(ctx, """
+						def test(mount_point):
+						    import os
+						    p = os.path.join(mount_point, 'readme.txt')
+						    assert os.path.exists(p)
+						    with open(p, 'r') as f:
+						        return f.read()
+						""");
+				Value test = ctx.getBindings("python").getMember("test");
+				Value result = test.execute(vfs.getMountPoint());
+				assertEquals("simple virtual filesystem without venv\n", result.asString());
 			}
 		}
 	}
