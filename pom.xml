@@ -9,7 +9,7 @@
   <properties>
     <!-- NOTE: revision is special and one can change it from cmd line: `mvn -Drevision=... package` -->
     <!-- See https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html -->
-    <revision>25.0.1</revision>
+    <revision>25.0.2</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.polyglot.version>${revision}</project.polyglot.version>

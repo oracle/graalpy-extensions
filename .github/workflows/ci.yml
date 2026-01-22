@@ -4,10 +4,10 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, release/graal-vm/25.0 ]
 
 env:
-  graalvm_version: '26-ea'
+  graalvm_version: '25.0.2'
 
 jobs:
   # This is done as one single separate step to work around rate limits for the API
