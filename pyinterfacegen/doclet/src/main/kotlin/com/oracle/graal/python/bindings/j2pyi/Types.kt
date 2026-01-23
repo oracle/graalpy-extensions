@@ -115,18 +115,23 @@ data class FieldIR(
     val type: PyType
 )
 
-data class ConstructorIR(
-    val params: List<ParamIR>,
+interface WithParamsIR {
+    val params: List<ParamIR>
     val doc: String?
-)
+}
+
+data class ConstructorIR(
+    override val params: List<ParamIR>,
+    override val doc: String?
+) : WithParamsIR
 
 data class MethodIR(
     val name: String,
-    val params: List<ParamIR>,
+    override val params: List<ParamIR>,
     val returnType: PyType,
     val isStatic: Boolean,
-    val doc: String?
-)
+    override val doc: String?
+) : WithParamsIR
 
 data class PropertyIR(
     val name: String,

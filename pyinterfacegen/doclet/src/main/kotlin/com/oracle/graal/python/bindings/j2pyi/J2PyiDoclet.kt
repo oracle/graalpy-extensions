@@ -721,6 +721,7 @@ class J2PyiDoclet : Doclet {
     private fun mapDeclaredType(dt: DeclaredType): PyType {
         val el = dt.asElement() as? TypeElement ?: return PyType.AnyT
         val qn = el.qualifiedName.toString()
+
         // Helper to map the i-th generic type argument, or default to Any if missing
         fun argOrAny(i: Int): PyType {
             val args: List<TypeMirror> = dt.typeArguments
@@ -831,6 +832,73 @@ class J2PyiDoclet : Doclet {
         }
     }
 
+    // Helper: compute a "generality score" for a type; higher = more general
+    private fun typeGeneralityScore(pt: PyType): Int {
+        var score = 0
+        pt.walk { node ->
+            score += when (node) {
+                is PyType.AnyT -> 100
+                is PyType.ObjectT -> 80
+                is PyType.TypeVarRef -> 50
+                is PyType.Abc -> 10
+                is PyType.Generic -> 10
+                is PyType.Union -> 5
+                // Prefer ints as most specific relative to float/Number
+                is PyType.IntT -> 0
+                is PyType.FloatT -> 5
+                is PyType.Str, is PyType.Bool -> 0
+                is PyType.NoneT -> 0
+                is PyType.Ref -> 5 // referenced declared types: treat as moderately specific
+                is PyType.NumberT -> 20
+            }
+        }
+        return score
+    }
+
+    // Approximate: does type 'a' accept everything type 'b' accepts? (a is broader-or-equal than b)
+    private fun typeIsBroaderOrEqual(a: PyType, b: PyType): Boolean {
+        if (a === b) return true
+        // Any and object are the broadest
+        if (a === PyType.AnyT) return true
+        if (a === PyType.ObjectT && b !== PyType.AnyT) return true
+        // Number is broader than int/float
+        if (a === PyType.NumberT) return b === PyType.IntT || b === PyType.FloatT
+        // float is broader than int per Python typing
+        if (a === PyType.FloatT && b === PyType.IntT) return true
+        // TypeVars are treated broadly (unknown constraint) -> assume broader
+        if (a is PyType.TypeVarRef) return true
+        // Same Abc/Generic family with broader args
+        if (a is PyType.Abc && b is PyType.Abc && a.name == b.name && a.args.size == b.args.size) {
+            return a.args.zip(b.args).all { (aa, bb) -> typeIsBroaderOrEqual(aa, bb) }
+        }
+        if (a is PyType.Generic && b is PyType.Generic && a.name == b.name && a.args.size == b.args.size) {
+            return a.args.zip(b.args).all { (aa, bb) -> typeIsBroaderOrEqual(aa, bb) }
+        }
+        // For other cases (Union, Ref, mixed kinds), don't assume broader.
+        return false
+    }
+
+    private fun methodDominates(a: WithParamsIR, b: WithParamsIR): Boolean {
+        // Overload dominance: same arity, every param in 'a' is broader-or-equal than in 'b'
+        if (a.params.size != b.params.size) return false
+        for ((pa, pb) in a.params.zip(b.params)) {
+            // Varargs considered broader than positional
+            val va = pa.isVarargs
+            val vb = pb.isVarargs
+            if (va && !vb) {
+                // a is varargs where b is fixed -> broader
+            } else if (!typeIsBroaderOrEqual(pa.type, pb.type)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private fun methodGeneralitySignature(m: WithParamsIR): List<Int> {
+        // Varargs is inherently general; add a small penalty.
+        return m.params.map { p -> typeGeneralityScore(p.type) + if (p.isVarargs) 10 else 0 }
+    }
+
     // Emit a single type as .pyi text (class, interface-as-Protocol, or enum)
     private fun emitTypeAsPyi(t: TypeIR): String {
         val hasTypeParams = t.typeParams.isNotEmpty()
@@ -864,6 +932,10 @@ class J2PyiDoclet : Doclet {
         // numbers imports
         if (t.needsNumberImport()) {
             sb.appendLine("from numbers import Number")
+        }
+        // builtins imports (for builtins.object)
+        if (t.needsBuiltinsImport()) {
+            sb.appendLine("import builtins")
         }
         // enum import
         if (needsEnumImport) {
@@ -955,14 +1027,12 @@ class J2PyiDoclet : Doclet {
                     val onlyReturn = wantVariance && name in seenInReturn && name !in seenInParam
                     val onlyParam = wantVariance && name in seenInParam && name !in seenInReturn
                     val unused = wantVariance && name !in seenInReturn && name !in seenInParam
-                    val varianceArg: String? = when {
+                    return when {
                         onlyReturn -> "covariant=True"
                         onlyParam -> "contravariant=True"
-                        // Unused type variables in Protocols are safest as covariant.
                         unused -> "covariant=True"
                         else -> null
                     }
-                    return varianceArg
                 }
 
                 sb.appendLine("from typing import TypeVar")
@@ -1050,23 +1120,57 @@ class J2PyiDoclet : Doclet {
             return sb.toString()
         }
 
-        // Fields (as attributes) for classes only
+        // Fields (as attributes) for classes only.
+        // If a property with the same name will be emitted, skip the raw field to avoid duplicate names.
         if (t.kind == Kind.CLASS) {
+            val propNames = t.properties.map { it.name }.toSet()
+            val methodNames = t.methods.map { safeIdentifier(it.name, allowSelf = true) }.toSet()
             for (f in t.fields) {
+                // Skip raw field if a property or method with the same name exists to avoid duplicate symbol names.
+                if (f.name in propNames) continue
+                if (f.name in methodNames) continue
                 sb.appendLine("${indent}${f.name}: ${f.type.render()}")
             }
         }
 
         if (t.kind == Kind.CLASS) {
-            for (c in t.constructors) {
-                val params = renderParams(c.params, includeSelf = true)
-                if (t.constructors.size > 1) sb.appendLine("${indent}@overload")
-                sb.append("${indent}def __init__($params) -> None:")
-                if (!c.doc.isNullOrBlank()) {
-                    sb.appendLine()
-                    appendIndentedDocStringAndPass(indent, c.doc, sb)
-                } else {
-                    sb.appendLine(" ...")
+            // Constructors: deduplicate identical signatures that can arise after Java->Python type mapping,
+            // then order by specificity and drop dominated overloads.
+            run {
+                // Normalize to a signature key: rendered param types (including varargs marker) and return type (always None here).
+                fun constructorSigKey(c: ConstructorIR): String {
+                    val paramKey = c.params.joinToString(",") { p ->
+                        val ty = p.type.render()
+                        if (p.isVarargs) "*args:$ty" else ty
+                    }
+                    return "(__init__)($paramKey)->None"
+                }
+
+                val seen = LinkedHashSet<String>()
+                val uniqueConstructors = mutableListOf<ConstructorIR>()
+                for (c in t.constructors) {
+                    val key = constructorSigKey(c)
+                    if (seen.add(key)) uniqueConstructors += c
+                }
+
+                // Sort most specific first
+                val ordered = uniqueConstructors.sortedWith(
+                    compareBy(
+                        { methodGeneralitySignature(it).joinToString(",") },
+                        { it.params.size }
+                    ))
+
+                val filtered: List<ConstructorIR> = dropDominatedOverloads(ordered)
+                for (c in filtered) {
+                    val params = renderParams(c.params, includeSelf = true)
+                    if (filtered.size > 1) sb.appendLine("${indent}@overload")
+                    sb.append("${indent}def __init__($params) -> None:")
+                    if (!c.doc.isNullOrBlank()) {
+                        sb.appendLine()
+                        appendIndentedDocStringAndPass(indent, c.doc, sb)
+                    } else {
+                        sb.appendLine(" ...")
+                    }
                 }
             }
 
@@ -1090,21 +1194,74 @@ class J2PyiDoclet : Doclet {
         val groups = t.methods.groupBy { it.name to it.isStatic }.toSortedMap(
             compareBy({ it.first }, { it.second })
         )
+
+        // If both a static and an instance group exist for the same name, prefer the instance group.
+        // Python typing cannot express both static and instance overloads sharing the same attribute name cleanly.
+        val namesWithBoth = groups.keys.groupBy({ it.first }, { it.second })
+            .filterValues { it.toSet().size > 1 }.keys
+
         for ((key, methods) in groups) {
             val isStatic = key.second
-            if (methods.size > 1) {
-                // Emit all overloads for this (name, isStatic) group.
+            if (key.first in namesWithBoth && isStatic) {
+                // Skip static group when there is both static and instance of same name.
+                continue
+            }
+
+            // Deduplicate identical overloads by normalized signature (post-mapping), keeping first doc found.
+            // Build unique list preserving order of first occurrences.
+            val unique: List<MethodIR> = run {
+                fun methodSigKey(m: MethodIR): String {
+                    val paramKey = m.params.joinToString(",") { p ->
+                        val ty = p.type.render()
+                        if (p.isVarargs) "*args:$ty" else ty
+                    }
+                    val ret = m.returnType.render()
+                    val prefix = if (isStatic) "static" else "inst"
+                    val safeName = safeIdentifier(m.name, allowSelf = true)
+                    return "$prefix|$safeName|($paramKey)->$ret"
+                }
+
+                val seen = LinkedHashSet<String>()
+                val out = ArrayList<MethodIR>(methods.size)
                 for (m in methods) {
+                    val key = methodSigKey(m)
+                    if (seen.add(key)) {
+                        out += m
+                    }
+                }
+                // Sort by specificity: most specific first (lowest generality score lexicographically).
+                out.sortedWith(
+                    compareBy(
+                        { methodGeneralitySignature(it).joinToString(",") }, // compare lists lexicographically via string
+                        { it.params.size } // tie-breaker: more params first tends to be more specific
+                    ))
+            }
+
+            // Filter out overloads dominated by an earlier (more specific) one.
+            val filtered: List<MethodIR> = dropDominatedOverloads(unique)
+            if (filtered.size > 1) {
+                for (m in filtered) {
                     sb.appendLine("${indent}@overload")
                     appendMethodBody(isStatic, sb, indent, m)
                 }
             } else {
-                val m = methods.firstOrNull() ?: continue
+                val m = filtered.firstOrNull() ?: continue
                 appendMethodBody(isStatic, sb, indent, m)
             }
         }
 
         return sb.toString()
+    }
+
+    private fun <T : WithParamsIR> dropDominatedOverloads(ordered: List<T>): List<T> {
+        val filtered = ArrayList<T>(ordered.size)
+        outer@ for (c in ordered) {
+            for (k in filtered) {
+                if (methodDominates(k, c)) continue@outer
+            }
+            filtered += c
+        }
+        return filtered
     }
 
     private fun appendDocString(doc: String, indent: String, sb: StringBuilder) {
@@ -1121,19 +1278,58 @@ class J2PyiDoclet : Doclet {
     private fun appendMethodBody(isStatic: Boolean, sb: StringBuilder, indent: String, m: MethodIR) {
         if (isStatic) sb.appendLine("${indent}@staticmethod")
         val params = renderParams(m.params, includeSelf = !isStatic)
-        val defName = safeIdentifier(m.name, allowSelf = true)
+
+        // Avoid shadowing built-in type names in class scope (e.g., a method named 'object' interfering with the 'object' type).
+        fun avoidBuiltinTypeShadow(name: String): String {
+            return when (name) {
+                // Common built-in type names used in annotations
+                "object", "str", "int", "float", "bool", "list", "dict", "set", "tuple" -> "${name}_"
+                else -> name
+            }
+        }
+
+        val defName = avoidBuiltinTypeShadow(safeIdentifier(m.name, allowSelf = true))
+        // Adjust return type: replace TypeVars that don't appear in any parameter with Any to satisfy mypy.
+        val adjustedRet: PyType = adjustReturnTypeTypeVars(m)
         if (!m.doc.isNullOrBlank()) {
-            sb.appendLine("${indent}def ${defName}($params) -> ${m.returnType.render()}:")
+            sb.appendLine("${indent}def ${defName}($params) -> ${adjustedRet.render()}:")
             appendDocString(m.doc, indent.repeat(2), sb)
             sb.appendLine("${indent.repeat(2)}...")
         } else {
-            sb.appendLine("${indent}def ${defName}($params) -> ${m.returnType.render()}: ...")
+            sb.appendLine("${indent}def ${defName}($params) -> ${adjustedRet.render()}: ...")
         }
     }
 
     private fun appendIndentedDocStringAndPass(indent: String, doc: String, sb: StringBuilder) {
         appendDocString(doc, indent.repeat(2), sb)
         sb.appendLine("${indent.repeat(2)}...")
+    }
+
+    // Replace in the return type any TypeVar that doesn't appear in parameters with Any,
+    // to avoid mypy complaints about returning a TypeVar not bound by any argument.
+    private fun adjustReturnTypeTypeVars(m: MethodIR): PyType {
+        // Collect TypeVars present in parameters
+        val tvInParams = mutableSetOf<String>()
+        fun collect(pt: PyType) {
+            pt.walk { node ->
+                if (node is PyType.TypeVarRef) tvInParams += node.name
+            }
+        }
+        for (p in m.params) collect(p.type)
+        // Transform return type
+        fun subst(pt: PyType): PyType {
+            return when (pt) {
+                is PyType.TypeVarRef -> {
+                    if (pt.name in tvInParams) pt else PyType.AnyT
+                }
+
+                is PyType.Generic -> pt.copy(args = pt.args.map(::subst))
+                is PyType.Abc -> pt.copy(args = pt.args.map(::subst))
+                is PyType.Union -> pt.copy(items = pt.items.map(::subst))
+                else -> pt
+            }
+        }
+        return subst(m.returnType)
     }
 
     // Escape only those backslashes that would form invalid escape sequences in Python string literals.
@@ -1185,6 +1381,7 @@ class J2PyiDoclet : Doclet {
                         i += 2
                     }
                 }
+
                 'U' -> {
                     if (i + 9 < s.length &&
                         (2..9).all { k -> isHex(s[i + k]) }
@@ -1237,6 +1434,7 @@ class J2PyiDoclet : Doclet {
                     out.append('\\').append(n)
                     i += 2
                 }
+
                 else -> {
                     // Anything else would be an invalid escape; double the backslash.
                     out.append("\\\\").append(n)
@@ -1293,12 +1491,35 @@ class J2PyiDoclet : Doclet {
         return found
     }
 
-    private fun TypeIR.needsAnyImport(): Boolean =
-        fields.any { anyInType(it.type) } ||
+    private fun objectInType(pt: PyType): Boolean {
+        var found = false
+        pt.walk { if (it === PyType.ObjectT) found = true }
+        return found
+    }
+
+    private fun TypeIR.needsAnyImport(): Boolean {
+        // Base scan for Any present anywhere in the type signatures.
+        val base = fields.any { anyInType(it.type) } ||
                 constructors.any { it.params.any { p -> anyInType(p.type) } } ||
                 methods.any { anyInType(it.returnType) || it.params.any { p -> anyInType(p.type) } } ||
                 properties.any { anyInType(it.type) } ||
                 typeParams.any { it.bound?.let { b -> anyInType(b) } == true }
+        if (base) return true
+        // Extra: our emission replaces return-only TypeVars with Any to satisfy mypy.
+        // If a method's return type references a TypeVar that's not present in any parameter, we need Any imported.
+        fun tvsIn(t: PyType): Set<String> {
+            val out = mutableSetOf<String>()
+            t.walk { node -> if (node is PyType.TypeVarRef) out += node.name }
+            return out
+        }
+        for (m in methods) {
+            val retTVs = tvsIn(m.returnType)
+            if (retTVs.isEmpty()) continue
+            val paramsTVs = m.params.flatMap { tvsIn(it.type) }.toSet()
+            if ((retTVs - paramsTVs).isNotEmpty()) return true
+        }
+        return false
+    }
 
     private fun TypeIR.needsNumberImport(): Boolean =
         fields.any { numberInType(it.type) } ||
@@ -1306,6 +1527,13 @@ class J2PyiDoclet : Doclet {
                 methods.any { numberInType(it.returnType) || it.params.any { p -> numberInType(p.type) } } ||
                 properties.any { numberInType(it.type) } ||
                 typeParams.any { it.bound?.let { b -> numberInType(b) } == true }
+
+    private fun TypeIR.needsBuiltinsImport(): Boolean =
+        fields.any { objectInType(it.type) } ||
+                constructors.any { it.params.any { p -> objectInType(p.type) } } ||
+                methods.any { objectInType(it.returnType) || it.params.any { p -> objectInType(p.type) } } ||
+                properties.any { objectInType(it.type) } ||
+                typeParams.any { it.bound?.let { b -> objectInType(b) } == true }
 
     private fun TypeIR.needsOverloadImport(): Boolean {
         // Overload needed if any method group has >1 entries or multiple constructors
