@@ -1136,6 +1136,117 @@ class J2PyiDoclet : Doclet {
         sb.appendLine("${indent.repeat(2)}...")
     }
 
+    // Escape only those backslashes that would form invalid escape sequences in Python string literals.
+    // This prevents "invalid escape sequence" warnings/errors in docstrings while preserving recognized
+    // escapes like \n, \t, \\, \xNN, \uXXXX, \UXXXXXXXX, \N{...} and octal escapes.
+    private fun escapeInvalidPythonEscapes(s: String): String {
+        fun isHex(c: Char): Boolean = (c in '0'..'9') || (c in 'a'..'f') || (c in 'A'..'F')
+        val out = StringBuilder(s.length + 8)
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            if (c != '\\') {
+                out.append(c)
+                i++
+                continue
+            }
+            // Backslash at end -> escape it.
+            if (i + 1 >= s.length) {
+                out.append("\\\\")
+                i++
+                continue
+            }
+            val n = s[i + 1]
+            when (n) {
+                '\\', '\'', '"', 'a', 'b', 'f', 'n', 'r', 't', 'v' -> {
+                    out.append('\\').append(n)
+                    i += 2
+                }
+                // Hex escape: \xNN (exactly two hex digits)
+                'x' -> {
+                    if (i + 3 < s.length && isHex(s[i + 2]) && isHex(s[i + 3])) {
+                        out.append("\\x").append(s[i + 2]).append(s[i + 3])
+                        i += 4
+                    } else {
+                        out.append("\\\\").append('x')
+                        i += 2
+                    }
+                }
+                // Unicode escapes: \uXXXX and \UXXXXXXXX
+                'u' -> {
+                    if (i + 5 < s.length &&
+                        isHex(s[i + 2]) && isHex(s[i + 3]) && isHex(s[i + 4]) && isHex(s[i + 5])
+                    ) {
+                        out.append("\\u")
+                            .append(s[i + 2]).append(s[i + 3]).append(s[i + 4]).append(s[i + 5])
+                        i += 6
+                    } else {
+                        out.append("\\\\").append('u')
+                        i += 2
+                    }
+                }
+                'U' -> {
+                    if (i + 9 < s.length &&
+                        (2..9).all { k -> isHex(s[i + k]) }
+                    ) {
+                        out.append("\\U")
+                        for (k in 2..9) out.append(s[i + k])
+                        i += 10
+                    } else {
+                        out.append("\\\\").append('U')
+                        i += 2
+                    }
+                }
+                // Named Unicode: \N{...}
+                'N' -> {
+                    if (i + 2 < s.length && s[i + 2] == '{') {
+                        var j = i + 3
+                        var found = false
+                        while (j < s.length) {
+                            if (s[j] == '}') {
+                                found = true
+                                break
+                            }
+                            j++
+                        }
+                        if (found) {
+                            out.append("\\N")
+                            out.append(s, i + 2, j + 1)
+                            i = j + 1
+                        } else {
+                            out.append("\\\\").append('N')
+                            i += 2
+                        }
+                    } else {
+                        out.append("\\\\").append('N')
+                        i += 2
+                    }
+                }
+                // Octal escapes: up to 3 octal digits after backslash.
+                in '0'..'7' -> {
+                    var j = i + 1
+                    var count = 0
+                    while (j < s.length && count < 3 && s[j] in '0'..'7') {
+                        j++; count++
+                    }
+                    out.append(s, i, j)
+                    i = j
+                }
+                // Line continuation (backslash followed by newline) – leave intact.
+                '\n', '\r' -> {
+                    out.append('\\').append(n)
+                    i += 2
+                }
+                else -> {
+                    // Anything else would be an invalid escape; double the backslash.
+                    out.append("\\\\").append(n)
+                    i += 2
+                }
+            }
+        }
+        return out.toString()
+    }
+
     // Choose a safe triple-quote delimiter based on content and escape embedded triples accordingly.
     private fun chooseTripleQuoteAndEscape(s: String): Pair<String, String> {
         val trimmedEnd = s.trimEnd()
@@ -1145,13 +1256,15 @@ class J2PyiDoclet : Doclet {
         // Fall back to single-quoted triples if content ends with a double quote or contains """ blocks.
         val useSingle = hasTripleDbl || endsWithDbl
         val delim = if (useSingle) "'''" else "\"\"\""
-        val escaped = if (useSingle) {
+        val escapedTriples = if (useSingle) {
             // Escape embedded triple-single-quotes
             s.replace("'''", "\\'\\'\\'")
         } else {
             // Escape embedded triple-double-quotes
             s.replace("\"\"\"", "\\\"\\\"\\\"")
         }
+        // After handling quote delimiters, ensure no invalid escapes remain in content.
+        val escaped = escapeInvalidPythonEscapes(escapedTriples)
         return delim to escaped
     }
 
