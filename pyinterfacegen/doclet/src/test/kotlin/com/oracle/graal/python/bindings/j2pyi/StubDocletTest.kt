@@ -453,9 +453,9 @@ class StubDocletTest {
             from enum import Enum
 
             class Color(Enum):
-                BLUE: Color
-                GREEN: Color
-                RED: Color
+                BLUE = ...
+                GREEN = ...
+                RED = ...
         """.trimIndent().trimEnd()
         val actual = DocletTestUtil.runDoclet(java)
         assertEquals(expected, actual)
