@@ -75,8 +75,6 @@ The Gradle plugin also provides a task that resolves a whole dependency graph to
 Example usage:
 
 ```kotlin
-import org.graalvm.python.pyinterfacegen.PyiFromDependencySources
-
 val commons by configurations.registering {
     isCanBeConsumed = false
     isCanBeResolved = true
@@ -87,7 +85,7 @@ dependencies {
 }
 
 // Register the task
-val pyi by tasks.registering(PyiFromDependencySources::class) {
+val pyi by tasks.registering(org.graalvm.python.pyinterfacegen.PyiFromDependencySources::class) {
     group = "verification"
     description = "Generate Python stubs from dependency sources in 'depStubs'"
     // Provide the configuration object directly so task inputs track changes correctly
