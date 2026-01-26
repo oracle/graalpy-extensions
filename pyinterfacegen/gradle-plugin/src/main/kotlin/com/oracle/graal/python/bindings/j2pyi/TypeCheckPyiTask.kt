@@ -87,13 +87,17 @@ abstract class TypeCheckPyiTask @Inject constructor(
                 mutableListOf("python3", "-m", "mypy").apply {
                     addAll(defaultMypyArgs())
                     addAll(extraArgs.get())
-                    add(dir.absolutePath)
+                    // Run mypy from the module root so package names are computed relative to it.
+                    // Using "." here avoids mypy deriving module names from higher-level directories
+                    // like "build.pymodule.*" which can break relative imports resolution.
+                    add(".")
                 }
             }
             "pyright" -> {
                 mutableListOf("pyright").apply {
                     addAll(extraArgs.get())
-                    add(dir.absolutePath)
+                    // As with mypy, invoke from the module root and point to the current directory.
+                    add(".")
                 }
             }
             else -> throw GradleException("Unsupported typeChecker: '$checker'. Use 'mypy' or 'pyright'.")
@@ -145,6 +149,10 @@ abstract class TypeCheckPyiTask @Inject constructor(
         val result = execOperations.exec {
             it.executable = args.first()
             it.args = args.drop(1)
+            // Ensure the checker process runs with the generated module as its working directory.
+            // This stabilizes package root detection for PEP 420 namespace packages and
+            // relative imports inside .pyi files.
+            it.workingDir = dir
             it.isIgnoreExitValue = true
         }
         val exit = result.exitValue
