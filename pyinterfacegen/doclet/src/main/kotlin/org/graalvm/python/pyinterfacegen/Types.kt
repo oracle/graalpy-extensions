@@ -43,7 +43,9 @@ sealed interface PyType {
 
     // Python's root object type
     object ObjectT : PyType {
-        override fun render() = "object"
+        // Always qualify as builtins.object to avoid shadowing within class scopes
+        // (e.g., a class attribute named 'object' would otherwise conflict).
+        override fun render() = "builtins.object"
     }
 
     object NumberT : PyType {

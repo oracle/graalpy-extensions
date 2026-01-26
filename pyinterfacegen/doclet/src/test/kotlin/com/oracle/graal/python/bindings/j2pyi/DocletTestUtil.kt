@@ -6,7 +6,6 @@ import java.io.PrintStream
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.util.spi.ToolProvider
-import javax.tools.ToolProvider as JdkToolProvider
 
 /**
  * Test utilities for invoking the javadoc tool with our doclet and preparing sources.
