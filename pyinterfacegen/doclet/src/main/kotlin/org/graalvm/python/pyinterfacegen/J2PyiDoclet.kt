@@ -347,7 +347,7 @@ class J2PyiDoclet : Doclet {
         fun discoverNonEmptyPackages(root: File): Set<String> {
             if (!root.isDirectory) return emptySet()
             val pkgs = mutableSetOf<String>()
-            root.walkTopDown().forEach { f ->
+            for (f in root.walkTopDown()) {
                 if (f.isFile) {
                     val name = f.name
                     val isPy = name.endsWith(".py")
@@ -1061,14 +1061,20 @@ class J2PyiDoclet : Doclet {
                     is PyType.Generic -> {
                         // list/set/dict are invariant in typing
                         val inv = invariantCtx || (py.name == "list" || py.name == "set" || py.name == "dict")
-                        py.args.forEach { a -> collectVariance(a, retLike, inv) }
+                        for (a in py.args) {
+                            collectVariance(a, retLike, inv)
+                        }
                     }
                     is PyType.Abc -> {
                         // abc types like Sequence/Iterable/Iterator/Collection are covariant; keep context
-                        py.args.forEach { a -> collectVariance(a, retLike, invariantCtx) }
+                        for (a in py.args) {
+                            collectVariance(a, retLike, invariantCtx)
+                        }
                     }
                     is PyType.Union -> {
-                        py.items.forEach { a -> collectVariance(a, retLike, invariantCtx) }
+                        for (a in py.items) {
+                            collectVariance(a, retLike, invariantCtx)
+                        }
                     }
                     else -> {} // Any/None/Ref: nothing to do
                 }
@@ -1637,14 +1643,26 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun collectAllMembers(t: TypeIR, function: (pt: PyType) -> Unit) {
-        t.fields.forEach { function(it.type) }
-        t.constructors.forEach { it.params.forEach { p -> function(p.type) } }
-        t.methods.forEach { m ->
-            function(m.returnType)
-            m.params.forEach { p -> function(p.type) }
+        for (field in t.fields) {
+            function(field.type)
         }
-        t.properties.forEach { function(it.type) }
-        t.typeParams.forEach { it.bound?.let { b -> function(b) } }
+        for (ctor in t.constructors) {
+            for (p in ctor.params) {
+                function(p.type)
+            }
+        }
+        for (m in t.methods) {
+            function(m.returnType)
+            for (p in m.params) {
+                function(p.type)
+            }
+        }
+        for (prop in t.properties) {
+            function(prop.type)
+        }
+        for (tp in t.typeParams) {
+            tp.bound?.let { b -> function(b) }
+        }
     }
 
     // No per-class runtime shims are emitted; runtime names are exposed in package __init__.py

@@ -59,7 +59,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -71,7 +73,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -85,7 +89,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            items.forEach { it.walk(visit) }
+            for (item in items) {
+                item.walk(visit)
+            }
         }
     }
 }
