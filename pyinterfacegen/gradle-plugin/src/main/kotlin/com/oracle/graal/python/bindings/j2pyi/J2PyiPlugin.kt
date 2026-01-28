@@ -8,7 +8,16 @@ open class J2PyiExtension {
     /**
      * Coordinate of the published doclet used by tasks. Override if you publish under a different version.
      */
-    var docletCoordinate: String = "org.graalvm.python.pyinterfacegen:j2pyi-doclet:1.3-SNAPSHOT"
+    private fun pluginVersion(): String? = this::class.java.`package`?.implementationVersion
+    var docletCoordinate: String = run {
+        val ver = pluginVersion()
+        if (ver.isNullOrBlank()) {
+            // Placeholder; consuming builds should substitute to :doclet in composite development.
+            "org.graalvm.python.pyinterfacegen:j2pyi-doclet:0.0.0-DEV"
+        } else {
+            "org.graalvm.python.pyinterfacegen:j2pyi-doclet:$ver"
+        }
+    }
 }
 
 class J2PyiPlugin : Plugin<Project> {

@@ -1,3 +1,5 @@
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "2.2.10"
@@ -5,7 +7,21 @@ plugins {
 }
 
 group = "org.graalvm.python.pyinterfacegen"
-version = "1.3-SNAPSHOT"
+// Derive the version from the repository root pom.xml so this included build aligns with the parent build.
+val repoRoot = file("../../")
+val pom = repoRoot.resolve("pom.xml")
+val derivedVersion: String = if (pom.exists()) {
+    val text = pom.readText()
+    // Prefer <properties><revision>... (CI-friendly), fall back to top-level <version>
+    val revRegex = Regex("<properties>[\\s\\S]*?<revision>\\s*([^<\\s]+)\\s*</revision>", RegexOption.DOT_MATCHES_ALL)
+    val verRegex = Regex("<project[\\s\\S]*?<version>\\s*([^<\\s]+)\\s*</version>", RegexOption.DOT_MATCHES_ALL)
+    revRegex.find(text)?.groupValues?.getOrNull(1)
+        ?: verRegex.find(text)?.groupValues?.getOrNull(1)
+        ?: "unspecified"
+} else {
+    "unspecified"
+}
+version = derivedVersion
 
 repositories {
     mavenCentral()
@@ -22,6 +38,13 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Ensure the plugin JAR manifest contains the Implementation-Version so plugin code can discover its own version.
+tasks.withType<Jar>().configureEach {
+    manifest {
+        attributes(mapOf("Implementation-Title" to project.name, "Implementation-Version" to project.version))
+    }
+}
+
 gradlePlugin {
     plugins {
         create("jarsToGraalPyBindings") {
@@ -31,12 +54,5 @@ gradlePlugin {
             implementationClass = "org.graalvm.python.pyinterfacegen.J2PyiPlugin"
             tags.set(listOf("graalpy", "python", "pyi", "doclet", "javadoc"))
         }
-    }
-}
-
-publishing {
-    // java-gradle-plugin sets up marker + plugin publications; just add mavenLocal as a target
-    repositories {
-        mavenLocal()
     }
 }
