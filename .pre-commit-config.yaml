@@ -18,6 +18,6 @@ repos:
     -   id: maven-validate-spotless
         name: Maven validate & spotless:apply
         entry: ./mvnw
-        args: ['validate', '-DskipJavainterfacegen=true', 'spotless:apply']
+        args: ['--batch-mode', 'validate', '-DskipJavainterfacegen=true', 'spotless:apply']
         language: system
         pass_filenames: false
