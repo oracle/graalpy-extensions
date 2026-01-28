@@ -44,15 +44,15 @@ import org.graalvm.polyglot.io.FileSystem;
 import org.graalvm.python.embedding.VirtualFileSystem.HostIO;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.invoke.VarHandle;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NonWritableChannelException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.Charset;
@@ -177,20 +177,40 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	}
 
 	private final class FileEntry extends BaseEntry {
-		private byte[] data;
 		private List<FileEntry> toExtract;
 
 		public FileEntry(String path) {
 			super(path);
 		}
 
-		private byte[] getData() throws IOException {
-			if (data == null) {
-				byte[] loaded = readResource(getResourcePath());
-				VarHandle.storeStoreFence();
-				data = loaded;
+		private InputStream openStream() throws IOException {
+			return getResourceUrl(getResourcePath()).openStream();
+		}
+
+		private byte[] readAllBytes() throws IOException {
+			try (InputStream stream = openStream()) {
+				return stream.readAllBytes();
 			}
-			return data;
+		}
+
+		private long getSize() throws IOException {
+			long size = 0;
+			byte[] tmp = new byte[1024];
+			try (InputStream stream = openStream()) {
+				while (true) {
+					int read = stream.read(tmp);
+					if (read < 0) {
+						return size;
+					}
+					size += read;
+				}
+			}
+		}
+
+		private void extractTo(Path target) throws IOException {
+			try (OutputStream is = Files.newOutputStream(target); InputStream os = openStream()) {
+				os.transferTo(is);
+			}
 		}
 	}
 
@@ -596,7 +616,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			assert contentsEntry instanceof FileEntry;
 			String contents;
 			try {
-				contents = new String(((FileEntry) contentsEntry).getData(), StandardCharsets.UTF_8);
+				contents = new String(((FileEntry) contentsEntry).readAllBytes(), StandardCharsets.UTF_8);
 			} catch (IOException ex) {
 				throw new IllegalStateException(
 						String.format("IO error while reading venv contents file'%s'.", contentsPath), ex);
@@ -839,23 +859,6 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		return urls.get(0);
 	}
 
-	byte[] readResource(String path) throws IOException {
-		try (InputStream stream = getResourceUrl(path).openStream()) {
-			if (stream == null) {
-				throw new IllegalStateException("VFS.initEntries: could not read resource: " + path);
-			}
-			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-			int n;
-			byte[] data = new byte[4096];
-
-			while ((n = stream.readNBytes(data, 0, data.length)) != 0) {
-				buffer.write(data, 0, n);
-			}
-			buffer.flush();
-			return buffer.toByteArray();
-		}
-	}
-
 	private List<URL> getURLInRoot(List<URL> urls) {
 		return urls.stream().filter(x -> x.toString().startsWith(vfsRootURL)).findFirst().map(List::of)
 				.orElseGet(List::of);
@@ -951,7 +954,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			Files.createDirectories(parent);
 
 			// write data extracted file
-			Files.write(extractedPath, toExtract.getData());
+			toExtract.extractTo(extractedPath);
 			finest("extracted '%s' -> '%s'", toExtract.getPlatformPath(), extractedPath);
 		}
 		return extractedPath;
@@ -968,14 +971,15 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			Path destFile = externalResourceDirectory.resolve(Path.of(resourcePath.substring(vfsRoot.length() + 2)));
 			if (entry instanceof DirEntry) {
 				Files.createDirectories(destFile);
-			} else {
-				assert entry instanceof FileEntry;
+			} else if (entry instanceof FileEntry fileEntry) {
 				Path parent = destFile.getParent();
 				if (parent != null) {
 					Files.createDirectories(parent);
 				}
 				finest("VFS.extractResources '%s' -> '%s'", resourcePath, destFile);
-				Files.write(destFile, readResource(resourcePath));
+				fileEntry.extractTo(destFile);
+			} else {
+				throw new IllegalStateException("Unexpected entry type: " + entry);
 			}
 		}
 	}
@@ -1105,64 +1109,93 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			// appropriate python error
 			throw new FileSystemException(path.toString(), null, "Is a directory");
 		}
-		byte[] data = fileEntry.getData(); // throw the IOException before allocating SeekableByteChannel
 		return new SeekableByteChannel() {
-			long position = 0;
+			private long position = 0;
+			private long size = -1;
+			private InputStream is = fileEntry.openStream();
 
-			final byte[] bytes = data;
-
-			@Override
-			public int read(ByteBuffer dst) throws IOException {
-				if (position > bytes.length) {
-					return -1;
-				} else if (position == bytes.length) {
-					return 0;
-				} else {
-					int length = Math.min(bytes.length - (int) position, dst.remaining());
-					dst.put(bytes, (int) position, length);
-					position += length;
-					if (dst.hasRemaining()) {
-						position++;
-					}
-					return length;
+			private void ensureOpen() throws IOException {
+				if (!isOpen()) {
+					throw new ClosedChannelException();
 				}
 			}
 
 			@Override
-			public int write(ByteBuffer src) throws IOException {
+			public int read(ByteBuffer dst) throws IOException {
+				ensureOpen();
+				int read;
+				if (dst.hasArray()) {
+					read = is.read(dst.array(), dst.arrayOffset() + dst.position(), dst.remaining());
+					if (read > 0) {
+						dst.position(dst.position() + read);
+						position += read;
+					}
+				} else {
+					byte[] tmp = new byte[dst.remaining()];
+					read = is.read(tmp);
+					if (read > 0) {
+						dst.put(tmp, 0, read);
+						position += read;
+					}
+				}
+				return read;
+			}
+
+			@Override
+			public int write(ByteBuffer src) {
 				finer("VFS.newByteChannel '%s'", String.format("read-only filesystem: '%s'", path));
 				throw new NonWritableChannelException();
 			}
 
 			@Override
-			public long position() throws IOException {
+			public long position() {
 				return position;
 			}
 
 			@Override
 			public SeekableByteChannel position(long newPosition) throws IOException {
-				position = Math.max(0, newPosition);
+				ensureOpen();
+				if (newPosition < 0) {
+					throw new IllegalArgumentException();
+				}
+				if (newPosition > position) {
+					is.skip(newPosition - position);
+					position = newPosition;
+				} else if (newPosition < position) {
+					is.close();
+					is = fileEntry.openStream();
+					is.skip(newPosition);
+					position = newPosition;
+				}
 				return this;
 			}
 
 			@Override
 			public long size() throws IOException {
-				return bytes.length;
+				ensureOpen();
+				if (size == -1) {
+					size = fileEntry.getSize();
+				}
+				return size;
 			}
 
 			@Override
-			public SeekableByteChannel truncate(long size) throws IOException {
+			public SeekableByteChannel truncate(long size) {
 				finer("VFS.newByteChannel '%s'", String.format("read-only filesystem: '%s'", path));
 				throw new NonWritableChannelException();
 			}
 
 			@Override
 			public boolean isOpen() {
-				return true;
+				return is != null;
 			}
 
 			@Override
 			public void close() throws IOException {
+				if (is != null) {
+					is.close();
+					is = null;
+				}
 			}
 		};
 	}
@@ -1303,7 +1336,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		attrs.put("isDirectory", entry instanceof DirEntry);
 		attrs.put("isSymbolicLink", extractable);
 		attrs.put("isOther", false);
-		attrs.put("size", (long) (entry instanceof FileEntry fileEntry ? fileEntry.getData().length : 0));
+		attrs.put("size", entry instanceof FileEntry fileEntry ? fileEntry.getSize() : 0L);
 		attrs.put("mode", 0555);
 		attrs.put("dev", 0L);
 		attrs.put("nlink", 1);
@@ -1415,7 +1448,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		try {
 			long size = entry.getResourcePath().length() + 1;
 			if (entry instanceof FileEntry fe) {
-				size = Math.addExact(size, fe.getData().length);
+				size = Math.addExact(size, fe.getSize());
 			} else if (entry instanceof DirEntry de) {
 				for (BaseEntry e : de.entries) {
 					size = Math.addExact(size, getEntryTotalSpace(e));

@@ -57,7 +57,7 @@ jobs:
         shell: bash
 
       - name: run pre-commit
-        run: pre-commit run --all-files
+        run: pre-commit run --all-files --show-diff-on-failure
         shell: bash
 
   build:
@@ -288,18 +288,14 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      # Optional but helpful: cache Gradle user home to speed up builds.
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Run Gradle tests (Linux/macOS)
         if: runner.os != 'Windows'
         working-directory: pyinterfacegen
-        run: ./gradlew --no-daemon --stacktrace check
+        run: ./gradlew --no-daemon --info check
         shell: bash
 
       - name: Run Gradle tests (Windows)
         if: runner.os == 'Windows'
         working-directory: pyinterfacegen
-        run: .\\gradlew.bat --no-daemon --stacktrace check
+        run: .\\gradlew.bat --no-daemon --info check
         shell: pwsh
