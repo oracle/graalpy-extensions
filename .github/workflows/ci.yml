@@ -288,10 +288,6 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      # Optional but helpful: cache Gradle user home to speed up builds.
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Run Gradle tests (Linux/macOS)
         if: runner.os != 'Windows'
         working-directory: pyinterfacegen
