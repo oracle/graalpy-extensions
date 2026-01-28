@@ -50,7 +50,7 @@ to the local repository also omits the license checks.
 ## Structure
 
 This repository is structured as a Maven multi-module project. There is also a Gradle project
-for the Gradle plugin: `org.graalvm.python.gradle.plugin`.
+for the Gradle plugin: `org.graalvm.python.gradle.plugin`, and for the `pyinterface` tool.
 
 A Maven project and pom.xml exist for the Gradle plugin, but solely to delegate most of the
 lifecycle tasks to Gradle. This allows you to run those tasks with a single Maven command.
