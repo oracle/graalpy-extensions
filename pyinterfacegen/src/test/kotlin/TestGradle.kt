@@ -4,7 +4,9 @@ import java.nio.file.Path
 
 object TestGradle {
     fun runGradle(task: String) {
-        val cmd = listOf("./gradlew", "-q", "--no-daemon", task)
+        val isWindows = System.getProperty("os.name").lowercase().contains("windows")
+        val gradleCmd = if (isWindows) "gradlew.bat" else "./gradlew"
+        val cmd = listOf(gradleCmd, "-q", "--no-daemon", task)
         val pb = ProcessBuilder(cmd)
             .redirectErrorStream(true)
         val p = pb.start()
