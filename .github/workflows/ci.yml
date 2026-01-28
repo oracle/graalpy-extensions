@@ -291,11 +291,11 @@ jobs:
       - name: Run Gradle tests (Linux/macOS)
         if: runner.os != 'Windows'
         working-directory: pyinterfacegen
-        run: ./gradlew --no-daemon --stacktrace check
+        run: ./gradlew --no-daemon --info check
         shell: bash
 
       - name: Run Gradle tests (Windows)
         if: runner.os == 'Windows'
         working-directory: pyinterfacegen
-        run: .\\gradlew.bat --no-daemon --stacktrace check
+        run: .\\gradlew.bat --no-daemon --info check
         shell: pwsh
