@@ -29,7 +29,16 @@ publishing {
             artifactId = "j2pyi-doclet"
         }
     }
+    // Allow publishing to a specific local repository via -PlocalRepoUrl=...
     repositories {
-        mavenLocal()
+        val localRepoUrl = (project.findProperty("localRepoUrl") as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        if (localRepoUrl != null) {
+            maven {
+                name = "local"
+                url = uri(localRepoUrl)
+            }
+        } else {
+            mavenLocal()
+        }
     }
 }

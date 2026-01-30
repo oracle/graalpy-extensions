@@ -56,3 +56,26 @@ gradlePlugin {
         }
     }
 }
+
+// Configure publishing. With `java-gradle-plugin` applied, a `pluginMaven` publication is created automatically.
+// We also publish the main Java component for convenience.
+publishing {
+    publications {
+        // Conventional Java publication of the plugin JAR
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+        }
+        // `pluginMaven` is created by the java-gradle-plugin; no need to define it explicitly here.
+    }
+    repositories {
+        val localRepoUrl = (project.findProperty("localRepoUrl") as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        if (localRepoUrl != null) {
+            maven {
+                name = "local"
+                url = uri(localRepoUrl)
+            }
+        } else {
+            mavenLocal()
+        }
+    }
+}
