@@ -74,7 +74,23 @@ class J2PyiDoclet : Doclet {
             val pkgDir = packageDir(baseOut, mappedPkg)
             pkgDir.mkdirs()
             // Type stubs
-            File(pkgDir, "${t.simpleName}.pyi").writeText(emitTypeAsPyi(t))
+            val text = emitTypeAsPyi(t)
+            // Avoid unused typing import if no overloads are present
+            val cleaned = if (!text.contains("@overload")) {
+                text.lineSequence()
+                    .dropWhile { it.isBlank() }
+                    .let { seq ->
+                        val lines = seq.toList()
+                        if (lines.firstOrNull()?.trim() == "from typing import overload") {
+                            (lines.drop(1)).joinToString("\n")
+                        } else {
+                            text
+                        }
+                    }
+            } else {
+                text
+            }
+            File(pkgDir, "${t.simpleName}.pyi").writeText(cleaned)
             // Record for __init__.py and __init__.pyi aggregation
             pkgToTypes.computeIfAbsent(mappedPkg) { linkedMapOf() }[t.simpleName] = t.qualifiedName
         }
@@ -809,15 +825,27 @@ class J2PyiDoclet : Doclet {
             }
         }
 
-        // Methods: group by (name, isStatic) for overloads
+        // Methods: group by (name, isStatic) for overloads. If both static and instance
+        // methods exist with the same Java name, prefer emitting ONLY the static group.
+        // Python can't have both an instance method and a staticmethod with the same name
+        // at class scope (the later overwrites the former), and mypy treats adjacent
+        // overloads of the same name as one set that must consistently use @staticmethod.
+        // Emitting both would therefore either shadow one another or cause mypy errors like:
+        //   - "Name 'foo' already defined"
+        //   - "Overload does not consistently use the '@staticmethod' decorator"
+        // Resolve this by dropping the instance group when a static group exists.
         val groups = t.methods.groupBy { it.name to it.isStatic }.toSortedMap(
             compareBy({ it.first }, { it.second })
         )
+        val staticNames = t.methods.asSequence().filter { it.isStatic }.map { it.name }.toSet()
 
         val keepProtocolReturnTypeVars = (t.kind == Kind.INTERFACE && config.interfaceAsProtocol)
         for ((key, methods) in groups) {
             val isStatic = key.second
-            // Do not skip static methods even if instance overloads exist with the same name.
+            // If a static group exists for this name, skip the instance group to avoid conflicts.
+            if (!isStatic && key.first in staticNames) {
+                continue
+            }
 
             // Deduplicate identical overloads by normalized signature (post-mapping), keeping first doc found.
             // Build unique list preserving order of first occurrences.
@@ -975,10 +1003,15 @@ class J2PyiDoclet : Doclet {
         } || properties.any { objectInType(it.type) } || typeParams.any { it.bound?.let { b -> objectInType(b) } == true }
 
     private fun TypeIR.needsOverloadImport(): Boolean {
-        // Overload needed if any method group has >1 entries or multiple constructors
+        // Constructors: overload import needed if more than one ctor remains.
         if (kind == Kind.CLASS && constructors.size > 1) return true
-        val groups = methods.groupBy { it.name to it.isStatic }
-        return groups.values.any { it.size > 1 }
+        // Methods: account for our rule that when both static and instance methods exist with the same name,
+        // we emit only the static group. Compute effective groups after this rule, then check for >1 per group.
+        val byKind = methods.groupBy { it.name to it.isStatic }
+        val staticNames = methods.asSequence().filter { it.isStatic }.map { it.name }.toSet()
+        // Drop instance groups if a static group of the same name exists.
+        val effectiveGroups = byKind.filterKeys { (name, isStatic) -> isStatic || name !in staticNames }
+        return effectiveGroups.values.any { it.size > 1 }
     }
 
     private fun TypeIR.collectionsAbcImports(): Set<String> {
