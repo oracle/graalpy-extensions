@@ -14,18 +14,48 @@ import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
 import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
-import kotlin.collections.iterator
 
 class J2PyiDoclet : Doclet {
     // Python keywords that cannot be used as identifiers/parameter names.
     // Keep in sync with Python 3.11+; covers all reserved words including match/case.
     private val PYTHON_KEYWORDS: Set<String> = setOf(
-        "False", "None", "True",
-        "and", "as", "assert", "async", "await",
-        "break", "class", "continue", "def", "del", "elif", "else", "except",
-        "finally", "for", "from", "global", "if", "import", "in", "is",
-        "lambda", "nonlocal", "not", "or", "pass", "raise", "return",
-        "try", "while", "with", "yield", "match", "case"
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield",
+        "match",
+        "case"
     )
 
     private data class Config(
@@ -79,12 +109,9 @@ class J2PyiDoclet : Doclet {
     override fun run(environment: DocletEnvironment): Boolean {
         this.docTrees = environment.docTrees
         // Build IR for all included types (classes, interfaces, enums) honoring include/exclude and visibility.
-        val typeIRs = environment.includedElements
-            .filterIsInstance<TypeElement>()
+        val typeIRs = environment.includedElements.filterIsInstance<TypeElement>()
             .filter { it.kind == ElementKind.CLASS || it.kind == ElementKind.INTERFACE || it.kind == ElementKind.ENUM }
-            .filter { shouldIncludeType(it) }
-            .mapNotNull { maybeBuildTypeIR(it) }
-            .sortedBy { it.qualifiedName }
+            .filter { shouldIncludeType(it) }.mapNotNull { maybeBuildTypeIR(it) }.sortedBy { it.qualifiedName }
 
         // Determine output directory. Respect -d if provided; otherwise default to build/pyi.
         val baseOut = File(outputDir ?: "build/pyi")
@@ -118,113 +145,143 @@ class J2PyiDoclet : Doclet {
         return true
     }
 
-    override fun getSupportedOptions(): MutableSet<out Doclet.Option> =
-        mutableSetOf(
-            object : Doclet.Option {
-                override fun getArgumentCount(): Int = 1
-                override fun getDescription(): String = "Output directory for .pyi files"
-                override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
-                override fun getNames(): MutableList<String> = mutableListOf("-d")
-                override fun getParameters(): String = "<dir>"
-                override fun process(option: String?, arguments: MutableList<String>?): Boolean {
-                    outputDir = arguments?.firstOrNull()
-                    return true
-                }
-            },
-            object : Doclet.Option {
-                override fun getArgumentCount(): Int = 1
-                override fun getDescription(): String = "Document title (ignored by this stub)"
-                override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
-                override fun getNames(): MutableList<String> = mutableListOf("-doctitle")
-                override fun getParameters(): String = "<title>"
-                override fun process(option: String?, arguments: MutableList<String>?): Boolean = true
-            },
-            object : Doclet.Option {
-                override fun getArgumentCount(): Int = 1
-                override fun getDescription(): String = "Window title (ignored by this stub)"
-                override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
-                override fun getNames(): MutableList<String> = mutableListOf("-windowtitle")
-                override fun getParameters(): String = "<title>"
-                override fun process(option: String?, arguments: MutableList<String>?): Boolean = true
-            },
-            // Extended options for configuration
-            stringOption("-Xj2pyi-include", "<prefixes>", "Comma-separated package or qualified-name prefixes to include.") {
-                config.includePrefixes.clear()
-                config.includePrefixes.addAll(splitCsv(it))
-                true
-            },
-            stringOption("-Xj2pyi-exclude", "<prefixes>", "Comma-separated package or qualified-name prefixes to exclude.") {
-                config.excludePrefixes.clear()
-                config.excludePrefixes.addAll(splitCsv(it))
-                true
-            },
-            // Note: use 'intfAsProtocol' to avoid potential parsing issues with the word 'interface' in some javadoc environments.
-            stringOption("-Xj2pyi-intfAsProtocol", "<true|false>", "Emit interfaces as typing.Protocol (default true).") {
-                config.interfaceAsProtocol = it.equals("true", ignoreCase = true)
-                true
-            },
-            // Convenience flag (no argument) to disable Protocol emission for interfaces.
-            flagOption("-Xj2pyi-noInterfaceProtocol", "Do not emit interfaces as typing.Protocol (treat as plain classes).") {
-                config.interfaceAsProtocol = false
-                true
-            },
-            stringOption("-Xj2pyi-propertySynthesis", "<true|false>", "Synthesize @property from getters/setters (default true).") {
-                config.propertySynthesis = it.equals("true", ignoreCase = true)
-                true
-            },
-            stringOption("-Xj2pyi-visibility", "<public|public+package>", "Visibility filter for members/types.") {
-                config.visibility = it
-                true
-            },
-            stringOption("-Xj2pyi-emitMetadataHeader", "<true|false>", "Emit a one-line metadata header at top of files.") {
-                config.emitMetadataHeader = it.equals("true", ignoreCase = true)
-                true
-            },
-            stringOption("-Xj2pyi-packageMap", "<javaPkg=pyPkg[,more...]>", "Map Java package prefixes to Python package prefixes (CSV).") {
-                config.packagePrefixMap.clear()
-                config.packagePrefixMap.addAll(parsePackageMap(it))
-                true
-            },
-            stringOption("-Xj2pyi-nullabilityMode", "<annotations|conservative|aggressive>", "Nullability mode (currently informational).") {
-                config.nullabilityMode = it
-                true
-            },
-            stringOption("-Xj2pyi-nullabilityExtra", "<prefixes>", "Comma-separated additional nullability annotation package prefixes.") {
-                config.nullabilityExtra.clear()
-                config.nullabilityExtra.addAll(splitCsv(it))
-                true
-            },
-            // Let users extend the set of platform packages that are mapped to builtins.object instead of emitting Refs/imports.
-            // This is useful when dependencies reference external packages the user doesn't want to map/emit imports for.
-            stringOption("-Xj2pyi-extraPlatformPackages", "<prefixes>", "Comma-separated package or qualified-name prefixes to treat as platform (not mapped/imported).") {
-                config.extraPlatformPackages.clear()
-                config.extraPlatformPackages.addAll(splitCsv(it))
-                true
-            },
-            stringOption("-Xj2pyi-collectionMapping", "<sequence|list>", "Array mapping preference).") {
-                config.collectionMapping = it
-                true
-            },
-            stringOption("-Xj2pyi-streamMapping", "<iterable|iterator>", "Stream mapping preference.") {
-                config.streamMapping = it
-                true
-            },
-            stringOption("-Xj2pyi-moduleName", "<name>", "Name for the assembled Python module distribution.") {
-                config.moduleName = it
-                true
-            },
-            stringOption("-Xj2pyi-moduleVersion", "<version>", "Version string for assembled Python module (default 0.1.0).") {
-                config.moduleVersion = it
-                true
+    override fun getSupportedOptions(): MutableSet<out Doclet.Option> = mutableSetOf(
+        object : Doclet.Option {
+            override fun getArgumentCount(): Int = 1
+            override fun getDescription(): String = "Output directory for .pyi files"
+            override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
+            override fun getNames(): MutableList<String> = mutableListOf("-d")
+            override fun getParameters(): String = "<dir>"
+            override fun process(option: String?, arguments: MutableList<String>?): Boolean {
+                outputDir = arguments?.firstOrNull()
+                return true
             }
-        )
+        },
+        object : Doclet.Option {
+            override fun getArgumentCount(): Int = 1
+            override fun getDescription(): String = "Document title (ignored by this stub)"
+            override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
+            override fun getNames(): MutableList<String> = mutableListOf("-doctitle")
+            override fun getParameters(): String = "<title>"
+            override fun process(option: String?, arguments: MutableList<String>?): Boolean = true
+        },
+        object : Doclet.Option {
+            override fun getArgumentCount(): Int = 1
+            override fun getDescription(): String = "Window title (ignored by this stub)"
+            override fun getKind(): Doclet.Option.Kind = Doclet.Option.Kind.STANDARD
+            override fun getNames(): MutableList<String> = mutableListOf("-windowtitle")
+            override fun getParameters(): String = "<title>"
+            override fun process(option: String?, arguments: MutableList<String>?): Boolean = true
+        },
+        // Extended options for configuration
+        stringOption(
+            "-Xj2pyi-include",
+            "<prefixes>",
+            "Comma-separated package or qualified-name prefixes to include."
+        ) {
+            config.includePrefixes.clear()
+            config.includePrefixes.addAll(splitCsv(it))
+            true
+        },
+        stringOption(
+            "-Xj2pyi-exclude",
+            "<prefixes>",
+            "Comma-separated package or qualified-name prefixes to exclude."
+        ) {
+            config.excludePrefixes.clear()
+            config.excludePrefixes.addAll(splitCsv(it))
+            true
+        },
+        // Note: use 'intfAsProtocol' to avoid potential parsing issues with the word 'interface' in some javadoc environments.
+        stringOption("-Xj2pyi-intfAsProtocol", "<true|false>", "Emit interfaces as typing.Protocol (default true).") {
+            config.interfaceAsProtocol = it.equals("true", ignoreCase = true)
+            true
+        },
+        // Convenience flag (no argument) to disable Protocol emission for interfaces.
+        flagOption(
+            "-Xj2pyi-noInterfaceProtocol",
+            "Do not emit interfaces as typing.Protocol (treat as plain classes)."
+        ) {
+            config.interfaceAsProtocol = false
+            true
+        },
+        stringOption(
+            "-Xj2pyi-propertySynthesis",
+            "<true|false>",
+            "Synthesize @property from getters/setters (default true)."
+        ) {
+            config.propertySynthesis = it.equals("true", ignoreCase = true)
+            true
+        },
+        stringOption("-Xj2pyi-visibility", "<public|public+package>", "Visibility filter for members/types.") {
+            config.visibility = it
+            true
+        },
+        stringOption("-Xj2pyi-emitMetadataHeader", "<true|false>", "Emit a one-line metadata header at top of files.") {
+            config.emitMetadataHeader = it.equals("true", ignoreCase = true)
+            true
+        },
+        stringOption(
+            "-Xj2pyi-packageMap",
+            "<javaPkg=pyPkg[,more...]>",
+            "Map Java package prefixes to Python package prefixes (CSV)."
+        ) {
+            config.packagePrefixMap.clear()
+            config.packagePrefixMap.addAll(parsePackageMap(it))
+            true
+        },
+        stringOption(
+            "-Xj2pyi-nullabilityMode",
+            "<annotations|conservative|aggressive>",
+            "Nullability mode (currently informational)."
+        ) {
+            config.nullabilityMode = it
+            true
+        },
+        stringOption(
+            "-Xj2pyi-nullabilityExtra",
+            "<prefixes>",
+            "Comma-separated additional nullability annotation package prefixes."
+        ) {
+            config.nullabilityExtra.clear()
+            config.nullabilityExtra.addAll(splitCsv(it))
+            true
+        },
+        // Let users extend the set of platform packages that are mapped to builtins.object instead of emitting Refs/imports.
+        // This is useful when dependencies reference external packages the user doesn't want to map/emit imports for.
+        stringOption(
+            "-Xj2pyi-extraPlatformPackages",
+            "<prefixes>",
+            "Comma-separated package or qualified-name prefixes to treat as platform (not mapped/imported)."
+        ) {
+            config.extraPlatformPackages.clear()
+            config.extraPlatformPackages.addAll(splitCsv(it))
+            true
+        },
+        stringOption("-Xj2pyi-collectionMapping", "<sequence|list>", "Array mapping preference).") {
+            config.collectionMapping = it
+            true
+        },
+        stringOption("-Xj2pyi-streamMapping", "<iterable|iterator>", "Stream mapping preference.") {
+            config.streamMapping = it
+            true
+        },
+        stringOption("-Xj2pyi-moduleName", "<name>", "Name for the assembled Python module distribution.") {
+            config.moduleName = it
+            true
+        },
+        stringOption(
+            "-Xj2pyi-moduleVersion",
+            "<version>",
+            "Version string for assembled Python module (default 0.1.0)."
+        ) {
+            config.moduleVersion = it
+            true
+        })
 
     // Helpers for extended options
     private fun stringOption(
-        name: String,
-        param: String,
-        desc: String,
-        handler: (String) -> Boolean
+        name: String, param: String, desc: String, handler: (String) -> Boolean
     ): Doclet.Option {
         return object : Doclet.Option {
             override fun getArgumentCount(): Int = 1
@@ -252,8 +309,7 @@ class J2PyiDoclet : Doclet {
         }
     }
 
-    private fun splitCsv(s: String): List<String> =
-        s.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    private fun splitCsv(s: String): List<String> = s.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.latest()
 
@@ -285,13 +341,15 @@ class J2PyiDoclet : Doclet {
 
     private fun parsePackageMap(spec: String): List<Pair<String, String>> {
         if (spec.isBlank()) return emptyList()
-        return spec.split(',', ';')
-            .mapNotNull { part ->
+        return spec.split(',', ';').mapNotNull { part ->
                 val s = part.trim()
                 if (s.isEmpty()) return@mapNotNull null
                 val kv = s.split("=", limit = 2)
                 if (kv.size != 2) {
-                    reporter?.print(Diagnostic.Kind.WARNING, "Ignoring invalid -Xj2pyi-packageMap entry: '$s' (expect javaPkg=pyPkg)")
+                    reporter?.print(
+                        Diagnostic.Kind.WARNING,
+                        "Ignoring invalid -Xj2pyi-packageMap entry: '$s' (expect javaPkg=pyPkg)"
+                    )
                     null
                 } else {
                     kv[0].trim() to kv[1].trim()
@@ -396,7 +454,10 @@ class J2PyiDoclet : Doclet {
             |""".trimMargin()
         )
 
-        reporter?.print(Diagnostic.Kind.NOTE, "j2pyi: Assembled Python module at ${outRoot} (name=${moduleName}, packages=${leafPkgNames.size})")
+        reporter?.print(
+            Diagnostic.Kind.NOTE,
+            "j2pyi: Assembled Python module at ${outRoot} (name=${moduleName}, packages=${leafPkgNames.size})"
+        )
     }
 
     // Visibility and include/exclude filtering
@@ -412,11 +473,8 @@ class J2PyiDoclet : Doclet {
     private fun shouldIncludeType(te: TypeElement): Boolean {
         val pkg = packageOf(te)
         val qn = te.qualifiedName.toString()
-        val matchesInclude =
-            if (config.includePrefixes.isEmpty())
-                true
-            else
-                config.includePrefixes.any { qn.startsWith(it) || pkg.startsWith(it) }
+        val matchesInclude = if (config.includePrefixes.isEmpty()) true
+        else config.includePrefixes.any { qn.startsWith(it) || pkg.startsWith(it) }
         val matchesExclude = config.excludePrefixes.any { qn.startsWith(it) || pkg.startsWith(it) }
         val visible = isIncludedByVisibility(te)
         return matchesInclude && !matchesExclude && visible
@@ -465,23 +523,19 @@ class J2PyiDoclet : Doclet {
                 .map { f -> FieldIR(f.simpleName.toString(), mapFieldTypeWithNullability(f)) }
         }
 
-        val constructors =
-            if (kind == Kind.CLASS) {
-                ElementFilter.constructorsIn(te.enclosedElements)
-                    .filter { isIncludedByVisibility(it) }
-                    .sortedBy { it.parameters.joinToString(",") { p -> p.asType().toString() } }
-                    .map { c ->
-                        val isVar = c.isVarArgs
-                        val params = paramsToIR(c, isVar)
-                        ConstructorIR(params = params, doc = docTrees?.javadocFull(c))
-                    }
-            } else {
-                emptyList()
-            }
+        val constructors = if (kind == Kind.CLASS) {
+            ElementFilter.constructorsIn(te.enclosedElements).filter { isIncludedByVisibility(it) }
+                .sortedBy { it.parameters.joinToString(",") { p -> p.asType().toString() } }.map { c ->
+                    val isVar = c.isVarArgs
+                    val params = paramsToIR(c, isVar)
+                    ConstructorIR(params = params, doc = docTrees?.javadocFull(c))
+                }
+        } else {
+            emptyList()
+        }
 
         // Collect methods
-        val allMethods = ElementFilter.methodsIn(te.enclosedElements)
-            .filter { isIncludedByVisibility(it) }
+        val allMethods = ElementFilter.methodsIn(te.enclosedElements).filter { isIncludedByVisibility(it) }
             .sortedWith(compareBy({ it.simpleName.toString() }, { it.parameters.size }))
         val mappedMethods = allMethods.map { m ->
             val variadic = m.isVarArgs
@@ -495,20 +549,20 @@ class J2PyiDoclet : Doclet {
         }
 
         // Synthesize properties per JavaBeans rules and filter out matched getters/setters (classes only).
-        val (properties, remainingMethods) =
-            if (kind == Kind.CLASS && config.propertySynthesis) synthesizeProperties(fields, allMethods, mappedMethods)
-            else Pair(emptyList(), mappedMethods)
+        val (properties, remainingMethods) = if (kind == Kind.CLASS && config.propertySynthesis) synthesizeProperties(
+            fields,
+            allMethods,
+            mappedMethods
+        )
+        else Pair(emptyList(), mappedMethods)
 
         // Enum constants (names only)
-        val enumConstants =
-            if (kind == Kind.ENUM) {
-                te.enclosedElements
-                    .filter { it.kind == ElementKind.ENUM_CONSTANT }
-                    .map { it.simpleName.toString() }
-                    .sorted()
-            } else {
-                emptyList()
-            }
+        val enumConstants = if (kind == Kind.ENUM) {
+            te.enclosedElements.filter { it.kind == ElementKind.ENUM_CONSTANT }.map { it.simpleName.toString() }
+                .sorted()
+        } else {
+            emptyList()
+        }
 
         return TypeIR(
             packageName = pkg,
@@ -527,9 +581,7 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun synthesizeProperties(
-        fields: List<FieldIR>,
-        rawMethods: List<ExecutableElement>,
-        mappedMethods: List<MethodIR>
+        fields: List<FieldIR>, rawMethods: List<ExecutableElement>, mappedMethods: List<MethodIR>
     ): Pair<List<PropertyIR>, List<MethodIR>> {
         // Index raw methods by name for bean detection; exclude static methods from consideration
         data class Getter(val el: ExecutableElement, val name: String, val kind: String) // kind: "get" or "is"
@@ -626,16 +678,15 @@ class J2PyiDoclet : Doclet {
         return m.parameters.mapIndexed { idx, p ->
             val isLast = idx == m.parameters.lastIndex
             val isVarargs = isVar && isLast
-            val t: PyType =
-                if (isVarargs) {
-                    val pt: TypeMirror = p.asType()
-                    val comp: TypeMirror = if (pt.kind == TypeKind.ARRAY) {
-                        (pt as ArrayType).componentType
-                    } else pt
-                    mapParamTypeWithNullability(p, overrideType = comp)
-                } else {
-                    mapParamTypeWithNullability(p)
-                }
+            val t: PyType = if (isVarargs) {
+                val pt: TypeMirror = p.asType()
+                val comp: TypeMirror = if (pt.kind == TypeKind.ARRAY) {
+                    (pt as ArrayType).componentType
+                } else pt
+                mapParamTypeWithNullability(p, overrideType = comp)
+            } else {
+                mapParamTypeWithNullability(p)
+            }
             ParamIR(safeParamName(p), t, isVarargs = isVarargs)
         }
     }
@@ -773,14 +824,9 @@ class J2PyiDoclet : Doclet {
 
     private fun isFullyQualifiedNameAJDKType(qn: String): Boolean {
         // Built-in defaults
-        if (qn.startsWith("java.") ||
-            qn.startsWith("javax.") ||
-            qn.startsWith("jdk.") ||
+        if (qn.startsWith("java.") || qn.startsWith("javax.") || qn.startsWith("jdk.") ||
             // Treat common JDK-adjacent namespaces as platform types too; we don't emit Python imports for them.
-            qn.startsWith("org.w3c.") ||
-            qn.startsWith("org.xml.") ||
-            qn.startsWith("org.omg.") ||
-            qn.startsWith("org.ietf.")
+            qn.startsWith("org.w3c.") || qn.startsWith("org.xml.") || qn.startsWith("org.omg.") || qn.startsWith("org.ietf.")
         ) {
             return true
         }
@@ -845,8 +891,10 @@ class J2PyiDoclet : Doclet {
             val simple = aEl.simpleName.toString()
             val pkg = qn.substringBeforeLast('.', missingDelimiterValue = "")
             val extra = config.nullabilityExtra
-            val pkgRecognized = pkg.isNotEmpty() && (NULLABILITY_PACKAGE_PREFIXES.any { pkg.startsWith(it) } ||
-                    extra.any { pkg.startsWith(it) })
+            val pkgRecognized =
+                pkg.isNotEmpty() && (NULLABILITY_PACKAGE_PREFIXES.any { pkg.startsWith(it) } || extra.any {
+                    pkg.startsWith(it)
+                })
             val simpleIsNullable = simple == "Nullable" || simple == "CheckForNull"
             val simpleIsNonNull = simple == "NotNull" || simple == "NonNull" || simple == "Nonnull"
             if (pkgRecognized && simpleIsNullable) foundNullable = true
@@ -873,10 +921,12 @@ class J2PyiDoclet : Doclet {
                     "Sequence", "Iterator" -> 50
                     else -> 40
                 }
+
                 is PyType.Generic -> when (node.name) {
                     "list", "set", "dict" -> 30
                     else -> 20
                 }
+
                 is PyType.TypeVarRef -> 10
                 // Prefer ints as most specific relative to float/Number
                 is PyType.IntT -> 0
@@ -1058,6 +1108,7 @@ class J2PyiDoclet : Doclet {
                         if (retLike) seenInReturn += py.name else seenInParam += py.name
                         if (invariantCtx) seenInvariant += py.name
                     }
+
                     is PyType.Generic -> {
                         // list/set/dict are invariant in typing
                         val inv = invariantCtx || (py.name == "list" || py.name == "set" || py.name == "dict")
@@ -1065,17 +1116,20 @@ class J2PyiDoclet : Doclet {
                             collectVariance(a, retLike, inv)
                         }
                     }
+
                     is PyType.Abc -> {
                         // abc types like Sequence/Iterable/Iterator/Collection are covariant; keep context
                         for (a in py.args) {
                             collectVariance(a, retLike, invariantCtx)
                         }
                     }
+
                     is PyType.Union -> {
                         for (a in py.items) {
                             collectVariance(a, retLike, invariantCtx)
                         }
                     }
+
                     else -> {} // Any/None/Ref: nothing to do
                 }
             }
@@ -1098,7 +1152,13 @@ class J2PyiDoclet : Doclet {
             }
             val toDeclare = (declared + referenced).toMutableSet()
             if (toDeclare.isNotEmpty()) {
-                fun inferVariance(wantVariance: Boolean, name: String, seenInReturn: Set<String>, seenInParam: Set<String>, seenInvariant: Set<String>): String? {
+                fun inferVariance(
+                    wantVariance: Boolean,
+                    name: String,
+                    seenInReturn: Set<String>,
+                    seenInParam: Set<String>,
+                    seenInvariant: Set<String>
+                ): String? {
                     if (!wantVariance) return null
                     if (name in seenInvariant) return null // invariant context forces invariance
                     val inRet = name in seenInReturn
@@ -1118,7 +1178,8 @@ class J2PyiDoclet : Doclet {
                     // Infer variance only for interfaces being emitted as Protocols (PEP 544 requires consistency).
                     val wantVariance = (t.kind == Kind.INTERFACE && config.interfaceAsProtocol)
                     val name = tp.name
-                    val varianceArg: String? = inferVariance(wantVariance, name, seenInReturn, seenInParam, seenInvariant)
+                    val varianceArg: String? =
+                        inferVariance(wantVariance, name, seenInReturn, seenInParam, seenInvariant)
                     // Build TypeVar(...) arguments
                     val args = mutableListOf("\"$name\"")
                     if (!(bound.isNullOrBlank() || bound == "Any")) {
@@ -1133,7 +1194,8 @@ class J2PyiDoclet : Doclet {
                 // Method-level or otherwise unbound TypeVars
                 for (name in toDeclare.sorted()) {
                     val wantVariance = (t.kind == Kind.INTERFACE && config.interfaceAsProtocol)
-                    val varianceArg: String? = inferVariance(wantVariance, name, seenInReturn, seenInParam, seenInvariant)
+                    val varianceArg: String? =
+                        inferVariance(wantVariance, name, seenInReturn, seenInParam, seenInvariant)
                     if (varianceArg != null) {
                         sb.appendLine("$name = TypeVar(\"$name\", $varianceArg)")
                     } else {
@@ -1230,11 +1292,10 @@ class J2PyiDoclet : Doclet {
                 }
 
                 // Sort most specific first
-                val ordered = uniqueConstructors.sortedWith(
-                    compareBy(
+                val ordered =
+                    uniqueConstructors.sortedWith(compareBy(
                         { methodGeneralitySignature(it).joinToString(",") },
-                        { it.params.size }
-                    ))
+                        { it.params.size }))
 
                 val filtered: List<ConstructorIR> = dropDominatedOverloads(ordered)
                 for (c in filtered) {
@@ -1348,7 +1409,13 @@ class J2PyiDoclet : Doclet {
         sb.appendLine("${indent}$delim$body$delim")
     }
 
-    private fun appendMethodBody(isStatic: Boolean, sb: StringBuilder, indent: String, m: MethodIR, keepUnboundReturnTypeVars: Boolean) {
+    private fun appendMethodBody(
+        isStatic: Boolean,
+        sb: StringBuilder,
+        indent: String,
+        m: MethodIR,
+        keepUnboundReturnTypeVars: Boolean
+    ) {
         if (isStatic) sb.appendLine("${indent}@staticmethod")
         val params = renderParams(m.params, includeSelf = !isStatic)
 
@@ -1443,11 +1510,8 @@ class J2PyiDoclet : Doclet {
                 }
                 // Unicode escapes: \uXXXX and \UXXXXXXXX
                 'u' -> {
-                    if (i + 5 < s.length &&
-                        isHex(s[i + 2]) && isHex(s[i + 3]) && isHex(s[i + 4]) && isHex(s[i + 5])
-                    ) {
-                        out.append("\\u")
-                            .append(s[i + 2]).append(s[i + 3]).append(s[i + 4]).append(s[i + 5])
+                    if (i + 5 < s.length && isHex(s[i + 2]) && isHex(s[i + 3]) && isHex(s[i + 4]) && isHex(s[i + 5])) {
+                        out.append("\\u").append(s[i + 2]).append(s[i + 3]).append(s[i + 4]).append(s[i + 5])
                         i += 6
                     } else {
                         out.append("\\\\").append('u')
@@ -1456,9 +1520,7 @@ class J2PyiDoclet : Doclet {
                 }
 
                 'U' -> {
-                    if (i + 9 < s.length &&
-                        (2..9).all { k -> isHex(s[i + k]) }
-                    ) {
+                    if (i + 9 < s.length && (2..9).all { k -> isHex(s[i + k]) }) {
                         out.append("\\U")
                         for (k in 2..9) out.append(s[i + k])
                         i += 10
@@ -1572,11 +1634,10 @@ class J2PyiDoclet : Doclet {
 
     private fun TypeIR.needsAnyImport(): Boolean {
         // Base scan for Any present anywhere in the type signatures.
-        val base = fields.any { anyInType(it.type) } ||
-                constructors.any { it.params.any { p -> anyInType(p.type) } } ||
-                methods.any { anyInType(it.returnType) || it.params.any { p -> anyInType(p.type) } } ||
-                properties.any { anyInType(it.type) } ||
-                typeParams.any { it.bound?.let { b -> anyInType(b) } == true }
+        val base =
+            fields.any { anyInType(it.type) } || constructors.any { it.params.any { p -> anyInType(p.type) } } || methods.any {
+                anyInType(it.returnType) || it.params.any { p -> anyInType(p.type) }
+            } || properties.any { anyInType(it.type) } || typeParams.any { it.bound?.let { b -> anyInType(b) } == true }
         if (base) return true
         // Extra: our emission replaces return-only TypeVars with Any to satisfy mypy.
         // If a method's return type references a TypeVar that's not present in any parameter, we need Any imported.
@@ -1595,18 +1656,14 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun TypeIR.needsNumberImport(): Boolean =
-        fields.any { numberInType(it.type) } ||
-                constructors.any { it.params.any { p -> numberInType(p.type) } } ||
-                methods.any { numberInType(it.returnType) || it.params.any { p -> numberInType(p.type) } } ||
-                properties.any { numberInType(it.type) } ||
-                typeParams.any { it.bound?.let { b -> numberInType(b) } == true }
+        fields.any { numberInType(it.type) } || constructors.any { it.params.any { p -> numberInType(p.type) } } || methods.any {
+            numberInType(it.returnType) || it.params.any { p -> numberInType(p.type) }
+        } || properties.any { numberInType(it.type) } || typeParams.any { it.bound?.let { b -> numberInType(b) } == true }
 
     private fun TypeIR.needsBuiltinsImport(): Boolean =
-        fields.any { objectInType(it.type) } ||
-                constructors.any { it.params.any { p -> objectInType(p.type) } } ||
-                methods.any { objectInType(it.returnType) || it.params.any { p -> objectInType(p.type) } } ||
-                properties.any { objectInType(it.type) } ||
-                typeParams.any { it.bound?.let { b -> objectInType(b) } == true }
+        fields.any { objectInType(it.type) } || constructors.any { it.params.any { p -> objectInType(p.type) } } || methods.any {
+            objectInType(it.returnType) || it.params.any { p -> objectInType(p.type) }
+        } || properties.any { objectInType(it.type) } || typeParams.any { it.bound?.let { b -> objectInType(b) } == true }
 
     private fun TypeIR.needsOverloadImport(): Boolean {
         // Overload needed if any method group has >1 entries or multiple constructors
