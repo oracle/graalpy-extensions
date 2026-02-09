@@ -165,6 +165,8 @@ public final class VFSUtils {
 
 	private static final String PLATFORM = System.getProperty("os.name") + " " + System.getProperty("os.arch");
 
+	private static final boolean NO_COMPILE = Boolean.getBoolean("org.graalvm.python.vfs.no_compile");
+
 	private static final String NATIVE_IMAGE_RESOURCES_CONFIG = """
 			{
 			  "resources": {
@@ -682,6 +684,9 @@ public final class VFSUtils {
 
 	public static void compileBytecode(Launcher launcher, BuildToolLog log, Path path, Path cachePrefix)
 			throws IOException {
+		if (NO_COMPILE) {
+			return;
+		}
 		Path launcherPath = ensureLauncher(launcher, log);
 		// We turn off the hash checking at runtime in GraalPy resources
 		Stream<String> args = Stream.of("-m", "compileall", "-fq", "-j", "1", "--invalidation-mode", "checked-hash",
