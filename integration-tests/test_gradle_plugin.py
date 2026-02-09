@@ -131,18 +131,19 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         os.makedirs(meta_inf_native_image_dir, exist_ok=True)
         shutil.copy(os.path.join(os.path.dirname(__file__), "native-image.properties"), os.path.join(meta_inf_native_image_dir, "native-image.properties"))
 
-    def check_filelist(self, target_dir, log):
-        fl_path = os.path.join(target_dir, "build", "resources", "main", util.DEFAULT_VFS_PREFIX, "fileslist.txt")
+    def check_filelist(self, target_vfs, log, vfs_prefix=util.DEFAULT_VFS_PREFIX):
+        fl_path = os.path.join(target_vfs, "fileslist.txt")
         with open(fl_path) as f:
             lines = f.readlines()
 
         log.log_block("filelist.txt", ''.join(lines))
-        assert "/" + util.DEFAULT_VFS_PREFIX + "/\n" in lines, log
+        assert f"/{vfs_prefix}/\n" in lines, log
 
     def check_gradle_generated_app(self):
         with TemporaryTestDirectory() as tmpdir:
             target_dir = os.path.join(str(tmpdir), "generated_app_gradle" + self.target_dir_name_sufix())
             self.generate_app(target_dir)
+            src_dir = os.path.join(target_dir, "src")
             build_file = os.path.join(target_dir, self.build_file_name)
             append(build_file, self.packages_termcolor())
 
@@ -152,12 +153,14 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env, verbose=False)
 
             cmd = gradlew_cmd + ["build"]
-            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
+            out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log, print_out=True)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, logger=log)
             util.check_ouput("This can cause conflicts if used with other Java libraries that also deploy GraalPy virtual filesystem", out, logger=log)
             util.check_ouput("Detected user-declared dependency", out, False, logger=log)
-            self.check_filelist(target_dir, log)
+            target_vfs = os.path.join(target_dir, "build", "resources", "main", util.DEFAULT_VFS_PREFIX)
+            util.check_pyc_files(src_dir, target_vfs)
+            self.check_filelist(target_vfs, log)
 
             gradlew_cmd = util.get_gradle_wrapper(target_dir, self.env)
 
@@ -165,13 +168,15 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                 cmd = gradlew_cmd + ["nativeCompile"]
                 out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
                 util.check_ouput("BUILD SUCCESS", out, logger=log)
-                self.check_filelist(target_dir, log)
+                util.check_pyc_files(src_dir, target_vfs)
+                self.check_filelist(target_vfs, log)
 
                 # execute and check native image
                 cmd = [os.path.join(target_dir, "build", "native", "nativeCompile", "graalpy-gradle-test-project")]
                 out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
                 util.check_ouput("hello java", out, logger=log)
-                self.check_filelist(target_dir, log)
+                util.check_pyc_files(src_dir, target_vfs)
+                self.check_filelist(target_vfs, log)
 
             # import struct from python file triggers extract of native extension files in VirtualFileSystem
             hello_src = os.path.join(target_dir, "src", "main", "resources", "org.graalvm.python.vfs", "src", "hello.py")
@@ -185,7 +190,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("hello java", out, logger=log)
-            self.check_filelist(target_dir, log)
+            util.check_pyc_files(src_dir, target_vfs)
+            self.check_filelist(target_vfs, log)
 
             #GR-51132 - NoClassDefFoundError when running polyglot app in java mode
             util.check_ouput("java.lang.NoClassDefFoundError", out, False, logger=log)
@@ -193,6 +199,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             # move app to another folder
             # this will break launcher symlinks, but should be able to recover from that
             target_dir2 = os.path.join(str(tmpdir), "generated_app_gradle.2" + self.target_dir_name_sufix())
+            target_vfs2 = os.path.join(target_dir2, "build", "resources", "main", util.DEFAULT_VFS_PREFIX)
             os.rename(target_dir, target_dir2)
             # adding new dep triggers launcher without venv regen
             self.copy_build_files(target_dir2)
@@ -204,7 +211,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir2, logger=log)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
             util.check_ouput("hello java", out, logger=log)
-            self.check_filelist(target_dir2, log)
+            util.check_pyc_files(os.path.join(target_dir2, "src"), target_vfs2)
+            self.check_filelist(target_vfs2, log)
 
     def check_lock_packages(self):
         with util.TemporaryTestDirectory() as tmpdir:
@@ -591,6 +599,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput("0: Hi there java", out)
             util.check_ouput("1: hello java", out)
             assert return_code == 0, out
+            target_vfs = os.path.join(app1_dir, "build", "resources", "main", "GRAALPY-VFS", "org.graalvm.python.tests", "gradleapp1")
+            util.check_pyc_files(os.path.join(app1_dir, "src"), target_vfs)
+            log = Logger()
+            self.check_filelist(target_vfs, log, vfs_prefix="GRAALPY-VFS/org.graalvm.python.tests/gradleapp1")
 
             if util.native_image_all():
                 out, return_code = util.run_cmd(app2_gradle_cmd + ['nativeCompile'], self.env, cwd=app2_dir)

@@ -40,7 +40,6 @@
  */
 package org.graalvm.python.embedding.tools.vfs;
 
-import java.io.Serial;
 import org.graalvm.python.embedding.tools.exec.BuildToolLog;
 import org.graalvm.python.embedding.tools.exec.BuildToolLog.CollectOutputLog;
 import org.graalvm.python.embedding.tools.exec.GraalPyRunner;
@@ -48,6 +47,7 @@ import org.graalvm.python.embedding.tools.exec.GraalPyRunner;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Serial;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -69,6 +69,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 public final class VFSUtils {
 
@@ -565,7 +566,7 @@ public final class VFSUtils {
 
 		VenvContents vc = ensureVenv(venvDirectory, graalPyVersion, launcher, log);
 
-		runPip(venvDirectory, "install", log, "--compile", "-r", reqFile.toString());
+		runPip(venvDirectory, "install", log, "--no-compile", "-r", reqFile.toString());
 		List<String> reqPackages = requirementsPackages(reqFile);
 		vc.write(reqPackages);
 
@@ -673,6 +674,22 @@ public final class VFSUtils {
 			}
 		}
 		return null;
+	}
+
+	public static void compileBytecode(Launcher launcher, BuildToolLog log, Path path) throws IOException {
+		compileBytecode(launcher, log, path, null);
+	}
+
+	public static void compileBytecode(Launcher launcher, BuildToolLog log, Path path, Path cachePrefix)
+			throws IOException {
+		Path launcherPath = ensureLauncher(launcher, log);
+		// We turn off the hash checking at runtime in GraalPy resources
+		Stream<String> args = Stream.of("-m", "compileall", "-fq", "-j", "1", "--invalidation-mode", "checked-hash",
+				path.toString());
+		if (cachePrefix != null) {
+			args = Stream.concat(Stream.of("--python.PyCachePrefix=" + cachePrefix), args);
+		}
+		runLauncher(launcherPath.toString(), log, args.toArray(String[]::new));
 	}
 
 	public static void lockPackages(Path venvDirectory, List<String> packages, Path lockFile, String lockFileHeader,
@@ -797,20 +814,11 @@ public final class VFSUtils {
 		return contents;
 	}
 
-	private static boolean install(Path venvDirectory, Path requirementsFile, BuildToolLog log) throws IOException {
-		if (!Files.exists(requirementsFile)) {
-			throw new IOException("Requirements file not found: " + requirementsFile);
-		}
-		info(log, "Installing Python dependencies from requirements file: " + requirementsFile);
-		runPip(venvDirectory, "install", log, "--compile", "-r", requirementsFile.toString());
-		return true;
-	}
-
 	private static boolean install(Path venvDirectory, InstalledPackages installedPackages, LockFile lockFile,
 			BuildToolLog log) throws IOException {
 		if (installedPackages.packages.size() != lockFile.packages.size()
 				|| deleteUnwantedPackages(venvDirectory, lockFile.packages, installedPackages.packages, log)) {
-			runPip(venvDirectory, "install", log, "--compile", "-r", lockFile.path.toString());
+			runPip(venvDirectory, "install", log, "--no-compile", "-r", lockFile.path.toString());
 			return true;
 		} else {
 			info(log, "Virtual environment is up to date with lock file, skipping install");
@@ -979,7 +987,7 @@ public final class VFSUtils {
 			return false;
 		}
 		List<String> args = new ArrayList<>(pkgsToInstall.size() + 1);
-		args.add("--compile");
+		args.add("--no-compile");
 		args.addAll(pkgsToInstall);
 		runPip(venvDirectory, "install", log, args.toArray(new String[0]));
 		return true;
@@ -1014,6 +1022,7 @@ public final class VFSUtils {
 			throw new IOException(String.format("failed to execute pip %s", List.of(args)), e);
 		}
 	}
+
 	@SuppressWarnings("SameParameterValue")
 	private static void runVenvBin(Path venvDirectory, String bin, BuildToolLog log, String... args)
 			throws IOException {

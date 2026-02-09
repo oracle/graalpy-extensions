@@ -40,12 +40,12 @@
  */
 package org.graalvm.python;
 
-import java.util.Set;
 import org.graalvm.python.dsl.GraalPyExtension;
 import org.graalvm.python.tasks.AbstractPackagesTask;
+import org.graalvm.python.tasks.CompileBytecodeTask;
+import org.graalvm.python.tasks.InstallPackagesTask;
 import org.graalvm.python.tasks.LockPackagesTask;
 import org.graalvm.python.tasks.MetaInfTask;
-import org.graalvm.python.tasks.InstallPackagesTask;
 import org.graalvm.python.tasks.VFSFilesListTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
@@ -54,8 +54,6 @@ import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
-import org.gradle.api.artifacts.ResolvedConfiguration;
-import org.gradle.api.artifacts.ResolvedDependency;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
@@ -74,6 +72,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static org.graalvm.python.embedding.tools.vfs.VFSUtils.GRAALPY_GROUP_ID;
@@ -91,14 +90,13 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 	private static final String PYTHON_COMMUNITY_ARTIFACT_ID = "python-community";
 	private static final String PYTHON_ARTIFACT_ID = "python";
 	private static final String GRAALPY_GRADLE_PLUGIN_TASK_GROUP = "graalPy";
-	private static final String DEFAULT_RESOURCES_DIRECTORY = "generated" + File.separator + "graalpy" + File.separator
-			+ "resources";
 	private static final String DEFAULT_FILESLIST_DIRECTORY = "generated" + File.separator + "graalpy" + File.separator
 			+ "fileslist";
 	private static final String GRAALPY_META_INF_DIRECTORY = "generated" + File.separator + "graalpy" + File.separator
 			+ "META-INF";
 	private static final String GRAALPY_INSTALL_PACKAGES_TASK = "graalPyInstallPackages";
 	private static final String GRAALPY_LOCK_PACKAGES_TASK = "graalPyLockPackages";
+	private static final String GRAALPY_COMPILE_BYTECODE_TASK = "graalPyCompileBytecode";
 	private static final String GRAALPY_META_INF_TASK_TASK = "graalPyMetaInf";
 	private static final String GRAALPY_VFS_FILESLIST_TASK = "graalPyVFSFilesList";
 	private static final String GRAALPY_LOCK_FILE = "graalpy.lock";
@@ -125,12 +123,14 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 				extension);
 		registerMetaInfTask(extension);
 
-		TaskProvider<VFSFilesListTask> vfsFilesListTask = registerCreateVfsFilesListTask(installPackagesTask,
-				javaPluginExtension, extension);
-		var mainSourceSet = javaPluginExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME);
-		mainSourceSet.getResources().srcDir(installPackagesTask);
+		var resources = javaPluginExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME).getResources();
+		TaskProvider<CompileBytecodeTask> compileBytecodeTask = registerCompileBytecodeTask(project, launcherClasspath,
+				extension, List.of(resources.getSrcDirs()));
+		TaskProvider<VFSFilesListTask> vfsFilesListTask = registerCreateVfsFilesListTask(extension,
+				List.of(resources.getSrcDirs(), installPackagesTask, compileBytecodeTask));
+		resources.srcDir(installPackagesTask);
 
-		registerLockPackagesTask(project, launcherClasspath, extension);
+		registerLockPackagesTask(project, launcherClasspath, extension, installPackagesTask);
 
 		addDependencies();
 		warnOnUserDeclaredConflicts(project, extension);
@@ -163,30 +163,34 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 									+ "For more details, please refer to https://www.graalvm.org/latest/reference-manual/python/Embedding-Build-Tools. ",
 							VFS_ROOT, Path.of(VFS_ROOT, "src"), Path.of("GRAALPY-VFS", "${groupId}", "${artifactId}")));
 				}
-				mainSourceSet.getResources().srcDir(vfsFilesListTask);
+				resources.srcDir(compileBytecodeTask);
+				resources.srcDir(vfsFilesListTask);
 			}
 		});
 	}
 
 	/**
 	 * Registers the VFS files list creation task.
-	 *
-	 * @param resourcesTask
-	 *            the resources task
-	 * @return the task provider
 	 */
-	private TaskProvider<VFSFilesListTask> registerCreateVfsFilesListTask(
-			TaskProvider<InstallPackagesTask> installPackagesTask, JavaPluginExtension javaPluginExtension,
-			GraalPyExtension extension) {
-		var srcDirs = javaPluginExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME).getResources()
-				.getSrcDirs();
+	private TaskProvider<VFSFilesListTask> registerCreateVfsFilesListTask(GraalPyExtension extension, Object inputs) {
 		return project.getTasks().register(GRAALPY_VFS_FILESLIST_TASK, VFSFilesListTask.class, t -> {
 			t.setGroup(GRAALPY_GRADLE_PLUGIN_TASK_GROUP);
 			t.getResourceDirectory().set(extension.getResourceDirectory());
-			t.getVfsDirectories().from(installPackagesTask.flatMap(InstallPackagesTask::getOutput));
-			srcDirs.forEach(t.getVfsDirectories()::from);
+			t.getVfsDirectories().from(inputs);
 			t.getVfsFilesListOutputDir()
 					.convention(project.getLayout().getBuildDirectory().dir(DEFAULT_FILESLIST_DIRECTORY));
+		});
+	}
+
+	/**
+	 * Registers the task that compiles python files to bytecode files (pyc).
+	 */
+	private TaskProvider<CompileBytecodeTask> registerCompileBytecodeTask(Project project,
+			Configuration launcherClasspath, GraalPyExtension extension, Object inputs) {
+		return project.getTasks().register(GRAALPY_COMPILE_BYTECODE_TASK, CompileBytecodeTask.class, t -> {
+			registerPackagesTask(project, launcherClasspath, extension, t);
+			t.getResourceDirectory().set(extension.getResourceDirectory());
+			t.getVfsDirectories().from(inputs);
 		});
 	}
 
@@ -229,9 +233,10 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 	}
 
 	private TaskProvider<LockPackagesTask> registerLockPackagesTask(Project project, Configuration launcherClasspath,
-			GraalPyExtension extension) {
+			GraalPyExtension extension, TaskProvider<InstallPackagesTask> installPackagesTask) {
 		return project.getTasks().register(GRAALPY_LOCK_PACKAGES_TASK, LockPackagesTask.class, t -> {
 			registerPackagesTask(project, launcherClasspath, extension, t);
+			t.getVenvDirectory().set(installPackagesTask.flatMap(InstallPackagesTask::getVenvDirectory));
 		});
 	}
 
@@ -248,8 +253,7 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 
 		DirectoryProperty externalDirectory = extension.getExternalDirectory();
 		Directory output = externalDirectory
-				.orElse(extension.getPythonResourcesDirectory().orElse(buildDirectory.dir(DEFAULT_RESOURCES_DIRECTORY)))
-				.get();
+				.orElse(extension.getPythonResourcesDirectory().orElse(buildDirectory.dir(t.getName()))).get();
 		t.getOutput().convention(output);
 
 		String vfsRoot = externalDirectory.isPresent() ? "" : extension.getResourceDirectory().getOrElse(VFS_ROOT);

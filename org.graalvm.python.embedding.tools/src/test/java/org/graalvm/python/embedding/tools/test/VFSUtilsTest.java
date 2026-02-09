@@ -579,7 +579,7 @@ public class VFSUtilsTest {
 		createVenv(venvDir, "0.2", log, lockFile, "tiny-tiny==0.2");
 		checkVenvCreate(log.getOutput(), true);
 		assertThat(log.getOutput(), containsString(STALE_VENV));
-		assertThat(log.getOutput(), containsString("pip install --compile -r")); // lock file is used
+		assertThat(log.getOutput(), containsString("pip install --no-compile -r")); // lock file is used
 		checkInstalledPackages(venvDir.resolve("installed.txt"), "tiny-tiny==0.2");
 		checkVenvContentsFile(contents, "0.2", "tiny-tiny==0.2");
 		assertThat(log.getOutput(), not(containsString(MISSING_LOCK_FILE_WARNING)));

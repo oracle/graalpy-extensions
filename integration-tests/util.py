@@ -36,13 +36,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import glob
 import os
 import shutil
 import subprocess
 import sys
-import unittest
 import tempfile
+import unittest
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -280,3 +280,19 @@ def patch_pom_repositories(pom):
                 </pluginRepositories>
                 </project>
                 """))
+
+
+# Check that all python files were compiled to bytecode with hash verification. Check that no bytecode files ended up in the source tree
+def check_pyc_files(source_dir, target_vfs):
+    assert not glob.glob("**/*.pyc", root_dir=source_dir, recursive=True), "*.pyc files found in the source directory"
+    py_files = glob.glob("**/*.py", root_dir=target_vfs, recursive=True)
+    assert py_files, "No python files found in VFS resources"
+    for py_file in py_files:
+        py_dir = os.path.dirname(py_file)
+        py_name = os.path.basename(py_file).removesuffix(".py")
+        pycache_dir = os.path.join(target_vfs, py_dir, "__pycache__")
+        pyc_files = glob.glob(f"{glob.escape(py_name)}.graalpy*.pyc", root_dir=pycache_dir)
+        assert len(pyc_files) == 1, f"Expected a .pyc file for {py_file}"
+        with open(os.path.join(pycache_dir, pyc_files[0]), 'rb') as f:
+            flags = int.from_bytes(f.read(8)[4:8], byteorder='little', signed=False)
+            assert flags == 0b11, f"Expected checked-hash verification flags in {pyc_files[0]}"
