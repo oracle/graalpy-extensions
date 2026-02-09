@@ -331,7 +331,9 @@ public final class GraalPyResources {
 				// src/main/resources/org.graalvm.python.vfs/src
 				option("python.PythonPath", vfs.impl.vfsSrcPath()).
 				// pass the path to be executed
-				option("python.InputFilePath", vfs.impl.vfsSrcPath());
+				option("python.InputFilePath", vfs.impl.vfsSrcPath()).
+				// causes the interpreter to always assume hash-based pycs are valid
+				option("python.CheckHashPycsMode", "never");
 	}
 
 	/**
@@ -442,9 +444,7 @@ public final class GraalPyResources {
 				option("python.DontWriteBytecodeFlag", "true").
 				// Force to automatically import site.py module, to make Python packages
 				// available
-				option("python.ForceImportSite", "true").
-				// causes the interpreter to always assume hash-based pycs are valid
-				option("python.CheckHashPycsMode", "never");
+				option("python.ForceImportSite", "true");
 	}
 
 	/**
