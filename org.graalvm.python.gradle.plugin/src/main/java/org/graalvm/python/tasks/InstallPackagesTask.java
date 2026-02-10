@@ -99,6 +99,7 @@ public abstract class InstallPackagesTask extends AbstractPackagesTask {
 		try {
 			VFSUtils.createVenv(venvDirectory, getPackages().get(), lockFilePath, MISSING_LOCK_FILE_WARNING,
 					createLauncher(), getPolyglotVersion().get(), getLog(), null);
+			VFSUtils.compileBytecode(createLauncher(), getLog(), venvDirectory);
 		} catch (PackagesChangedException pce) {
 			String pluginPkgsString = pce.getPluginPackages().isEmpty()
 					? "None"

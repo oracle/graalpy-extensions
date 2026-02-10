@@ -40,7 +40,6 @@
  */
 package org.graalvm.python.maven.plugin;
 
-import java.util.ArrayList;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
@@ -48,7 +47,6 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
@@ -59,15 +57,13 @@ import org.apache.maven.project.ProjectBuildingResult;
 import org.eclipse.aether.graph.Dependency;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -148,6 +144,17 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 				VFSUtils.generateVFSFilesList(Path.of(project.getBuild().getOutputDirectory()), vfs);
 			} catch (IOException e) {
 				throw new MojoExecutionException(String.format("Failed to generate files list in '%s'", vfs), e);
+			}
+		}
+	}
+
+	protected void compileBytecode() {
+		Path vfs = Path.of(project.getBuild().getOutputDirectory(), resourceDirectory);
+		if (Files.exists(vfs)) {
+			try {
+				VFSUtils.compileBytecode(createLauncher(), new MavenDelegateLog(getLog()), vfs);
+			} catch (IOException e) {
+				getLog().warn(String.format("Failed to compile bytecode files in '%s'", vfs), e);
 			}
 		}
 	}

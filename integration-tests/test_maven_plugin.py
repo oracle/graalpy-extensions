@@ -213,12 +213,17 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput("Virtual filesystem is deployed to default resources directory", out, contains=use_default_vfs_path, logger=log)
             util.check_ouput("This can cause conflicts if used with other Java libraries that also deploy GraalPy virtual filesystem.", out, contains=use_default_vfs_path, logger=log)
 
+            target_vfs = os.path.join(target_dir, "target", "classes", vfs_prefix)
+
             # check fileslist.txt
-            fl_path = os.path.join(target_dir, "target", "classes", vfs_prefix, "fileslist.txt")
+            fl_path = os.path.join(target_vfs, "fileslist.txt")
             with open(fl_path) as f:
                 lines = f.readlines()
             vfs_prefix_in_res = vfs_prefix.replace("\\", "/")
             assert "/" + vfs_prefix_in_res + "/\n" in lines, "'/" + vfs_prefix_in_res + "/' not found in: \n\n" + ''.join(lines) + log
+
+            # Check that python files got compiled with hash-based verification
+            util.check_pyc_files(os.path.join(target_dir, "src"), target_vfs)
 
             # Execute and check in JVM mode
             cmd = mvnw_cmd + ["exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
