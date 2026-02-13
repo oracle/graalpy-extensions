@@ -1,0 +1,46 @@
+name: Publish GraalPy Embedding API Docs
+on:
+  push:
+    branches:
+      - release/graal-vm/25.0
+jobs:
+  run:
+    name: Publish GraalPy Embedding API Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        java-version: ['25']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build GraalPy embedding apidocs
+        run: |
+          mvn -pl org.graalvm.python.embedding -DskipTests javadoc:javadoc
+
+      - name: Checkout graalvm-website
+        uses: actions/checkout@v4
+        with:
+          repository: graalvm/graalvm-website
+          token: ${{ secrets.WEBSITE_PUSH_TOKEN }}
+          path: graalvm-website
+
+      - name: Copy over GraalPy API Docs
+        run: |
+          rm -rf graalvm-website/python/apidocs
+          mkdir -p graalvm-website/python/apidocs
+          cp -R org.graalvm.python.embedding/target/reports/apidocs/* \
+                graalvm-website/python/apidocs/
+
+      - name: Commit and push changes
+        working-directory: graalvm-website
+        run: |
+            git config user.name "Web Publisher"
+            git config user.email "graalvm-dev@oss.oracle.com"
+            git add python/apidocs
+            git commit -m "Update GraalPy Javadoc"
+            git push
