@@ -1,13 +1,17 @@
-# j2pyi
+# pyinterfacegen
 
-This is a JavaDoc and Gradle plugin that generates a Python module designed for use with GraalPy. The Python module consists of:
+This is a JavaDoc and Gradle plugin that generates Python modules designed for binding Java libraries to GraalPy. The Python module consists of:
 
-- `.pyi` stubs used at development time to supply API documentation and types to IDEs, type checkers and API documentation renderers.
+- `.pyi` stubs used at development time to supply API documentation and types to IDEs, type checkers and API documentation renderers. These are analogous to header files in C.
 - A runtime `__init__.py` per package that imports Java types using GraalPy's `java.type()`.
 
 This allows Java libraries to be used more naturally from Python source code.
 
-You can either invoke the doclet directly (no Gradle required) or use the Gradle plugin. The plugin lets you resolve whole dependency graphs and convert them at once. That's necessary because the process requires the source code of all a libraries dependencies to be available for conversion as well.
+## Dependencies
+
+JavaDoc requires Java dependencies to be available to process code correctly. The Gradle plugin has a task that resolves whole dependency graphs and converts them at once, so you don't necessarily have to modify the build of the upstream library if you wish to make bindings independently.
+
+Often your Java library API will use types from other libraries that don't have Python type definitions (e.g. JDK classes). The doclet can be configured with a set of globs/regexes to identify which packages and classes are expected to have Python bindings available as well. The pyi stubs generated for your library will then contain Python imports and references to those other types. If a Java type isn't matched by the globs or regexes, then it'll be emitted as an untyped fully dynamic object.
 
 ## Direct javadoc invocation (no Gradle)
 
@@ -22,6 +26,8 @@ javadoc \
   -Xj2pyi-moduleName mymodule \
   -Xj2pyi-moduleVersion 0.1.0 \
   -Xj2pyi-packageMap com.example=example \
+  -Xj2pyi-assumedTypedPackageGlobs 'com.example.otherproject.**,com.example.utils.**' \
+  -Xj2pyi-assumedTypedPackageRegexes 'com\.(foo|bar)\..*' \
   -sourcepath src/main/java \
   com.example
 ```
@@ -34,6 +40,7 @@ Key doclet options:
 - `-Xj2pyi-moduleName <name>`: distribution/module name
 - `-Xj2pyi-moduleVersion <ver>`: version in `pyproject.toml`
 - `-Xj2pyi-packageMap <javaPkg=pyPkg[,more]>`: map Java package prefixes to Python package prefixes
+- `-Xj2pyi-assumedTypedPackageGlobs`: patterns that match Java package names (before mapping) which will be processed separately and should be assumed to be properly Python typed.
 
 ## Gradle plugin
 

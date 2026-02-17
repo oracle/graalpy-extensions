@@ -39,6 +39,22 @@ abstract class J2PyiTask : Javadoc() {
     val moduleVersion: Property<String> = project.objects.property(String::class.java)
 
     /**
+     * Comma-separated glob patterns for Java package names assumed to have .pyi stubs elsewhere.
+     * When unset/blank, only packages generated in the current run are assumed typed.
+     */
+    @get:Input
+    @get:Optional
+    val assumedTypedPackageGlobs: Property<String> = project.objects.property(String::class.java)
+
+    /**
+     * Comma-separated regexes for Java package names assumed to have .pyi stubs elsewhere.
+     * When unset/blank, only packages generated in the current run are assumed typed.
+     */
+    @get:Input
+    @get:Optional
+    val assumedTypedPackageRegexes: Property<String> = project.objects.property(String::class.java)
+
+    /**
      * Ensures the doclet classpath participates in up-to-date checks and the build cache key.
      */
     @get:Classpath
@@ -98,6 +114,16 @@ abstract class J2PyiTask : Javadoc() {
         }
         moduleName.orNull?.let { (options as StandardJavadocDocletOptions).addStringOption("Xj2pyi-moduleName", it) }
         moduleVersion.orNull?.let { (options as StandardJavadocDocletOptions).addStringOption("Xj2pyi-moduleVersion", it) }
+        assumedTypedPackageGlobs.orNull?.let { spec ->
+            if (spec.isNotBlank()) {
+                (options as StandardJavadocDocletOptions).addStringOption("Xj2pyi-assumedTypedPackageGlobs", spec)
+            }
+        }
+        assumedTypedPackageRegexes.orNull?.let { spec ->
+            if (spec.isNotBlank()) {
+                (options as StandardJavadocDocletOptions).addStringOption("Xj2pyi-assumedTypedPackageRegexes", spec)
+            }
+        }
         super.generate()
     }
 }

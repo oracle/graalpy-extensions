@@ -6,7 +6,11 @@ import jdk.javadoc.doclet.Doclet
 import jdk.javadoc.doclet.DocletEnvironment
 import jdk.javadoc.doclet.Reporter
 import java.io.File
+import java.nio.file.FileSystems
+import java.nio.file.Path
+import java.nio.file.PathMatcher
 import java.util.*
+import java.util.regex.Pattern
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.*
 import javax.lang.model.type.ArrayType
@@ -16,7 +20,8 @@ import javax.lang.model.type.TypeMirror
 import javax.lang.model.util.ElementFilter
 
 class J2PyiDoclet : Doclet {
-    // Packages for which we are actually generating stubs in this run
+    // Packages for which we are actually generating stubs in this run.
+    // Used as the default for which references can safely be emitted as imports.
     private var allowedPkgs: Set<String> = emptySet()
 
     private data class Config(
@@ -36,7 +41,17 @@ class J2PyiDoclet : Doclet {
         // Additional package prefixes to treat as "platform" (i.e., not mapped as Ref/imported).
         // Users can extend the default set (java., javax., jdk., org.w3c., org.xml., org.omg., org.ietf.)
         // via -Xj2pyi-extraPlatformPackages.
+
         val extraPlatformPackages: MutableList<String> = mutableListOf(),
+        // Additional Java package names assumed to have .pyi stubs elsewhere.
+        // When empty, only packages emitted by the current doclet run are assumed typed.
+        // Values can be specified via globs and/or regexes.
+        val assumedTypedPackageGlobs: MutableList<String> = mutableListOf(),
+        val assumedTypedPackageRegexes: MutableList<String> = mutableListOf(),
+
+        // Pre-compiled versions of the above, rebuilt each run after option parsing.
+        var assumedTypedPkgGlobMatchers: List<PathMatcher> = emptyList(),
+        var assumedTypedPkgRegexes: List<Pattern> = emptyList(),
         var moduleName: String? = null,
         var moduleVersion: String = "0.1.0"
     )
@@ -55,6 +70,8 @@ class J2PyiDoclet : Doclet {
 
     override fun run(environment: DocletEnvironment): Boolean {
         this.docTrees = environment.docTrees
+
+        compileAssumedTypedPkgMatchers()
 
         // Build an intermediate representation for all included types (classes, interfaces, enums) honoring include/exclude and visibility.
         val typeIRs = environment.includedElements
@@ -230,6 +247,24 @@ class J2PyiDoclet : Doclet {
             config.extraPlatformPackages.addAll(splitCsv(it))
             true
         },
+        stringOption(
+            "-Xj2pyi-assumedTypedPackageGlobs",
+            "<globs>",
+            "Comma-separated glob patterns for Java package names assumed to have .pyi stubs elsewhere."
+        ) {
+            config.assumedTypedPackageGlobs.clear()
+            config.assumedTypedPackageGlobs.addAll(splitCsv(it))
+            true
+        },
+        stringOption(
+            "-Xj2pyi-assumedTypedPackageRegexes",
+            "<regexes>",
+            "Comma-separated regexes for Java package names assumed to have .pyi stubs elsewhere."
+        ) {
+            config.assumedTypedPackageRegexes.clear()
+            config.assumedTypedPackageRegexes.addAll(splitCsv(it))
+            true
+        },
         stringOption("-Xj2pyi-collectionMapping", "<sequence|list>", "Array mapping preference).") {
             config.collectionMapping = it
             true
@@ -282,6 +317,35 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun splitCsv(s: String): List<String> = s.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
+    private fun compileAssumedTypedPkgMatchers() {
+        config.assumedTypedPkgGlobMatchers = config.assumedTypedPackageGlobs.map { glob ->
+            val normalized = glob.trim().replace('.', '/')
+            FileSystems.getDefault().getPathMatcher("glob:$normalized")
+        }
+
+        config.assumedTypedPkgRegexes = config.assumedTypedPackageRegexes.map { rx ->
+            try {
+                Pattern.compile(rx)
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Invalid -Xj2pyi-assumedTypedPackageRegexes entry: '$rx'", e)
+            }
+        }
+    }
+
+    private fun isAssumedTypedPackage(javaPkg: String): Boolean {
+        // Default: only the packages generated in the current run.
+        if (allowedPkgs.contains(javaPkg)) return true
+        if (config.assumedTypedPkgGlobMatchers.isEmpty() && config.assumedTypedPkgRegexes.isEmpty()) return false
+
+        // Globs are matched against the full Java package name, e.g. "org.example.foo".
+        // Use '/' normalization to reuse file glob matching.
+        val pkgPath = javaPkg.replace('.', '/')
+        if (config.assumedTypedPkgGlobMatchers.any { it.matches(Path.of(pkgPath)) }) {
+            return true
+        }
+        return config.assumedTypedPkgRegexes.any { it.matcher(javaPkg).matches() }
+    }
 
     override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.latest()
 
@@ -1094,7 +1158,7 @@ class J2PyiDoclet : Doclet {
             pt.walk {
                 if (it is PyType.Ref) {
                     // Only import types that are within the set of packages we are emitting.
-                    if (!isFullyQualifiedNameAJDKType(it.packageName) && allowedPkgs.contains(it.packageName)) {
+                    if (!isFullyQualifiedNameAJDKType(it.packageName) && isAssumedTypedPackage(it.packageName)) {
                         refs += it
                     }
                 }
@@ -1108,7 +1172,7 @@ class J2PyiDoclet : Doclet {
     private fun scrubExternalRefs(t: TypeIR): TypeIR {
         fun scrub(pt: PyType): PyType {
             return when (pt) {
-                is PyType.Ref -> if (allowedPkgs.contains(pt.packageName)) pt else PyType.ObjectT
+                is PyType.Ref -> if (isAssumedTypedPackage(pt.packageName)) pt else PyType.ObjectT
                 is PyType.Generic -> pt.copy(args = pt.args.map(::scrub))
                 is PyType.Abc -> pt.copy(args = pt.args.map(::scrub))
                 is PyType.Union -> pt.copy(items = pt.items.map(::scrub))
