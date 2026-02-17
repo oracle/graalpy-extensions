@@ -29,6 +29,11 @@ kotlin {
     jvmToolchain(21)
 }
 
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
 // Ensure the plugin JAR manifest contains the Implementation-Version so plugin code can discover its own version.
 tasks.withType<Jar>().configureEach {
     manifest {
@@ -52,6 +57,35 @@ gradlePlugin {
 // We also publish the main Java component for convenience.
 publishing {
     publications {
+        publications.withType<MavenPublication>().configureEach {
+            pom {
+                url.set(rootPomMeta.url)
+                licenses {
+                    for (lic in rootPomMeta.licenses) {
+                        license {
+                            name.set(lic.name)
+                            url.set(lic.url)
+                        }
+                    }
+                }
+                developers {
+                    for (d in rootPomMeta.developers) {
+                        developer {
+                            name.set(d.name)
+                            email.set(d.email)
+                            d.organization?.let { organization.set(it) }
+                            d.organizationUrl?.let { organizationUrl.set(it) }
+                        }
+                    }
+                }
+                scm {
+                    url.set(rootPomMeta.scm.url)
+                    connection.set(rootPomMeta.scm.connection)
+                    developerConnection.set(rootPomMeta.scm.developerConnection)
+                    rootPomMeta.scm.tag?.let { tag.set(it) }
+                }
+            }
+        }
         // Conventional Java publication of the plugin JAR
         create<MavenPublication>("mavenJava") {
             from(components["java"])

@@ -18,7 +18,7 @@ plugins {
 val rootPomMeta = readRootPomMetadata(rootProject)
 
 allprojects {
-    group = "com.oracle.graal.python"
+    group = "org.graalvm.python"
     version = rootPomMeta.version
 }
 

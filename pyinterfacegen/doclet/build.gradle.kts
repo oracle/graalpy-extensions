@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.2.10"
+    java
     `maven-publish`
 }
 
@@ -7,7 +8,12 @@ repositories {
     mavenCentral()
 }
 
-group = "org.graalvm.python.pyinterfacegen"
+group = "org.graalvm.python"
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
 
 dependencies {
     // Kotlin stdlib is brought in by the Kotlin plugin.
@@ -27,6 +33,11 @@ publishing {
             from(components["java"])
             // Publish a clearer artifact name
             artifactId = "j2pyi-doclet"
+
+            pom {
+                name.set("J2PyI doclet")
+                description.set("A JavaDoc doclet that emits Python .pyi stub modules for use with GraalPy")
+            }
         }
     }
     // Allow publishing to a specific local repository via -PlocalRepoUrl=...
