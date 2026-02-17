@@ -7,6 +7,7 @@ import javax.lang.model.type.ArrayType
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.type.TypeKind
 import javax.lang.model.type.TypeMirror
+import javax.lang.model.type.TypeVariable
 import javax.tools.Diagnostic
 
 // ===== Python identifier utils =====
@@ -141,6 +142,13 @@ fun parsePackageMap(spec: String, reporter: Reporter?): List<Pair<String, String
 // ===== Type/nullability mapping =====
 enum class Nullability { NULLABLE, NONNULL, UNKNOWN }
 
+private val REMOVE_ANNOTATIONS_REGEX = Regex("^(@[A-Za-z0-9_$.]+\\s+)+")
+
+// Remove any leading Java type-use annotations from a textual representation of a type,
+// e.g. "@org.jspecify.annotations.NonNull B" -> "B"
+private fun stripLeadingTypeUseAnnotations(text: String): String =
+    text.trimStart().replace(REMOVE_ANNOTATIONS_REGEX, "")
+
 // Nullability detection (package prefixes per spec; simple-name heuristic allowed for tests)
 val NULLABILITY_PACKAGE_PREFIXES: List<String> = listOf(
     "javax.annotation",
@@ -220,8 +228,10 @@ fun mapType(t: TypeMirror, extraPlatformPackages: List<String>): PyType = when (
     TypeKind.CHAR -> PyType.Str
     TypeKind.VOID -> PyType.NoneT
     TypeKind.TYPEVAR -> {
-        val tv = t.toString()
-        PyType.TypeVarRef(tv)
+        // Prefer clean element name over TypeMirror.toString() to avoid type-use annotations creeping in.
+        val nameFromElem = (t as? TypeVariable)?.asElement()?.simpleName?.toString()
+        val tv = if (!nameFromElem.isNullOrBlank()) nameFromElem else stripLeadingTypeUseAnnotations(t.toString())
+        PyType.TypeVarRef(tv.trim())
     }
 
     TypeKind.ARRAY -> {
@@ -237,7 +247,7 @@ fun mapType(t: TypeMirror, extraPlatformPackages: List<String>): PyType = when (
 }
 
 fun mapUnresolvedDeclaredType(t: TypeMirror, extraPlatformPackages: List<String>): PyType {
-    val text = t.toString()
+    val text = stripLeadingTypeUseAnnotations(t.toString())
     val raw = text.substringBefore('<')
     val lastDot = raw.lastIndexOf('.')
     val pkg = if (lastDot >= 0) raw.substring(0, lastDot) else ""
