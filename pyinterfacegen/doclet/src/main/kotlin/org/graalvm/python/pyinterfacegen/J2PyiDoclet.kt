@@ -396,10 +396,23 @@ class J2PyiDoclet : Doclet {
             ElementKind.ENUM -> Kind.ENUM
             else -> Kind.CLASS
         }
+        fun isThrowableBound(tm: TypeMirror?): Boolean {
+            if (tm == null) return false
+            val decl = (tm as? DeclaredType)?.asElement() as? TypeElement
+            val qn = decl?.qualifiedName?.toString() ?: return false
+            return qn == "java.lang.Throwable" || qn == "java.lang.Exception" || qn == "java.lang.RuntimeException"
+        }
         // Collect type parameters with simple upper bounds (first non-Object bound only).
         // Sanitize names to avoid stray whitespace that can lead to malformed TypeVar declarations.
         val typeParams: List<TypeParamIR> = te.typeParameters.map { tp ->
             val name = tp.simpleName.toString().trim()
+            // Python has no notion of generic exceptions. Many Java libraries use a type parameter solely to model
+            // the thrown exception type (e.g. <E extends Throwable>). Including such a parameter in a Protocol
+            // causes mypy variance errors, and it doesn't add useful information for Python users.
+            // So, drop type parameters that are bounded directly by Throwable/Exception.
+            if (tp.bounds.any { isThrowableBound(it) }) {
+                return@map null
+            }
             // Prefer first bound that's not java.lang.Object; fall back to first or null
             val chosenBound: TypeMirror? = tp.bounds.firstOrNull { b ->
                 val decl = (b as? DeclaredType)?.asElement() as? TypeElement
@@ -413,7 +426,7 @@ class J2PyiDoclet : Doclet {
                 else -> mapped
             }
             TypeParamIR(name, normalized)
-        }
+        }.filterNotNull()
         val typeDoc: String? = docTrees?.javadocFull(te)
         val fields = if (kind == Kind.INTERFACE) {
             emptyList()
@@ -594,6 +607,30 @@ class J2PyiDoclet : Doclet {
 
     // Emit a single type as .pyi text (class, interface-as-Protocol, or enum)
     private fun emitTypeAsPyi(t: TypeIR): String {
+        // After platform-type scrubbing (e.g. mapping java.lang.reflect.Type -> builtins.object), some Java generic
+        // parameters may no longer appear anywhere in the exposed Python types. Keeping such "phantom" type
+        // parameters causes mypy variance errors for Protocols and adds noise for users, so drop them.
+        if (t.typeParams.isNotEmpty()) {
+            val used = mutableSetOf<String>()
+            fun walk(py: PyType) {
+                py.walk { node ->
+                    if (node is PyType.TypeVarRef) used += node.name
+                }
+            }
+            for (f in t.fields) walk(f.type)
+            for (c in t.constructors) for (p in c.params) walk(p.type)
+            for (m in t.methods) {
+                walk(m.returnType)
+                for (p in m.params) walk(p.type)
+            }
+            for (p in t.properties) walk(p.type)
+
+            val filtered = t.typeParams.filter { it.name in used }
+            if (filtered.size != t.typeParams.size) {
+                return emitTypeAsPyi(t.copy(typeParams = filtered))
+            }
+        }
+
         val hasTypeParams = t.typeParams.isNotEmpty()
         val needsEnumImport = t.kind == Kind.ENUM
         val sb = StringBuilder()
@@ -741,6 +778,9 @@ class J2PyiDoclet : Doclet {
                     seenInParam: Set<String>,
                     seenInvariant: Set<String>
                 ): String? {
+                    // If a TypeVar appears within an invariant container (e.g. list/set/dict), it must be invariant
+                    // regardless of positional usage.
+                    if (name in seenInvariant) return null
                     // For Protocols (PEP 544), use position-only rules:
                     // - only in params  -> contravariant
                     // - only in returns -> covariant
