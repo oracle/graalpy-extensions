@@ -1,5 +1,4 @@
 plugins {
-    // Sets up Kotlin + Gradle Kotlin DSL for buildSrc
     `kotlin-dsl`
 }
 

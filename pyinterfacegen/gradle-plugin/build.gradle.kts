@@ -1,27 +1,18 @@
 import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 
 plugins {
     `java-gradle-plugin`
     kotlin("jvm") version "2.2.10"
     `maven-publish`
+    id("j2pyi.convention")
 }
 
-group = "org.graalvm.python.pyinterfacegen"
-// Derive the version from the repository root pom.xml so this included build aligns with the parent build.
-val repoRoot = file("../../")
-val pom = repoRoot.resolve("pom.xml")
-val derivedVersion: String = if (pom.exists()) {
-    val text = pom.readText()
-    // Prefer <properties><revision>... (CI-friendly), fall back to top-level <version>
-    val revRegex = Regex("<properties>[\\s\\S]*?<revision>\\s*([^<\\s]+)\\s*</revision>", RegexOption.DOT_MATCHES_ALL)
-    val verRegex = Regex("<project[\\s\\S]*?<version>\\s*([^<\\s]+)\\s*</version>", RegexOption.DOT_MATCHES_ALL)
-    revRegex.find(text)?.groupValues?.getOrNull(1)
-        ?: verRegex.find(text)?.groupValues?.getOrNull(1)
-        ?: "unspecified"
-} else {
-    "unspecified"
-}
-version = derivedVersion
+group = "org.graalvm.python"
+
+// Derive the version and metadata from the repository root pom.xml so this included build aligns with the parent build.
+val rootPomMeta = readRootPomMetadata(rootProject)
+version = rootPomMeta.version
 
 repositories {
     mavenCentral()

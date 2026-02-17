@@ -1,5 +1,5 @@
 pluginManagement {
-    // Resolve our plugin from the included build instead of requiring it to be pre-published.
+    includeBuild("build-logic")
     includeBuild("gradle-plugin")
     repositories {
         // Allow resolving the plugin from local Maven when published
@@ -16,7 +16,6 @@ pluginManagement {
                 val rootPom = file("../pom.xml")
                 val rootVersion: String = kotlin.run {
                     if (!rootPom.exists()) return@run "unspecified"
-                    // Very small and robust parser for <version>... in the top-level <project>.
                     // Falls back to <properties><revision> if used as the effective version.
                     val text = rootPom.readText()
                     // Prefer explicit <version> under <project>

@@ -11,8 +11,8 @@ plugins {
     java
     // Use the locally included plugin (see settings.gradle.kts pluginManagement). Version is supplied there.
     id("org.graalvm.python.pyinterfacegen")
+    id("j2pyi.convention")  // Local build logic.
 }
-
 
 // Read metadata and version from the repository root pom.xml
 val rootPomMeta = readRootPomMetadata(rootProject)
