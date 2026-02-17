@@ -1,0 +1,45 @@
+name: Publish GraalPy Embedding API Docs
+
+on:
+  push:
+    branches:
+      - release/**
+  workflow_dispatch:
+
+jobs:
+  run:
+    name: Publish GraalPy Embedding API Docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        java-version: ['25']
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build GraalPy Embedding API docs
+        run: |
+          ./mvnw -pl org.graalvm.python.embedding -am -DskipTests package javadoc:javadoc
+
+      - uses: actions/checkout@v6
+        with:
+          ref: 'gh-pages'
+          path: 'gh-pages'
+
+      - name: Copy over to gh-pages
+        run: |
+          cp -R org.graalvm.python.embedding/target/reports/apidocs/* gh-pages/$(./mvnw help:evaluate -Dexpression=revision -q -DforceStdout)
+
+      - name: Commit and push changes
+        run: |
+            cd gh-pages
+            git add .
+            git config user.name "Web Publisher"
+            git config user.email "graalvm-dev@oss.oracle.com"
+            git commit -m "Update Javadoc for GraalPy Extensions"
+            git push
