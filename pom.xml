@@ -226,6 +226,15 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
+          <configuration>
+            <header>
+              <![CDATA[
+                GraalPy Embedding API<br/>
+                Version: ${project.revision}<br/>
+                Commit: ${git.commit.id.abbrev}
+              ]]>
+            </header>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

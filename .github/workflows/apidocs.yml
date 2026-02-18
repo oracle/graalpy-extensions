@@ -22,9 +22,13 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'graalvm'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build GraalPy Embedding API docs
+      - name: Build GraalPy Embedding API docs with commit ID
         run: |
-          ./mvnw -pl org.graalvm.python.embedding -am -DskipTests package javadoc:javadoc
+          COMMIT=$(git rev-parse --short HEAD)
+          echo $COMMIT
+          VERSION=$(./mvnw help:evaluate -Dexpression=revision -q -DforceStdout | sed 's/-.*//')
+
+          ./mvnw -pl org.graalvm.python.embedding -am -DskipTests -Dgit.commit.id.abbrev=${COMMIT} -Dproject.revision=${VERSION} package javadoc:javadoc
 
       - uses: actions/checkout@v6
         with:
@@ -33,7 +37,7 @@ jobs:
 
       - name: Copy over to gh-pages
         run: |
-          cp -R org.graalvm.python.embedding/target/reports/apidocs/* gh-pages/$(./mvnw help:evaluate -Dexpression=revision -q -DforceStdout)
+          cp -R org.graalvm.python.embedding/target/reports/apidocs/* gh-pages/${VERSION}/
 
       - name: Commit and push changes
         run: |
