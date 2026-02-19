@@ -22,6 +22,7 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'graalvm'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build GraalPy Embedding API docs with commit ID
         run: |
           COMMIT=$(git rev-parse --short HEAD)
