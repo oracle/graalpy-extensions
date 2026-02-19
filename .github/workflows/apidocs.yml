@@ -27,8 +27,9 @@ jobs:
           COMMIT=$(git rev-parse --short HEAD)
           echo $COMMIT
           VERSION=$(./mvnw help:evaluate -Dexpression=revision -q -DforceStdout | sed 's/-.*//')
+          echo $VERSION
 
-          ./mvnw -pl org.graalvm.python.embedding -am -DskipTests -Dgit.commit.id.abbrev=${COMMIT} -Dproject.revision=${VERSION} package javadoc:javadoc
+          ./mvnw --batch-mode --projects org.graalvm.python.embedding --also-make -DskipTests -Dgit.commit.id.abbrev=${COMMIT} -Dproject.revision=${VERSION} package javadoc:javadoc
 
       - uses: actions/checkout@v6
         with:
