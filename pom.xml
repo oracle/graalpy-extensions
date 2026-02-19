@@ -229,7 +229,6 @@
           <configuration>
             <header>
               <![CDATA[
-                GraalPy Embedding API<br/>
                 Version: ${project.revision}<br/>
                 Commit: ${git.commit.id.abbrev}
               ]]>
