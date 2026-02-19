@@ -226,6 +226,14 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
+          <configuration>
+            <header>
+              <![CDATA[
+                Version: ${project.revision}<br/>
+                Commit: ${git.commit.id.abbrev}
+              ]]>
+            </header>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
