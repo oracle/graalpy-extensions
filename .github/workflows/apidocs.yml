@@ -40,6 +40,7 @@ jobs:
 
       - name: Copy over to gh-pages
         run: |
+          mkdir gh-pages/${VERSION}/ || true
           cp -R org.graalvm.python.embedding/target/reports/apidocs/* gh-pages/${VERSION}/
 
       - name: Commit and push changes
