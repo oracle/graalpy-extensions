@@ -29,6 +29,7 @@ jobs:
           echo $COMMIT
           VERSION=$(./mvnw help:evaluate -Dexpression=revision -q -DforceStdout | sed 's/-.*//')
           echo $VERSION
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
           ./mvnw --batch-mode --projects org.graalvm.python.embedding --also-make -DskipTests -Dgit.commit.id.abbrev=${COMMIT} -Dproject.revision=${VERSION} package javadoc:javadoc
 
