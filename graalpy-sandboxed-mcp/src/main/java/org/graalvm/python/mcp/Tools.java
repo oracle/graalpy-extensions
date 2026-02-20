@@ -5,6 +5,7 @@ import io.micronaut.mcp.annotations.ToolArg;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import jakarta.inject.Singleton;
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.io.FileSystem;
@@ -17,6 +18,7 @@ public class Tools {
     public CallToolResult evalPython(@ToolArg(name = "code") String code) {
         try (Context context = Context.newBuilder("python")
                 .allowExperimentalOptions(true)
+                .allowHostAccess(HostAccess.NONE)
                 .allowIO(IOAccess.newBuilder().fileSystem(FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem())).build())
                 .out(System.err)
                 .option("engine.WarnInterpreterOnly", "false")
