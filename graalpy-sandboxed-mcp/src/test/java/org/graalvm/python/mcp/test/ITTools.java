@@ -148,12 +148,53 @@ public class ITTools {
 
     @Test
     public void testEvalPythonSandboxing() {
+        // 1) Filesystem writes should be blocked by read-only filesystem
         callEvalPythonExpectError("open('/tmp/foo', 'w')");
+        callEvalPythonExpectError("""
+                import pathlib
+                pathlib.Path('/tmp/mcp_should_not_write').write_text('x')
+                """);
+        callEvalPythonExpectError("""
+                import tempfile
+                tempfile.NamedTemporaryFile(delete=False)
+                """);
+
+        // 2) Delete/rename/mkdir should be blocked by read-only filesystem
+        callEvalPythonExpectError("""
+                import os
+                os.mkdir('/tmp/mcp_mkdir')
+                """);
+
+        // 3) Process execution should be blocked
         callEvalPythonExpectError("import subprocess; subprocess.check_call(['echo'])");
+        callEvalPythonExpectError("import os; os.system('echo hi')");
+        callEvalPythonExpectError("import subprocess; subprocess.Popen(['echo', 'hi'])");
+        callEvalPythonExpectError("import subprocess; subprocess.run(['echo', 'hi'])");
+
         // Native module
-        callEvalPythonExpectError("import termios");
+
+        // 4) Networking should be blocked
         callEvalPythonExpectError("import socket; socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)");
-        // XXX graalpy-25.0.2 let's you use the signal module. It can only be used to kill the server itself, but still not nice
-        // "import signal; signal.raise_signal(signal.SIGTERM)",
+        callEvalPythonExpectError("""
+                import urllib.request
+                urllib.request.urlopen('http://example.com').read()
+                """);
+
+        // 6) ctypes and native modules should be blocked
+        callEvalPythonExpectError("""
+                import ctypes
+                ctypes.CDLL(None)
+                """);
+        callEvalPythonExpectError("import termios");
+
+        // 7) polyglot and host interop should be blocked
+        callEvalPythonExpectError("import polyglot; polyglot.eval('js', '1+1')");
+        callEvalPythonExpectError("""
+                from java.lang import System
+                System.getProperty('user.home')
+                """);
+
+        // XXX graalpy-25.0.2 lets you use the signal module. It can only be used to kill the server itself, but still not nice
+        // callEvalPythonExpectError("import signal; signal.raise_signal(signal.SIGTERM)")
     }
 }
