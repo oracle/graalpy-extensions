@@ -7,12 +7,14 @@ import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,8 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ITTools {
-
-    private static final McpJsonMapper JSON_MAPPER = McpJsonMapper.createDefault();
 
     private static McpSyncClient client;
 
@@ -77,59 +77,83 @@ public class ITTools {
         assertEquals("eval_python", tool.name(), "Expected eval_python tool");
     }
 
+    private static CallToolResult callEvalPython(String code) {
+        return client.callTool(new CallToolRequest(
+                "eval_python",
+                Map.of("code", code)
+        ));
+    }
+
+    private static String getTextContent(CallToolResult result) {
+        assertNotNull(result.content());
+        assertFalse(result.content().isEmpty());
+        assertInstanceOf(TextContent.class, result.content().getFirst());
+        return ((TextContent) result.content().getFirst()).text();
+    }
+
+    private static String callEvalPythonExpectSuccess(String code) {
+        CallToolResult result = callEvalPython(code);
+        assertFalse(result.isError(), "Tool call should not be marked as error. Code: " + code);
+        return getTextContent(result);
+    }
+
+    private static String callEvalPythonExpectError(String code) {
+        CallToolResult result = callEvalPython(code);
+        assertTrue(result.isError(), "Tool call should be marked as error. Code: " + code);
+        return getTextContent(result);
+    }
+
     @Test
     public void testEvalPythonSimple() {
-        CallToolRequest okRequest = new CallToolRequest(
-                "eval_python",
-                Map.of("code", "1 + 2")
-        );
-        McpSchema.CallToolResult okResult = client.callTool(okRequest);
-        assertFalse(okResult.isError(), "Tool call should not be marked as error");
-
-        assertNotNull(okResult.content());
-        assertFalse(okResult.content().isEmpty());
-        assertInstanceOf(TextContent.class, okResult.content().getFirst());
-        assertEquals("3", ((TextContent) okResult.content().getFirst()).text());
+        String text = callEvalPythonExpectSuccess("1 + 2");
+        assertEquals("3", text);
     }
 
 
     @Test
     public void testEvalPythonComplex() {
-        CallToolRequest okRequest = new CallToolRequest(
-                "eval_python",
-                Map.of("code", """
-                        class MyObject:
-                          def __repr__(self):
-                            return "obj"
-                        MyObject()
-                        """)
-        );
-        McpSchema.CallToolResult okResult = client.callTool(okRequest);
-        assertFalse(okResult.isError(), "Tool call should not be marked as error");
+        String text = callEvalPythonExpectSuccess("""
+                class MyObject:
+                  def __str__(self):
+                    return "str(obj)"
+                  def __repr__(self):
+                    return "repr(obj)"
+                MyObject()
+                """);
+        assertEquals("str(obj)", text);
+    }
 
-        assertNotNull(okResult.content());
-        assertFalse(okResult.content().isEmpty());
-        assertInstanceOf(TextContent.class, okResult.content().getFirst());
-        assertEquals("obj", ((TextContent) okResult.content().getFirst()).text());
+    @Test
+    public void testEvalPythonReadFileAbsolutePath() throws Exception {
+        Path tempFile = Files.createTempFile("eval_python_read_", ".txt");
+        Files.writeString(tempFile, "hello-from-temp-file", StandardCharsets.UTF_8);
+
+        String text = callEvalPythonExpectSuccess(String.format("""
+                import pathlib
+                pathlib.Path(r'%s').read_text(encoding='utf-8')
+                """, tempFile.toAbsolutePath()));
+        assertEquals("hello-from-temp-file", text);
     }
 
     @Test
     public void testEvalPythonException() {
-        CallToolRequest errRequest = new CallToolRequest(
-                "eval_python",
-                Map.of("code", "raise ValueError('boom')")
-        );
-        McpSchema.CallToolResult errResult = client.callTool(errRequest);
-        assertTrue(errResult.isError(), "Tool call should be marked as error");
-
-        assertNotNull(errResult.content());
-        assertFalse(errResult.content().isEmpty());
-        assertInstanceOf(TextContent.class, errResult.content().getFirst());
+        String text = callEvalPythonExpectError("raise ValueError('boom')");
 
         assertEquals("""
                 Traceback (most recent call last):
                   File "Unnamed", line 1, in <module>
                 ValueError: boom
-                """, ((TextContent) errResult.content().getFirst()).text());
+                """, text);
+    }
+
+    @Test
+    public void testEvalPythonSandboxing() {
+        callEvalPythonExpectError("open('/tmp/foo', 'w')");
+        callEvalPythonExpectError("import subprocess; subprocess.check_call(['echo'])");
+        // Native module
+        callEvalPythonExpectError("import termios");
+        callEvalPythonExpectError("import socket; socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)");
+        // XXX graalpy-25.0.2 let's you use the signal module. It can only be used to kill the server itself, but still not nice
+        // "import signal; signal.raise_signal(signal.SIGTERM)",
     }
 }
