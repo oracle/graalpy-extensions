@@ -11,8 +11,9 @@ import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,7 +21,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,12 +32,25 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ITTools {
+public class ITMcpServer {
 
-    private static McpSyncClient client;
+    private static final String[] NO_ARGS = new String[0];
+    private static final String[] ALLOW_READ_FS = new String[]{"--allow-read-fs"};
 
-    @BeforeAll
-    public static void setup() {
+    // It's slow to start a client for every test, so cache them per args
+    private static final Map<String, McpSyncClient> clients = new HashMap<>();
+
+    public static McpSyncClient getClient(String[] args) {
+        String id = Arrays.toString(args);
+        McpSyncClient client = clients.get(id);
+        if (client == null) {
+            client = createClient(args);
+            clients.put(id, client);
+        }
+        return client;
+    }
+
+    public static McpSyncClient createClient(String... args) {
         String packaging = System.getProperty("test.packaging");
         Path buildDir = Paths.get(System.getProperty("test.buildDir"));
         ServerParameters parameters;
@@ -45,40 +62,43 @@ public class ITTools {
             // Tool execution needs Graal/Truffle. If the packaged jar loses the Multi-Release attribute,
             // Truffle initialization fails. Disable this guard for the integration test-run process.
             parameters = ServerParameters.builder(System.getProperty("test.javaCmd"))
-                    .args("-Dpolyglotimpl.DisableMultiReleaseCheck=true", "-jar", jarPath.toString())
+                    .args(Stream.concat(Stream.of("-Dpolyglotimpl.DisableMultiReleaseCheck=true", "-jar", jarPath.toString()), Stream.of(args)).toArray(String[]::new))
                     .build();
         } else if (packaging.equals("native-image")) {
             Path binaryPath = buildDir.resolve(System.getProperty("test.artifactId"));
             if (!Files.exists(binaryPath)) {
                 throw new IllegalStateException("Native image " + binaryPath + " not found");
             }
-            parameters = ServerParameters.builder(binaryPath.toString()).build();
+            parameters = ServerParameters.builder(binaryPath.toString())
+                    .args(args)
+                    .build();
         } else {
             throw new IllegalStateException("Unexpected packaging " + packaging);
         }
         StdioClientTransport transport = new StdioClientTransport(parameters, McpJsonMapper.createDefault());
-        Duration timeout = Duration.of(60, ChronoUnit.SECONDS);
-        client = McpClient.sync(transport).initializationTimeout(timeout).requestTimeout(timeout).build();
+        Duration timeout = Duration.of(10, ChronoUnit.SECONDS);
+        McpSyncClient client = McpClient.sync(transport).initializationTimeout(timeout).requestTimeout(timeout).build();
         client.initialize();
+        return client;
     }
 
     @AfterAll
-    public static void teardown() {
-        if (client != null) {
+    public static void tearDown() {
+        for (McpSyncClient client : clients.values()) {
             client.close();
         }
     }
 
     @Test
     public void testListTools() {
-        McpSchema.ListToolsResult tools = client.listTools();
+        McpSchema.ListToolsResult tools = getClient(NO_ARGS).listTools();
         assertEquals(1, tools.tools().size(), "Expected a single tool");
         Tool tool = tools.tools().getFirst();
         assertEquals("eval_python", tool.name(), "Expected eval_python tool");
     }
 
-    private static CallToolResult callEvalPython(String code) {
-        return client.callTool(new CallToolRequest(
+    private static CallToolResult callEvalPython(String[] args, String code) {
+        return getClient(args).callTool(new CallToolRequest(
                 "eval_python",
                 Map.of("code", code)
         ));
@@ -91,16 +111,24 @@ public class ITTools {
         return ((TextContent) result.content().getFirst()).text();
     }
 
-    private static String callEvalPythonExpectSuccess(String code) {
-        CallToolResult result = callEvalPython(code);
+    private static String callEvalPythonExpectSuccess(String[] args, String code) {
+        CallToolResult result = callEvalPython(args, code);
         assertFalse(result.isError(), "Tool call should not be marked as error. Code: " + code);
         return getTextContent(result);
     }
 
-    private static String callEvalPythonExpectError(String code) {
-        CallToolResult result = callEvalPython(code);
+    private static String callEvalPythonExpectSuccess(String code) {
+        return callEvalPythonExpectSuccess(NO_ARGS, code);
+    }
+
+    private static String callEvalPythonExpectError(String[] args, String code) {
+        CallToolResult result = callEvalPython(args, code);
         assertTrue(result.isError(), "Tool call should be marked as error. Code: " + code);
         return getTextContent(result);
+    }
+
+    private static String callEvalPythonExpectError(String code) {
+        return callEvalPythonExpectError(NO_ARGS, code);
     }
 
     @Test
@@ -108,7 +136,6 @@ public class ITTools {
         String text = callEvalPythonExpectSuccess("1 + 2");
         assertEquals("3", text);
     }
-
 
     @Test
     public void testEvalPythonComplex() {
@@ -123,16 +150,22 @@ public class ITTools {
         assertEquals("str(obj)", text);
     }
 
-    @Test
-    public void testEvalPythonReadFileAbsolutePath() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEvalPythonReadFile(boolean allowed) throws Exception {
         Path tempFile = Files.createTempFile("eval_python_read_", ".txt");
         Files.writeString(tempFile, "hello-from-temp-file", StandardCharsets.UTF_8);
 
-        String text = callEvalPythonExpectSuccess(String.format("""
+        String code = String.format("""
                 import pathlib
                 pathlib.Path(r'%s').read_text(encoding='utf-8')
-                """, tempFile.toAbsolutePath()));
-        assertEquals("hello-from-temp-file", text);
+                """, tempFile.toAbsolutePath());
+        if (allowed) {
+            String text = callEvalPythonExpectSuccess(ALLOW_READ_FS, code);
+            assertEquals("hello-from-temp-file", text);
+        } else {
+            callEvalPythonExpectError(code);
+        }
     }
 
     @Test
@@ -146,55 +179,57 @@ public class ITTools {
                 """, text);
     }
 
-    @Test
-    public void testEvalPythonSandboxing() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testEvalPythonSandboxing(boolean readingAllowed) {
+        String[] args = readingAllowed ? ALLOW_READ_FS : NO_ARGS;
         // 1) Filesystem writes should be blocked by read-only filesystem
-        callEvalPythonExpectError("open('/tmp/foo', 'w')");
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, "open('/tmp/foo', 'w')");
+        callEvalPythonExpectError(args, """
                 import pathlib
                 pathlib.Path('/tmp/mcp_should_not_write').write_text('x')
                 """);
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, """
                 import tempfile
                 tempfile.NamedTemporaryFile(delete=False)
                 """);
 
         // 2) Delete/rename/mkdir should be blocked by read-only filesystem
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, """
                 import os
                 os.mkdir('/tmp/mcp_mkdir')
                 """);
 
         // 3) Process execution should be blocked
-        callEvalPythonExpectError("import subprocess; subprocess.check_call(['echo'])");
-        callEvalPythonExpectError("import os; os.system('echo hi')");
-        callEvalPythonExpectError("import subprocess; subprocess.Popen(['echo', 'hi'])");
-        callEvalPythonExpectError("import subprocess; subprocess.run(['echo', 'hi'])");
+        callEvalPythonExpectError(args, "import subprocess; subprocess.check_call(['echo'])");
+        callEvalPythonExpectError(args, "import os; os.system('echo hi')");
+        callEvalPythonExpectError(args, "import subprocess; subprocess.Popen(['echo', 'hi'])");
+        callEvalPythonExpectError(args, "import subprocess; subprocess.run(['echo', 'hi'])");
 
         // Native module
 
         // 4) Networking should be blocked
-        callEvalPythonExpectError("import socket; socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)");
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, "import socket; socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)");
+        callEvalPythonExpectError(args, """
                 import urllib.request
                 urllib.request.urlopen('http://example.com').read()
                 """);
 
         // 6) ctypes and native modules should be blocked
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, """
                 import ctypes
                 ctypes.CDLL(None)
                 """);
-        callEvalPythonExpectError("import termios");
+        callEvalPythonExpectError(args, "import termios");
 
         // 7) polyglot and host interop should be blocked
-        callEvalPythonExpectError("import polyglot; polyglot.eval('js', '1+1')");
-        callEvalPythonExpectError("""
+        callEvalPythonExpectError(args, "import polyglot; polyglot.eval('js', '1+1')");
+        callEvalPythonExpectError(args, """
                 from java.lang import System
                 System.getProperty('user.home')
                 """);
 
         // XXX graalpy-25.0.2 lets you use the signal module. It can only be used to kill the server itself, but still not nice
-        // callEvalPythonExpectError("import signal; signal.raise_signal(signal.SIGTERM)")
+        // callEvalPythonExpectError(args, "import signal; signal.raise_signal(signal.SIGTERM)")
     }
 }

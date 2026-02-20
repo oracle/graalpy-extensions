@@ -21,7 +21,7 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <graalpy.version>25.0.2</graalpy.version>
-        <exec.mainClass>org.graalvm.python.mcp.Application</exec.mainClass>
+        <exec.mainClass>org.graalvm.python.mcp.McpServer</exec.mainClass>
     </properties>
 
     <dependencies>
@@ -38,6 +38,10 @@
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
             <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
         </dependency>
         <dependency>
             <groupId>org.graalvm.polyglot</groupId>
@@ -72,6 +76,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>
             <artifactId>mcp-json-jackson2</artifactId>
             <version>0.15.0</version>
@@ -87,6 +96,12 @@
                 <version>3.13.0</version>
                 <configuration>
                     <release>21</release>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>info.picocli</groupId>
+                            <artifactId>picocli-codegen</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
@@ -109,7 +124,6 @@
                 <groupId>org.graalvm.buildtools</groupId>
                 <artifactId>native-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>org.graalvm.python.mcp.Application</mainClass>
                     <buildArgs>
                         <buildArg>-Dtruffle.TruffleRuntime=com.oracle.truffle.api.impl.DefaultTruffleRuntime</buildArg>
                     </buildArgs>
