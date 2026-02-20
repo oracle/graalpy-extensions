@@ -19,6 +19,8 @@ public class Tools {
                 .allowExperimentalOptions(true)
                 .allowIO(IOAccess.newBuilder().fileSystem(FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem())).build())
                 .out(System.err)
+                .option("engine.WarnInterpreterOnly", "false")
+                .option("python.UseReprForPrintString", "false")
                 .option("python.ForceImportSite", "true")
                 .build()) {
             try {
