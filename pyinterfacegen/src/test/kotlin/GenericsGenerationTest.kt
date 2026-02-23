@@ -9,9 +9,14 @@ class GenericsGenerationTest {
     fun emitsTypeVarsAndGenericBases() {
         Generation.ensureMainGenerated()
         val box = Generation.mainModuleBase().resolve("Box.pyi").readText()
-        assertTrue(box.contains("class Box[T]:"), "Box should declare inline type parameter T on the class header:\n$box")
-        assertTrue(box.contains("def get(self) -> T"), "Box.get should return T:\n$box")
-        assertTrue(box.contains("def set(self, v: T) -> None"), "Box.set should accept T:\n$box")
+        assertTrue(
+            box.contains("class Box(Generic[T]):"),
+            "Box should declare a PEP 484 Generic[T] base on the class header:\n$box"
+        )
+        // Return-only TypeVars are replaced with Any to satisfy type checkers.
+        assertTrue(box.contains("def get(self) -> Any"), "Box.get should return Any:\n$box")
+        // Method name 'set' is suffixed to avoid conflicts in Python stubs.
+        assertTrue(box.contains("def set_(self, v: T) -> None"), "Box.set_ should accept T:\n$box")
     }
 
     @Test
@@ -19,7 +24,9 @@ class GenericsGenerationTest {
         Generation.ensureMainGenerated()
         val bounded = Generation.mainModuleBase().resolve("Bounded.pyi").readText()
         assertTrue(bounded.contains("from numbers import Number"), "Bounded should import Number:\n$bounded")
-        assertTrue(bounded.contains("class Bounded[T: Number]:"), "Bounded should declare T bound inline in the header:\n$bounded")
+        // Bounded now uses a PEP 484 TypeVar with a bound and Generic[T] base rather than inline PEP 695 syntax.
+        assertTrue(bounded.contains("T = TypeVar(\"T\", bound=Number)"), "Bounded should declare TypeVar T bound to Number:\n$bounded")
+        assertTrue(bounded.contains("class Bounded(Generic[T]):"), "Bounded should declare Generic[T] base on the class header:\n$bounded")
         assertTrue(bounded.contains("def id(self, x: T) -> T"), "Bounded.id should use T in parameter and return:\n$bounded")
     }
 

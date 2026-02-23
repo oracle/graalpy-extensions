@@ -1,17 +1,74 @@
 import org.graalvm.python.pyinterfacegen.J2PyiTask
+import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 import org.gradle.internal.os.OperatingSystem
+import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 import java.net.URI
 import java.util.*
 
 plugins {
     kotlin("jvm") version "2.2.10"
     java
-    id("org.graalvm.python.pyinterfacegen") version "1.3-SNAPSHOT"
+    // Use the locally included plugin (see settings.gradle.kts pluginManagement). Version is supplied there.
+    id("org.graalvm.python.pyinterfacegen")
+    id("j2pyi.convention")  // Local build logic.
 }
 
+// Read metadata and version from the repository root pom.xml
+val rootPomMeta = readRootPomMetadata(rootProject)
+
 allprojects {
-    group = "com.oracle.graal.python"
-    version = "1.3-SNAPSHOT"
+    group = "org.graalvm.python"
+    version = rootPomMeta.version
+}
+
+// When developing locally, always use the local doclet project for any requests to the published module,
+// regardless of version requested by the plugin.
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("org.graalvm.python.pyinterfacegen:j2pyi-doclet"))
+                .using(project(":doclet"))
+        }
+    }
+}
+
+// For projects that publish, project the POM data from the root pom.xml into their publications.
+subprojects {
+    plugins.withId("maven-publish") {
+        extensions.configure<PublishingExtension> {
+            publications.withType<MavenPublication>().configureEach {
+                pom {
+                    url.set(rootPomMeta.url)
+                    version = this@subprojects.version.toString()
+                    licenses {
+                        rootPomMeta.licenses.forEach { lic ->
+                            license {
+                                name.set(lic.name)
+                                url.set(lic.url)
+                            }
+                        }
+                    }
+                    developers {
+                        rootPomMeta.developers.forEach { d ->
+                            developer {
+                                name.set(d.name)
+                                email.set(d.email)
+                                d.organization?.let { organization.set(it) }
+                                d.organizationUrl?.let { organizationUrl.set(it) }
+                            }
+                        }
+                    }
+                    scm {
+                        url.set(rootPomMeta.scm.url)
+                        connection.set(rootPomMeta.scm.connection)
+                        developerConnection.set(rootPomMeta.scm.developerConnection)
+                        rootPomMeta.scm.tag?.let { tag.set(it) }
+                    }
+                }
+            }
+        }
+    }
 }
 
 repositories {
@@ -99,6 +156,17 @@ val graalPyBindingsMain by tasks.register<J2PyiTask>("graalPyBindingsMain") {
     setDestinationDir(layout.buildDirectory.dir("pymodule/${project.name}").get().asFile)
 }
 
+// Optional verification: run a Python type checker over the generated module.
+// Not wired into the standard 'check' lifecycle; invoke explicitly.
+tasks.register<TypeCheckPyiTask>("typecheckGraalPyStubs") {
+    description = "Run mypy (or pyright) over the generated .pyi module to detect internal inconsistencies"
+    moduleDir.set(layout.buildDirectory.dir("pymodule/${project.name}"))
+    // Ensure stubs are generated before checking them
+    dependsOn(graalPyBindingsMain)
+    // Default checker is mypy; customize via:
+    //   typeChecker.set("pyright")
+    //   extraArgs.set(listOf("--strict"))
+}
 // Execute a simple GraalPy run that imports the generated module and calls a method
 val graalPyIntegrationTest by tasks.registering {
     group = "verification"

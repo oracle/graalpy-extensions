@@ -1,4 +1,5 @@
 import org.graalvm.python.pyinterfacegen.PyiFromDependencySources
+import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 
 plugins {
     // Apply the plugin without a version; version resolution is handled in settings.gradle.kts
@@ -36,9 +37,18 @@ val pyi by tasks.registering(PyiFromDependencySources::class) {
 
     // Map Java package prefixes to nicer Python packages for both libraries
     packageMap.set(
-        "org.apache.commons.lang3=commons.lang," +
-        "org.apache.commons.collections4=commons.collections"
+        "org.apache.commons.lang3=commons_lang," +
+        // Avoid shadowing stdlib 'collections' by remapping to a safe name. TODO: Work out what to do about this properly.
+        "org.apache.commons.collections4=commons_collections"
     )
     moduleName.set("apache-commons")
     moduleVersion.set("0.1.0")
+}
+
+// Optional: type check the generated stubs (not part of default lifecycle)
+val typecheckApacheCommonsStubs by tasks.registering(TypeCheckPyiTask::class) {
+    description = "Run mypy or pyright over the generated Apache Commons stubs"
+    // The doclet assembles the module in build/pymodule (root), so point to that.
+    moduleDir.set(layout.buildDirectory.dir("pymodule"))
+    dependsOn(pyi)
 }

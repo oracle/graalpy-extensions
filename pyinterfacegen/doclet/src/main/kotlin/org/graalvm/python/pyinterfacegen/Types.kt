@@ -43,7 +43,9 @@ sealed interface PyType {
 
     // Python's root object type
     object ObjectT : PyType {
-        override fun render() = "object"
+        // Always qualify as builtins.object to avoid shadowing within class scopes
+        // (e.g., a class attribute named 'object' would otherwise conflict).
+        override fun render() = "builtins.object"
     }
 
     object NumberT : PyType {
@@ -57,7 +59,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -69,7 +73,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -83,7 +89,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            items.forEach { it.walk(visit) }
+            for (item in items) {
+                item.walk(visit)
+            }
         }
     }
 }
@@ -115,18 +123,23 @@ data class FieldIR(
     val type: PyType
 )
 
-data class ConstructorIR(
-    val params: List<ParamIR>,
+interface WithParamsIR {
+    val params: List<ParamIR>
     val doc: String?
-)
+}
+
+data class ConstructorIR(
+    override val params: List<ParamIR>,
+    override val doc: String?
+) : WithParamsIR
 
 data class MethodIR(
     val name: String,
-    val params: List<ParamIR>,
+    override val params: List<ParamIR>,
     val returnType: PyType,
     val isStatic: Boolean,
-    val doc: String?
-)
+    override val doc: String?
+) : WithParamsIR
 
 data class PropertyIR(
     val name: String,

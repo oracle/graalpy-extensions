@@ -6,7 +6,6 @@ import java.io.PrintStream
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.util.spi.ToolProvider
-import javax.tools.ToolProvider as JdkToolProvider
 
 /**
  * Test utilities for invoking the javadoc tool with our doclet and preparing sources.
@@ -36,7 +35,7 @@ object DocletTestUtil {
         val tmpSrc = Files.createTempDirectory("javadoc2pyi-multi-src").toFile()
         // Write all provided sources
         val basePkgs = linkedSetOf<String>()
-        sources.forEach { (pkg, src) ->
+        for ((pkg, src) in sources) {
             basePkgs += pkg
             val pkgDir = File(tmpSrc, pkg.replace('.', '/'))
             pkgDir.mkdirs()
@@ -125,7 +124,7 @@ object DocletTestUtil {
         val tmpSrc = Files.createTempDirectory("javadoc2pyi-m2-src").toFile()
         // Write all provided sources
         val basePkgs = linkedSetOf<String>()
-        sources.forEach { (pkg, src) ->
+        for ((pkg, src) in sources) {
             basePkgs += pkg
             val pkgDir = File(tmpSrc, pkg.replace('.', '/'))
             pkgDir.mkdirs()
