@@ -113,8 +113,9 @@ public class ITMcpServer {
 
     private static String callEvalPythonExpectSuccess(String[] args, String code) {
         CallToolResult result = callEvalPython(args, code);
-        assertFalse(result.isError(), "Tool call should not be marked as error. Code: " + code);
-        return getTextContent(result);
+        String output = getTextContent(result);
+        assertFalse(result.isError(), "Tool call should not be marked as error. Code: " + code + "\nOutput: " + output);
+        return output;
     }
 
     private static String callEvalPythonExpectSuccess(String code) {
@@ -123,8 +124,9 @@ public class ITMcpServer {
 
     private static String callEvalPythonExpectError(String[] args, String code) {
         CallToolResult result = callEvalPython(args, code);
-        assertTrue(result.isError(), "Tool call should be marked as error. Code: " + code);
-        return getTextContent(result);
+        String output = getTextContent(result);
+        assertTrue(result.isError(), "Tool call should be marked as error. Code: " + code + "\nOutput: " + output);
+        return output;
     }
 
     private static String callEvalPythonExpectError(String code) {
@@ -148,6 +150,15 @@ public class ITMcpServer {
                 MyObject()
                 """);
         assertEquals("str(obj)", text);
+    }
+
+    @Test
+    public void testEvalPythonStdlib() {
+        String text = callEvalPythonExpectSuccess("""
+                import json
+                json.dumps({'a': None})
+                """);
+        assertEquals("{\"a\": null}", text);
     }
 
     @ParameterizedTest
