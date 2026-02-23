@@ -147,10 +147,10 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	private final Map<String, BaseEntry> vfsEntries = new HashMap<>();
 
 	/**
-	 * Class used to read resources with getResource(name). By default
+	 * Classloader used to read resources. By defaut, the classloader of
 	 * VirtualFileSystem.class.
 	 */
-	private Class<?> resourceLoadingClass;
+	private final ClassLoader resourceClassLoader;
 
 	static final String PLATFORM_SEPARATOR = Paths.get("").getFileSystem().getSeparator();
 	private static final char RESOURCE_SEPARATOR_CHAR = '/';
@@ -306,11 +306,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	 * argument may be {@code null} causing that no extraction will happen.
 	 */
 	VirtualFileSystemImpl(Predicate<Path> extractFilter, Path mountPoint, String resourceDirectory, HostIO allowHostIO,
-			Class<?> resourceLoadingClass, boolean caseInsensitive) {
-		if (resourceLoadingClass != null) {
-			this.resourceLoadingClass = resourceLoadingClass;
+			ClassLoader resourceClassLoader, boolean caseInsensitive) {
+		if (resourceClassLoader != null) {
+			this.resourceClassLoader = resourceClassLoader;
 		} else {
-			this.resourceLoadingClass = VirtualFileSystem.class;
+			this.resourceClassLoader = VirtualFileSystem.class.getClassLoader();
 		}
 		this.caseInsensitive = caseInsensitive;
 		this.mountPoint = mountPoint;
@@ -319,10 +319,14 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		this.platformVenvPath = resourcePathToPlatformPath(absoluteResourcePath(vfsRoot, VFS_VENV));
 		this.platformSrcPath = resourcePathToPlatformPath(absoluteResourcePath(vfsRoot, VFS_SRC));
 
-		fine("VirtualFilesystem %s, allowHostIO: %s, resourceLoadingClass: %s, caseInsensitive: %s, extractOnStartup: %s%s",
-				mountPoint, allowHostIO.toString(), this.resourceLoadingClass.getName(), caseInsensitive,
-				extractOnStartup, extractFilter != null ? "" : ", extractFilter: null");
-
+		if (LOGGER.isLoggable(Level.FINE)) {
+			var classLoaderLabel = this.resourceClassLoader == VirtualFileSystem.class.getClassLoader()
+					? "VirtualFileSystem"
+					: "custom";
+			fine("VirtualFilesystem %s, allowHostIO: %s, resourceClassLoader: %s, caseInsensitive: %s, extractOnStartup: %s%s",
+					mountPoint, allowHostIO.toString(), classLoaderLabel, caseInsensitive, extractOnStartup,
+					extractFilter != null ? "" : ", extractFilter: null");
+		}
 		this.extractFilter = extractFilter;
 		if (extractFilter != null) {
 			try {
@@ -666,7 +670,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	private List<URL> getFilelistURLs(String filelistPath) {
 		List<URL> filelistUrls;
 		try {
-			filelistUrls = Collections.list(this.resourceLoadingClass.getClassLoader().getResources(filelistPath));
+			filelistUrls = Collections.list(resourceClassLoader.getResources(filelistPath));
 		} catch (IOException e) {
 			throw new IllegalStateException("IO error during reading the VirtualFileSystem metadata", e);
 		}
@@ -763,8 +767,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		}
 		ArrayList<URL> installedUrls;
 		try {
-			installedUrls = Collections.list(
-					this.resourceLoadingClass.getClassLoader().getResources(resourcePath(vfsRoot, INSTALLED_FILE)));
+			installedUrls = Collections.list(resourceClassLoader.getResources(resourcePath(vfsRoot, INSTALLED_FILE)));
 		} catch (IOException e) {
 			warn("Cannot check compatibility of the merged virtual environments. Cannot read list of packages installed in the virtual environments. IOException: "
 					+ e.getMessage());
@@ -808,8 +811,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		// Check compatibility of GraalPy versions that were used to create the VFSs
 		ArrayList<URL> contentsUrls;
 		try {
-			contentsUrls = Collections.list(
-					this.resourceLoadingClass.getClassLoader().getResources(resourcePath(vfsRoot, CONTENTS_FILE)));
+			contentsUrls = Collections.list(resourceClassLoader.getResources(resourcePath(vfsRoot, CONTENTS_FILE)));
 		} catch (IOException e) {
 			warn("Cannot check compatibility of the merged virtual environments. Cannot read GraalPy version of the virtual environments. IOException: "
 					+ e.getMessage());
@@ -849,7 +851,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	}
 
 	private URL getResourceUrl(String path) throws IOException {
-		List<URL> urls = Collections.list(this.resourceLoadingClass.getClassLoader().getResources(path.substring(1)));
+		List<URL> urls = Collections.list(resourceClassLoader.getResources(path.substring(1)));
 		if (vfsRootURL != null) {
 			urls = getURLInRoot(urls);
 		}
