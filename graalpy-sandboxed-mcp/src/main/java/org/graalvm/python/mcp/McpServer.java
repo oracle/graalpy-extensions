@@ -18,6 +18,10 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Locale;
+
 
 @Command(
         name = "graalpy-sandboxed-mcp",
@@ -33,7 +37,14 @@ public class McpServer implements Runnable {
     )
     boolean allowReadFs;
 
+    @Option(
+            names = "--virtualenv",
+            description = "Path to a virtualenv created by a GraalPy standalone that should be activated. Requires --allow-read-fs"
+    )
+    String virtualenv;
+
     private static final Logger LOG = LoggerFactory.getLogger(McpServer.class);
+    private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows");
 
     @Tool(name = "eval_python", description = "Evaluate Python code and return the result of the last statement as text (using str)")
     public CallToolResult evalPython(@ToolArg(name = "code") String code) {
@@ -42,11 +53,24 @@ public class McpServer implements Runnable {
                 .allowHostAccess(HostAccess.NONE)
                 .out(System.err)
                 .option("engine.WarnInterpreterOnly", "false")
+                .option("python.DontWriteBytecodeFlag", "true")
                 .option("python.UseReprForPrintString", "false");
         if (allowReadFs) {
             builder.allowIO(IOAccess.newBuilder().fileSystem(FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem())).build());
         } else {
             builder.allowIO(IOAccess.NONE);
+        }
+        if (virtualenv != null) {
+            assert allowReadFs;
+            Path path = Paths.get(virtualenv);
+            Path execPath;
+            if (IS_WINDOWS) {
+                execPath = path.resolve("Scripts").resolve("python.exe");
+            } else {
+                execPath = path.resolve("bin").resolve("python");
+            }
+            builder.option("python.ForceImportSite", "true")
+                    .option("python.Executable", execPath.toAbsolutePath().toString());
         }
         try (Context context = builder.build()) {
             try {
@@ -70,6 +94,10 @@ public class McpServer implements Runnable {
     // The picocli CLI entry point
     @Override
     public void run() {
+        if (virtualenv != null && !allowReadFs) {
+            System.err.println("--virtualenv option requires --allow-read-fs");
+            System.exit(2);
+        }
         Micronaut.build(new String[0]).banner(false).singletons(this).start();
     }
 
