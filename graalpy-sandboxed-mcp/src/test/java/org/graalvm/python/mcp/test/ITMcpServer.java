@@ -11,6 +11,7 @@ import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -36,6 +37,7 @@ public class ITMcpServer {
 
     private static final String[] NO_ARGS = new String[0];
     private static final String[] ALLOW_READ_FS = new String[]{"--allow-read-fs"};
+    private static final String[] ALLOW_READ_ENV = new String[]{"--allow-read-env"};
 
     // It's slow to start a client for every test, so cache them per args
     private static final Map<String, McpSyncClient> clients = new HashMap<>();
@@ -163,6 +165,24 @@ public class ITMcpServer {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    public void testEvalPythonReadEnv(boolean allowEnvironmentAccess) {
+        String expectedPath = System.getenv("PATH");
+        Assumptions.assumeTrue(expectedPath != null, "PATH must be set in the test environment");
+        String code = """
+                import os
+                os.environ['PATH']
+                """;
+        if (allowEnvironmentAccess) {
+            String actualPath = callEvalPythonExpectSuccess(ALLOW_READ_ENV, code);
+            assertEquals(expectedPath, actualPath);
+        } else {
+            callEvalPythonExpectError(code);
+        }
+
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     public void testEvalPythonReadFile(boolean allowed) throws Exception {
         Path tempFile = Files.createTempFile("eval_python_read_", ".txt");
         Files.writeString(tempFile, "hello-from-temp-file", StandardCharsets.UTF_8);
@@ -177,6 +197,26 @@ public class ITMcpServer {
         } else {
             callEvalPythonExpectError(code);
         }
+    }
+
+    @Test
+    public void testEvalPythonCwd() throws Exception {
+        Path tempDir = Files.createTempDirectory("eval_python_cwd_");
+        Path fileInTempDir = tempDir.resolve("hello.txt");
+        Files.writeString(fileInTempDir, "hello-from-cwd", StandardCharsets.UTF_8);
+
+        String code = """
+                import pathlib
+                pathlib.Path('hello.txt').read_text(encoding='utf-8')
+                """;
+        // Without --cwd the relative path should not resolve (and should error)
+        String noCwdError = callEvalPythonExpectError(ALLOW_READ_FS, code);
+        assertTrue(noCwdError.contains("FileNotFoundError"), noCwdError);
+
+        // With --cwd the relative path should resolve within that directory
+        String[] args = new String[]{"--allow-read-fs", "--cwd", tempDir.toString()};
+        String text = callEvalPythonExpectSuccess(args, code);
+        assertEquals("hello-from-cwd", text);
     }
 
     @Test

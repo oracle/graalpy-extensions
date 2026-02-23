@@ -7,6 +7,7 @@ import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import jakarta.inject.Singleton;
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Context.Builder;
+import org.graalvm.polyglot.EnvironmentAccess;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Value;
@@ -38,7 +39,19 @@ public class McpServer implements Runnable {
     boolean allowReadFs;
 
     @Option(
-            names = "--virtualenv",
+            names = "--allow-read-env",
+            description = "Allow reading environment variables"
+    )
+    boolean allowReadEnv;
+
+    @Option(
+            names = "--cwd",
+            description = "Change to this directory"
+    )
+    String cwd;
+
+    @Option(
+            names = {"--venv", "--virtualenv"},
             description = "Path to a virtualenv created by a GraalPy standalone that should be activated. Requires --allow-read-fs"
     )
     String virtualenv;
@@ -56,9 +69,16 @@ public class McpServer implements Runnable {
                 .option("python.DontWriteBytecodeFlag", "true")
                 .option("python.UseReprForPrintString", "false");
         if (allowReadFs) {
-            builder.allowIO(IOAccess.newBuilder().fileSystem(FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem())).build());
+            FileSystem fileSystem = FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem());
+            if (cwd != null) {
+                fileSystem.setCurrentWorkingDirectory(Paths.get(cwd).toAbsolutePath());
+            }
+            builder.allowIO(IOAccess.newBuilder().fileSystem(fileSystem).build());
         } else {
             builder.allowIO(IOAccess.NONE);
+        }
+        if (allowReadEnv) {
+            builder.allowEnvironmentAccess(EnvironmentAccess.INHERIT);
         }
         if (virtualenv != null) {
             assert allowReadFs;
