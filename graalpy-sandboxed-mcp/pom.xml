@@ -21,8 +21,73 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <graalpy.version>25.0.2</graalpy.version>
+        <!-- Resolved via OS/arch-activated profiles below -->
+        <python.isolate.artifactId>python-isolate-linux-amd64</python.isolate.artifactId>
         <exec.mainClass>org.graalvm.python.mcp.McpServer</exec.mainClass>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>python-isolate-linux-amd64</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <python.isolate.artifactId>python-isolate-linux-amd64</python.isolate.artifactId>
+            </properties>
+        </profile>
+        <profile>
+            <id>python-isolate-linux-aarch64</id>
+            <activation>
+                <os>
+                    <family>linux</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <python.isolate.artifactId>python-isolate-linux-aarch64</python.isolate.artifactId>
+            </properties>
+        </profile>
+        <profile>
+            <id>python-isolate-macos-amd64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <properties>
+                <python.isolate.artifactId>python-isolate-darwin-amd64</python.isolate.artifactId>
+            </properties>
+        </profile>
+        <profile>
+            <id>python-isolate-macos-aarch64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <python.isolate.artifactId>python-isolate-darwin-aarch64</python.isolate.artifactId>
+            </properties>
+        </profile>
+        <profile>
+            <id>python-isolate-windows-amd64</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <properties>
+                <python.isolate.artifactId>python-isolate-windows-amd64</python.isolate.artifactId>
+            </properties>
+        </profile>
+    </profiles>
 
     <dependencies>
         <dependency>
@@ -53,6 +118,16 @@
             <artifactId>python</artifactId>
             <version>${graalpy.version}</version>
             <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>org.graalvm.python</groupId>
+            <artifactId>${python.isolate.artifactId}</artifactId>
+            <version>${graalpy.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.graalvm.truffle</groupId>
+            <artifactId>truffle-enterprise</artifactId>
+            <version>${graalpy.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -109,11 +184,6 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
             </plugin>
             <plugin>
-                <groupId>org.graalvm.python</groupId>
-                <artifactId>graalpy-maven-plugin</artifactId>
-                <version>${graalpy.version}</version>
-            </plugin>
-            <plugin>
                 <groupId>io.micronaut.maven</groupId>
                 <artifactId>micronaut-maven-plugin</artifactId>
                 <configuration>
@@ -125,13 +195,8 @@
                 <artifactId>native-maven-plugin</artifactId>
                 <configuration>
                     <buildArgs>
-                        <buildArg>-Dtruffle.TruffleRuntime=com.oracle.truffle.api.impl.DefaultTruffleRuntime</buildArg>
                         <buildArg>-Dpython.WithoutNativePosix=true</buildArg>
                         <buildArg>-Dpython.WithoutJavaInet=true</buildArg>
-                        <buildArg>-H:+UnlockExperimentalVMOptions</buildArg>
-                        <buildArg>-H:ReportAnalysisForbiddenType=com.oracle.graal.python.runtime.NFIPosixSupport</buildArg>
-                        <buildArg>-H:ReportAnalysisForbiddenType=java.nio.channels.ServerSocketChannel</buildArg>
-                        <buildArg>-H:ReportAnalysisForbiddenType=java.nio.channels.SocketChannel</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>

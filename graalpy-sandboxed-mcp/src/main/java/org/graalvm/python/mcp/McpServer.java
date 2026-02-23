@@ -56,6 +56,20 @@ public class McpServer implements Runnable {
     )
     String virtualenv;
 
+    @Option(
+            names = "--max-cpu-time",
+            description = "Maximum CPU time allowed for a single eval command. Use a number with a unit, like s. Default 20s.",
+            defaultValue = "20s"
+    )
+    String maxCpuTime;
+
+    @Option(
+            names = "--max-memory",
+            description = "Maximum memory used by the sandboxed isolate. Use a number with a unit like MB, GB. Default 1024MB. Minimum 32MB.",
+            defaultValue = "1024MB"
+    )
+    String maxMemory;
+
     private static final Logger LOG = LoggerFactory.getLogger(McpServer.class);
     private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows");
 
@@ -65,9 +79,12 @@ public class McpServer implements Runnable {
                 .allowExperimentalOptions(true)
                 .allowHostAccess(HostAccess.NONE)
                 .out(System.err)
+                .option("sandbox.MaxCPUTime", maxCpuTime)
+                .option("engine.Compilation", "false")
+                .option("engine.SpawnIsolate", "true")
+                .option("engine.MaxIsolateMemory", maxMemory)
                 .option("engine.WarnInterpreterOnly", "false")
-                .option("python.DontWriteBytecodeFlag", "true")
-                .option("python.UseReprForPrintString", "false");
+                .option("python.DontWriteBytecodeFlag", "true");
         if (allowReadFs) {
             FileSystem fileSystem = FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem());
             if (cwd != null) {
@@ -94,8 +111,10 @@ public class McpServer implements Runnable {
         }
         try (Context context = builder.build()) {
             try {
+                Value str = context.eval("python", "str");
                 Object result = context.eval("python", code);
-                return CallToolResult.builder().addTextContent(result.toString()).build();
+                String resultStr = str.execute(result).asString();
+                return CallToolResult.builder().addTextContent(resultStr).build();
             } catch (PolyglotException e) {
                 Value formatException = context.eval("python", """
                         import traceback
