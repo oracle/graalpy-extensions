@@ -232,7 +232,7 @@ public class ITMcpServer {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    public void testEvalPythonSandboxing(boolean readingAllowed) {
+    public void testEvalPythonSandboxingPlatformAccess(boolean readingAllowed) {
         String[] args = readingAllowed ? ALLOW_READ_FS : NO_ARGS;
         // 1) Filesystem writes should be blocked by read-only filesystem
         callEvalPythonExpectError(args, "open('/tmp/foo', 'w')");
@@ -286,5 +286,29 @@ public class ITMcpServer {
 
         // XXX graalpy-25.0.2 lets you use the signal module. It can only be used to kill the server itself, but still not nice
         // callEvalPythonExpectError(args, "import signal; signal.raise_signal(signal.SIGTERM)")
+    }
+
+    @Test
+    public void testEvalPythonSandboxingLimits() {
+        // Memory limit
+        String allocate32MB = "x = b'x' * (32 * 1024 * 1024)";
+        String[] memLimit32MB = {"--max-memory", "32MB"};
+        // Sanity check that it can allocate this without the limit
+        callEvalPythonExpectSuccess(allocate32MB);
+        callEvalPythonExpectError(memLimit32MB, allocate32MB);
+        // Sanity check that the memory limit didn't break the interpreter completely
+        callEvalPythonExpectSuccess(memLimit32MB, "1 + 1");
+        // Check that it protects against stack overflow
+        callEvalPythonExpectError(memLimit32MB, """
+                def foo():
+                    foo()
+                foo()
+                """);
+
+        // Time limit
+        String[] cpuTimeLimit3s = {"--max-cpu-time", "3s"};
+        // Sanity check
+        callEvalPythonExpectSuccess(cpuTimeLimit3s, "1 + 1");
+        callEvalPythonExpectError(cpuTimeLimit3s, "while True: pass");
     }
 }
