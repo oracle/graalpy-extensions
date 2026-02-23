@@ -280,6 +280,10 @@ public class ITMcpServer {
                 System.getProperty('user.home')
                 """);
 
+        // 8) exit should not exit the VM
+        callEvalPythonExpectError(args, "import sys; sys.exit(1)");
+        callEvalPythonExpectError(args, "import os; os._exit(1)");
+
         // XXX graalpy-25.0.2 lets you use the signal module. It can only be used to kill the server itself, but still not nice
         // callEvalPythonExpectError(args, "import signal; signal.raise_signal(signal.SIGTERM)")
     }

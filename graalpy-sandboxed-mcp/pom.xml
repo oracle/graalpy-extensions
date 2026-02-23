@@ -126,6 +126,12 @@
                 <configuration>
                     <buildArgs>
                         <buildArg>-Dtruffle.TruffleRuntime=com.oracle.truffle.api.impl.DefaultTruffleRuntime</buildArg>
+                        <buildArg>-Dpython.WithoutNativePosix=true</buildArg>
+                        <buildArg>-Dpython.WithoutJavaInet=true</buildArg>
+                        <buildArg>-H:+UnlockExperimentalVMOptions</buildArg>
+                        <buildArg>-H:ReportAnalysisForbiddenType=com.oracle.graal.python.runtime.NFIPosixSupport</buildArg>
+                        <buildArg>-H:ReportAnalysisForbiddenType=java.nio.channels.ServerSocketChannel</buildArg>
+                        <buildArg>-H:ReportAnalysisForbiddenType=java.nio.channels.SocketChannel</buildArg>
                     </buildArgs>
                 </configuration>
             </plugin>
