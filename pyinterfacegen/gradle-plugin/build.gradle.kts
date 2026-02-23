@@ -41,12 +41,13 @@ tasks.withType<Jar>().configureEach {
     }
 }
 
+val desc = "Provides a PyiFromDependencySources task that runs a Javadoc-based doclet to emit a Python module containing .pyi stubs"
 gradlePlugin {
     plugins {
         create("jarsToGraalPyBindings") {
             id = "org.graalvm.python.pyinterfacegen"
             displayName = "JARs to GraalPy bindings plugin"
-            description = "Provides a PyiFromDependencySources task that runs a Javadoc-based doclet to emit a Python module containing .pyi stubs"
+            description = desc
             implementationClass = "org.graalvm.python.pyinterfacegen.J2PyiPlugin"
             tags.set(listOf("graalpy", "python", "pyi", "doclet", "javadoc"))
         }
@@ -59,6 +60,8 @@ publishing {
     publications {
         publications.withType<MavenPublication>().configureEach {
             pom {
+                name.set("J2PyI Gradle plugins")
+                description.set(desc)
                 url.set(rootPomMeta.url)
                 licenses {
                     for (lic in rootPomMeta.licenses) {
@@ -86,11 +89,6 @@ publishing {
                 }
             }
         }
-        // Conventional Java publication of the plugin JAR
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-        }
-        // `pluginMaven` is created by the java-gradle-plugin; no need to define it explicitly here.
     }
     repositories {
         val localRepoUrl = (project.findProperty("localRepoUrl") as String?)?.trim()?.takeIf { it.isNotEmpty() }
