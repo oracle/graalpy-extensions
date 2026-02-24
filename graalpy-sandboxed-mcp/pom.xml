@@ -3,9 +3,10 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.graalvm.python</groupId>
     <artifactId>graalpy-sandboxed-mcp</artifactId>
-    <version>0.1</version>
+    <version>${revision}</version>
     <packaging>${packaging}</packaging>
 
+    <!-- Micronaut requires to use micronaut-parent, so we cannot use our own and have to repeat our metadata -->
     <parent>
         <groupId>io.micronaut.platform</groupId>
         <artifactId>micronaut-parent</artifactId>
@@ -13,18 +14,41 @@
         <relativePath/>
     </parent>
 
-
     <properties>
+        <revision>25.1.0-SNAPSHOT</revision>
+        <!-- packaging defaults to jar for faster testing and development, but the intended distribution target is native-image -->
         <packaging>jar</packaging>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <graalpy.version>25.0.2</graalpy.version>
+        <project.polyglot.version>${revision}</project.polyglot.version>
+        <project.url.root>https://graalvm.org/python</project.url.root>
+        <project.scm.connection>scm:git:git://github.com/oracle/graalpy-extensions.git</project.scm.connection>
+        <project.scm.devConnection>${project.scm.connection}</project.scm.devConnection>
+        <project.scm.url>https://github.com/oracle/graalpy-extensions</project.scm.url>
         <!-- Resolved via OS/arch-activated profiles below -->
         <python.isolate.artifactId>python-isolate-linux-amd64</python.isolate.artifactId>
         <exec.mainClass>org.graalvm.python.mcp.McpServer</exec.mainClass>
     </properties>
+
+    <developers>
+        <developer>
+            <name>GraalVM Development</name>
+            <email>graalvm-dev@oss.oracle.com</email>
+            <organization>Oracle Corporation</organization>
+            <organizationUrl>http://www.graalvm.org/</organizationUrl>
+        </developer>
+    </developers>
+    <licenses>
+        <license>
+            <name>Universal Permissive License, Version 1.0</name>
+            <url>http://opensource.org/licenses/UPL</url>
+        </license>
+    </licenses>
+    <scm>
+        <connection>${project.scm.connection}</connection>
+        <developerConnection>${project.scm.devConnection}</developerConnection>
+        <url>${project.scm.url}</url>
+    </scm>
 
     <profiles>
         <profile>
@@ -111,23 +135,23 @@
         <dependency>
             <groupId>org.graalvm.polyglot</groupId>
             <artifactId>polyglot</artifactId>
-            <version>${graalpy.version}</version>
+            <version>${project.polyglot.version}</version>
         </dependency>
         <dependency>
             <groupId>org.graalvm.python</groupId>
             <artifactId>python</artifactId>
-            <version>${graalpy.version}</version>
+            <version>${project.polyglot.version}</version>
             <type>pom</type>
         </dependency>
         <dependency>
             <groupId>org.graalvm.python</groupId>
             <artifactId>${python.isolate.artifactId}</artifactId>
-            <version>${graalpy.version}</version>
+            <version>${project.polyglot.version}</version>
         </dependency>
         <dependency>
             <groupId>org.graalvm.truffle</groupId>
             <artifactId>truffle-enterprise</artifactId>
-            <version>${graalpy.version}</version>
+            <version>${project.polyglot.version}</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -168,7 +192,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.13.0</version>
                 <configuration>
                     <release>21</release>
                     <annotationProcessorPaths>
