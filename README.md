@@ -41,6 +41,11 @@ to how Maven dependencies are added:
 
 For an example, see [GraalPy JBang QR Code demo](https://github.com/graalvm/graal-languages-demos/tree/main/graalpy/graalpy-jbang-qrcode)
 
+## GraalPy Sandboxed MCP Server
+
+We provide an MCP server that can execute python code in a configurable
+sandbox. See [GraalPy Sandboxed MCP Server documentation](./graalpy-sandboxed-mcp/README.md)
+
 ## Contributing
 
 This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md)
