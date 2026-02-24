@@ -116,18 +116,31 @@ public class McpServer implements Runnable {
                 String resultStr = str.execute(result).asString();
                 return CallToolResult.builder().addTextContent(resultStr).build();
             } catch (PolyglotException e) {
-                Value formatException = context.eval("python", """
-                        import traceback
-                        def format_exception(e):
-                            return ''.join(traceback.format_exception(e));
-                        format_exception
-                        """);
-                return CallToolResult.builder().isError(true).addTextContent(formatException.execute(e.getGuestObject()).asString()).build();
+                if (e.isGuestException()) {
+                    Value formatException = context.eval("python", """
+                            import traceback
+                            def format_exception(e):
+                                return ''.join(traceback.format_exception(e));
+                            format_exception
+                            """);
+                    return errorResult(formatException.execute(e.getGuestObject()).asString());
+                }
+                throw e;
             }
+        } catch (PolyglotException e) {
+            if (e.isResourceExhausted()) {
+                return errorResult("Resource exhausted: " + e.getMessage());
+            }
+            LOG.error("Tool call failed", e);
+            return errorResult("Internal error");
         } catch (Exception e) {
             LOG.error("Tool call failed", e);
-            return CallToolResult.builder().isError(true).addTextContent("Internal error").build();
+            return errorResult("Internal error");
         }
+    }
+
+    private static CallToolResult errorResult(String errorMessage) {
+        return CallToolResult.builder().isError(true).addTextContent(errorMessage).build();
     }
 
     // The picocli CLI entry point
