@@ -83,7 +83,7 @@ public class McpServer implements Runnable {
 	@Option(names = "--max-cpu-time", description = "Maximum CPU time allowed for a single eval command. Use a number with a unit, like s. Default 20s.", defaultValue = "20s")
 	String maxCpuTime;
 
-	@Option(names = "--max-memory", description = "Maximum memory used by the sandboxed isolate. Use a number with a unit like MB, GB. Default 1024MB. Minimum 32MB.", defaultValue = "1024MB")
+	@Option(names = "--max-memory", description = "Maximum memory used by the sandboxed isolate. Use a number with a unit like MB, GB. Default 512MB. Minimum 32MB.", defaultValue = "512MB")
 	String maxMemory;
 
 	private static final Logger LOG = LoggerFactory.getLogger(McpServer.class);
@@ -92,10 +92,20 @@ public class McpServer implements Runnable {
 
 	@Tool(name = "eval_python", description = "Evaluate Python code and return the result of the last statement as text (using str)")
 	public CallToolResult evalPython(@ToolArg(name = "code") String code) {
-		Builder builder = Context.newBuilder("python").allowExperimentalOptions(true).allowHostAccess(HostAccess.NONE)
-				.out(System.err).option("sandbox.MaxCPUTime", maxCpuTime).option("engine.Compilation", "false")
-				.option("engine.SpawnIsolate", "true").option("engine.MaxIsolateMemory", maxMemory)
-				.option("engine.WarnInterpreterOnly", "false").option("python.DontWriteBytecodeFlag", "true");
+		Builder builder = Context.newBuilder("python") //
+				.allowExperimentalOptions(true) //
+				.allowHostAccess(HostAccess.NONE) //
+				.out(System.err) //
+				.option("sandbox.MaxCPUTime", maxCpuTime) //
+				.option("engine.Compilation", "false") //
+				.option("engine.SpawnIsolate", "true") //
+				.option("engine.MaxIsolateMemory", maxMemory) //
+				.option("engine.WarnInterpreterOnly", "false") //
+				.option("python.NoUserSiteFlag", "true") //
+				.option("python.IgnoreEnvironmentFlag", "true") //
+				.option("python.IsolateFlag", "true") //
+				.option("python.SafePathFlag", "true") //
+				.option("python.DontWriteBytecodeFlag", "true");
 		if (allowReadFs) {
 			FileSystem fileSystem = FileSystem.newReadOnlyFileSystem(FileSystem.newDefaultFileSystem());
 			if (cwd != null) {
