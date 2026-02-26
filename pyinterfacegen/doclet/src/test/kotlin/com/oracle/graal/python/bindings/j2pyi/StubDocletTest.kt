@@ -287,14 +287,8 @@ class StubDocletTest {
             }
         """.trimIndent()
         val expected = """
-            from typing import overload
-
             class Over:
                 def __init__(self) -> None: ...
-                @overload
-                def f(self, a: int) -> str: ...
-                @overload
-                def f(self, b: str) -> str: ...
                 @staticmethod
                 def f(x: int, y: int) -> str: ...
         """.trimIndent().trimEnd()
