@@ -16,13 +16,13 @@ native (C/rust) extensions.
 - Native extensions are not allowed. That includes a few modules in the standard library, notably `ctypes`, `pyexpat`
   (used by the `xml.*` modules) and `sqlite3`.
 
-# Virtual environments and third-party package support
+## Virtual Environments and Third-Party Packages Support
 
 It is possible to make the MCP server use a virtual environment with third-party packages that don't contain native
 extensions. The virtual environment must be created using a GraalPy standalone distribution of the same version as this
 MCP server. The path to the virtual environment can then be passed to the `--virtualenv` option.
 
-# Example MCP configuration for Cline
+## Example MCP Configuration for Cline
 
 ```json
 {
@@ -43,6 +43,6 @@ MCP server. The path to the virtual environment can then be passed to the `--vir
 }
 ```
 
-# Building from source
+Building from Source
 
 Use `mvn -Dpackaging=native-image clean verify`, the resulting binary will be in `target/target/graalpy-sandboxed-mcp`.

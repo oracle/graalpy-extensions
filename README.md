@@ -43,7 +43,10 @@ For an example, see [GraalPy JBang QR Code demo](https://github.com/graalvm/graa
 
 ## GraalPy Sandboxed MCP Server
 
-We provide an MCP server that can execute python code in a configurable
+
+## GraalPy Sandboxed MCP Server
+
+MCP server for executing Python code in a configurable sandbox. See the [GraalPy Sandboxed MCP Server documentation](./graalpy-sandboxed-mcp/README.md) for details.
 sandbox. See [GraalPy Sandboxed MCP Server documentation](./graalpy-sandboxed-mcp/README.md)
 
 ## Contributing
