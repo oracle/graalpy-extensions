@@ -12,6 +12,9 @@ class DocsAndExamplesTest {
         val box = Generation.mainModuleBase().resolve("Box.pyi")
         assertTrue(Files.exists(box), "Box.pyi should be generated at: $box")
         val text = box.readText()
-        assertTrue(text.contains("class Box[T]"), "Quick start should yield PEP 695 inline type parameter on class header:\n$text")
+        assertTrue(
+            text.contains("class Box(Generic[T]):"),
+            "Quick start should yield a Generic[T] base with PEP 484 TypeVar, not inline generics:\n$text"
+        )
     }
 }
