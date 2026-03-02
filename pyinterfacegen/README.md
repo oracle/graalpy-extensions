@@ -1,6 +1,6 @@
 # pyinterfacegen
 
-This is a JavaDoc and Gradle plugin that generates Python modules designed for binding Java libraries to GraalPy. The Python module consists of:
+This is a Javadoc and Gradle plugin that generates Python modules designed for binding Java libraries to GraalPy. The Python module consists of:
 
 - `.pyi` stubs used at development time to supply API documentation and types to IDEs, type checkers and API documentation renderers. These are analogous to header files in C.
 - A runtime `__init__.py` per package that imports Java types using GraalPy's `java.type()`.
@@ -9,11 +9,11 @@ This allows Java libraries to be used more naturally from Python source code.
 
 ## Dependencies
 
-JavaDoc requires Java dependencies to be available to process code correctly. The Gradle plugin has a task that resolves whole dependency graphs and converts them at once, so you don't necessarily have to modify the build of the upstream library if you wish to make bindings independently.
+Javadoc requires Java dependencies to be available to process code correctly. The Gradle plugin has a task that resolves whole dependency graphs and converts them at once, so you don't necessarily have to modify the build of the upstream library if you wish to make bindings independently.
 
 Often your Java library API will use types from other libraries that don't have Python type definitions (e.g. JDK classes). The doclet can be configured with a set of globs/regexes to identify which packages and classes are expected to have Python bindings available as well. The pyi stubs generated for your library will then contain Python imports and references to those other types. If a Java type isn't matched by the globs or regexes, then it'll be emitted as an untyped fully dynamic object.
 
-## Direct javadoc invocation (no Gradle)
+## Direct Javadoc invocation (no Gradle)
 
 The doclet assembles a Python package by default, so flags are optional. If your sources reference types from other modules or jars, pass them on the `-classpath` so types resolve and correct imports are emitted:
 
