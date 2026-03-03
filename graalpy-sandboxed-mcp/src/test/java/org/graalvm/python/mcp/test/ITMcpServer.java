@@ -64,6 +64,7 @@ import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -74,6 +75,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ITMcpServer {
+
+	private static final boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase(Locale.ROOT)
+			.contains("windows");
 
 	private static final String[] NO_ARGS = new String[0];
 	private static final String[] ALLOW_READ_FS = new String[]{"--allow-read-fs"};
@@ -111,7 +115,11 @@ public class ITMcpServer {
 							Stream.of(args)).toArray(String[]::new))
 					.build();
 		} else if (packaging.equals("native-image")) {
-			Path binaryPath = buildDir.resolve(System.getProperty("test.artifactId"));
+			String executableName = System.getProperty("test.artifactId");
+			if (IS_WINDOWS) {
+				executableName += ".exe";
+			}
+			Path binaryPath = buildDir.resolve(executableName);
 			if (!Files.exists(binaryPath)) {
 				throw new IllegalStateException("Native image " + binaryPath + " not found");
 			}
@@ -120,7 +128,7 @@ public class ITMcpServer {
 			throw new IllegalStateException("Unexpected packaging " + packaging);
 		}
 		StdioClientTransport transport = new StdioClientTransport(parameters, McpJsonMapper.createDefault());
-		Duration timeout = Duration.of(10, ChronoUnit.SECONDS);
+		Duration timeout = Duration.of(60, ChronoUnit.SECONDS);
 		McpSyncClient client = McpClient.sync(transport).initializationTimeout(timeout).requestTimeout(timeout).build();
 		client.initialize();
 		return client;

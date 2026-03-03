@@ -299,3 +299,52 @@ jobs:
         working-directory: pyinterfacegen
         run: .\\gradlew.bat --no-daemon --info check
         shell: pwsh
+
+  build_graalpy_sandboxed_mcp:
+    runs-on: ${{ matrix.os }}
+    needs: [pre_commit, maven_bundle_url]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: graalpy-sandboxed-mcp-linux-amd64
+            artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          - os: ubuntu-24.04-arm
+            artifact_name: graalpy-sandboxed-mcp-linux-aarch64
+            artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          # OOMs when building graalpy
+          # - os: macos-latest
+          #   artifact_name: graalpy-sandboxed-mcp-macosx-aarch64
+          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          # TODO: looks like it won't pick up graalvm
+          # - os: windows-latest
+          #   artifact_name: graalpy-sandboxed-mcp-windows-amd64
+          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp.exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: ${{ env.graalvm_version }}
+
+      - name: Setup Polyglot Maven bundle
+        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        shell: bash
+
+      - name: Build graalpy-sandboxed-mcp native image and run integration tests
+        run: >-
+          mvn --batch-mode -s settings.xml
+          -pl graalpy-sandboxed-mcp -am
+          -Dpackaging=native-image
+          verify
+        shell: bash
+
+      - name: Upload graalpy-sandboxed-mcp binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
