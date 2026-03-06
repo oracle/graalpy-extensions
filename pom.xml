@@ -59,6 +59,7 @@
     <module>org.graalvm.python.embedding.tools</module>
     <module>org.graalvm.python.jbang</module>
     <module>org.graalvm.python.gradle.plugin</module>
+    <module>graalpy-sandboxed-mcp</module>
   </modules>
 
   <!-- javainterfacegen module is excluded on Windows -->

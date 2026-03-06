@@ -1,0 +1,9 @@
+micronaut:
+  application:
+    name: micronaut-mcp-graalpy
+  mcp:
+    server:
+      transport: STDIO
+      info:
+        name: graalpy-sandboxed
+        version: 0.1.0
