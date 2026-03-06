@@ -39,6 +39,7 @@
         </developer>
     </developers>
     <licenses>
+        <!-- The sources are UPL. The built binary is GFTC due to truffle-enteprise -->
         <license>
             <name>Universal Permissive License, Version 1.0</name>
             <url>http://opensource.org/licenses/UPL</url>

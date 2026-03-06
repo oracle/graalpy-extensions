@@ -308,18 +308,18 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: graalpy-sandboxed-mcp-linux-amd64
-            artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+            artifact_suffix: ""
           # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
           # - os: ubuntu-24.04-arm
           #   artifact_name: graalpy-sandboxed-mcp-linux-aarch64
-          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          #   artifact_suffix: ""
           # OOMs when building graalpy
           # - os: macos-latest
           #   artifact_name: graalpy-sandboxed-mcp-macosx-aarch64
-          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          #   artifact_suffix: ""
           # - os: windows-latest
           #   artifact_name: graalpy-sandboxed-mcp-windows-amd64
-          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp.exe
+          #   artifact_suffix: .exe
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -346,5 +346,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_path }}
+          path: |
+            graalpy-sandboxed-mcp/target/${{ matrix.artifact_name }}${{ matrix.artifact_suffix }}
+            graalpy-sandboxed-mcp/GraalVM_GFTC_License.txt
           if-no-files-found: error
