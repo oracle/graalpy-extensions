@@ -309,14 +309,14 @@ jobs:
           - os: ubuntu-latest
             artifact_name: graalpy-sandboxed-mcp-linux-amd64
             artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
-          - os: ubuntu-24.04-arm
-            artifact_name: graalpy-sandboxed-mcp-linux-aarch64
-            artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
+          # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
+          # - os: ubuntu-24.04-arm
+          #   artifact_name: graalpy-sandboxed-mcp-linux-aarch64
+          #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
           # OOMs when building graalpy
           # - os: macos-latest
           #   artifact_name: graalpy-sandboxed-mcp-macosx-aarch64
           #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp
-          # TODO: looks like it won't pick up graalvm
           # - os: windows-latest
           #   artifact_name: graalpy-sandboxed-mcp-windows-amd64
           #   artifact_path: graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp.exe
