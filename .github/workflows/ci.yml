@@ -342,13 +342,17 @@ jobs:
           verify
         shell: bash
 
+      - name: Add the license file
+        run: cp common/GraalVM_GFTC_License.txt graalpy-sandboxed-mcp/target/
+        shell: bash
+
       - name: Upload graalpy-sandboxed-mcp binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
             graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp${{ matrix.artifact_suffix }}
-            graalpy-sandboxed-mcp/GraalVM_GFTC_License.txt
+            graalpy-sandboxed-mcp/target/GraalVM_GFTC_License.txt
           if-no-files-found: error
 
   build_graalpy_sandboxed_cli:
@@ -393,11 +397,15 @@ jobs:
           verify
         shell: bash
 
+      - name: Add the license file
+        run: cp common/GraalVM_GFTC_License.txt graalpy-sandboxed-cli/target/
+        shell: bash
+
       - name: Upload graalpy-sandboxed-cli binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: |
             graalpy-sandboxed-cli/target/graalpy-sandboxed${{ matrix.artifact_suffix }}
-            graalpy-sandboxed-cli/GraalVM_GFTC_License.txt
+            graalpy-sandboxed-cli/target/GraalVM_GFTC_License.txt
           if-no-files-found: error
