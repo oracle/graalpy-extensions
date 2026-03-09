@@ -347,6 +347,57 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            graalpy-sandboxed-mcp/target/${{ matrix.artifact_name }}${{ matrix.artifact_suffix }}
+            graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp${{ matrix.artifact_suffix }}
             graalpy-sandboxed-mcp/GraalVM_GFTC_License.txt
+          if-no-files-found: error
+
+  build_graalpy_sandboxed_cli:
+    runs-on: ${{ matrix.os }}
+    needs: [pre_commit, maven_bundle_url]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: graalpy-sandboxed-linux-amd64
+            artifact_suffix: ""
+          # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
+          # - os: ubuntu-24.04-arm
+          #   artifact_name: graalpy-sandboxed-linux-aarch64
+          #   artifact_suffix: ""
+          # OOMs when building graalpy
+          # - os: macos-latest
+          #   artifact_name: graalpy-sandboxed-macosx-aarch64
+          #   artifact_suffix: ""
+          # - os: windows-latest
+          #   artifact_name: graalpy-sandboxed-windows-amd64
+          #   artifact_suffix: .exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: ${{ env.graalvm_version }}
+
+      - name: Setup Polyglot Maven bundle
+        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        shell: bash
+
+      - name: Build graalpy-sandboxed-cli native image and run integration tests
+        run: >-
+          mvn --batch-mode -s settings.xml
+          -pl graalpy-sandboxed-cli -am
+          -Dpackaging=native-image
+          verify
+        shell: bash
+
+      - name: Upload graalpy-sandboxed-cli binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            graalpy-sandboxed-cli/target/graalpy-sandboxed${{ matrix.artifact_suffix }}
+            graalpy-sandboxed-cli/GraalVM_GFTC_License.txt
           if-no-files-found: error
