@@ -642,14 +642,12 @@ public class VirtualFileSystemIntegrationTest {
 		String line;
 		while ((line = br.readLine()) != null) {
 			line = line.substring("/org.graalvm.python.vfs/".length());
-			if (line.length() == 0) {
+			if (line.isEmpty()) {
 				continue;
 			}
 			Path extractedFile = resourcesDir.resolve(line);
 			assert Files.exists(extractedFile);
-			if (line.endsWith("/")) {
-				assert Files.isDirectory(extractedFile);
-			}
+			assert !line.endsWith("/") || Files.isDirectory(extractedFile);
 		}
 		checkExtractedFile(resourcesDir.resolve(Path.of("file1")), new String[]{"text1", "text2"});
 
