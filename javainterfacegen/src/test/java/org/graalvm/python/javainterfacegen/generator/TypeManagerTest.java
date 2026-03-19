@@ -243,7 +243,7 @@ public class TypeManagerTest {
 	}
 
 	@Test
-	public void testResolveJavaTypeDir() throws Exception {
+	public void testResolveJavaTypeDict() throws Exception {
 		GeneratorContext context = createClassContext();
 		TypeManager typeManager = TypeManager.get();
 
