@@ -438,18 +438,18 @@ public class VirtualFileSystemTest {
 				() -> fs.checkAccess(Path.of(pathPrefix, "SomeFile"), Set.of(AccessMode.WRITE)),
 				"write access should not be possible with VFS");
 
-		// executable file
-		fs.checkAccess(Path.of(pathPrefix, "bin", "exec.sh"), Set.of(AccessMode.EXECUTE));
+		// execute access is not supported for virtual entries
+		checkException(SecurityException.class,
+				() -> fs.checkAccess(Path.of(pathPrefix, "bin", "exec.sh"), Set.of(AccessMode.EXECUTE)),
+				"execute access should not be possible for VFS entries");
 
-		// non-executable file
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "bin", "nonexec.txt"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible for non-executable file");
+				"execute access should not be possible for VFS entries");
 
-		// nonexistent paths
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exist"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible for non-existent path");
+				"execute access should not be possible for VFS entries");
 
 		checkException(NoSuchFileException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exits"), Set.of(AccessMode.READ)),
@@ -796,12 +796,6 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(dep1, null);
 			checkExtractedFile(dep2, null);
 			assertFalse(Files.exists(notExtracted));
-
-			if (!IS_WINDOWS) {
-				assertTrue(Files.isExecutable(p), "main .so should be executable");
-				assertTrue(Files.isExecutable(dep1), "dependency .so should be executable");
-				assertTrue(Files.isExecutable(dep2), "dependency .so should be executable");
-			}
 		}
 	}
 
@@ -826,12 +820,6 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(dep1, null);
 			checkExtractedFile(dep2, null);
 			assertFalse(Files.exists(notExtracted));
-
-			if (!IS_WINDOWS) {
-				assertFalse(Files.isExecutable(initPy), "__init__.py should not be executable");
-				assertTrue(Files.isExecutable(dep1), "dependency .so should be executable");
-				assertTrue(Files.isExecutable(dep2), "dependency .so should be executable");
-			}
 		}
 	}
 

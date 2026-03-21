@@ -42,7 +42,6 @@ package org.graalvm.python.embedding;
 
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.EnumSet;
 import org.graalvm.polyglot.io.FileSystem;
 import org.graalvm.python.embedding.VirtualFileSystem.HostIO;
 
@@ -167,7 +166,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 	private abstract sealed class BaseEntry permits DirEntry, FileEntry {
 		final String platformPath;
-		private final Set<PosixFilePermission> permissions;
+		private Set<PosixFilePermission> permissions;
 
 		private BaseEntry(String platformPath, Set<PosixFilePermission> permissions) {
 			this.platformPath = platformPath;
@@ -189,6 +188,10 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		public Set<PosixFilePermission> getPermissions() {
 			return permissions;
 		}
+
+		void setPermissions(Set<PosixFilePermission> permissions) {
+			this.permissions = permissions;
+		}
 	}
 
 	private record FilelistEntry(EntryType type, String resourcePath, Set<PosixFilePermission> permissions) {
@@ -206,34 +209,26 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 				return null;
 			}
 
-			// v1 format: only absolute path
+			// v1 format: only absolute path, preserve legacy extraction permissions
 			if (line.startsWith("/")) {
-				Set<PosixFilePermission> permissions = isExecutable(line)
-						? DEFAULT_DIR_PERMISSIONS // 0755
-						: DEFAULT_FILE_PERMISSIONS; // 0644
-
-				return new FilelistEntry(EntryType.FILE, line, permissions);
+				EntryType type = line.endsWith(RESOURCE_SEPARATOR) ? EntryType.DIR : EntryType.FILE;
+				return new FilelistEntry(type, line, null);
 			}
 
-			// v2 format: <type> <mode> <path>
-			String[] parts = line.split("\\s+", 3);
-			if (parts.length != 3) {
-				throw new IllegalArgumentException("Invalid fileslist entry (expected: <type> <mode> <path>): " + line);
+			// v2 format: <mode> <path>
+			String[] parts = line.split("\\s+", 2);
+			if (parts.length != 2) {
+				throw new IllegalArgumentException("Invalid fileslist entry (expected: <mode> <path>): " + line);
 			}
 
-			EntryType type = switch (parts[0]) {
-				case "file" -> EntryType.FILE;
-				case "dir" -> EntryType.DIR;
-				default -> throw new IllegalArgumentException("Unknown fileslist entry type: " + parts[0]);
-			};
-
-			Set<PosixFilePermission> permissions = parsePermissions(parts[1]);
-			String resourcePath = parts[2];
+			Set<PosixFilePermission> permissions = parsePermissions(parts[0]);
+			String resourcePath = parts[1];
 
 			if (!resourcePath.startsWith("/")) {
 				throw new IllegalArgumentException("Resource path must be absolute: " + resourcePath);
 			}
 
+			EntryType type = resourcePath.endsWith(RESOURCE_SEPARATOR) ? EntryType.DIR : EntryType.FILE;
 			return new FilelistEntry(type, resourcePath, permissions);
 		}
 
@@ -254,11 +249,6 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			}
 			return sb.toString();
 		}
-	}
-
-	private static boolean isExecutable(String resourcePath) {
-		return resourcePath.endsWith(".so") || resourcePath.matches(".*\\.so(\\..+)?$") || resourcePath.endsWith(".sh")
-				|| resourcePath.contains("/bin/");
 	}
 
 	private final class FileEntry extends BaseEntry {
@@ -583,7 +573,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 							if (genericEntry instanceof DirEntry de) {
 								dirEntry = de;
 							} else if (genericEntry == null) {
-								dirEntry = new DirEntry(dir, DEFAULT_DIR_PERMISSIONS);
+								dirEntry = new DirEntry(dir, null);
 								vfsEntries.put(dirKey, dirEntry);
 								finest("  %s", dirEntry.getResourcePath());
 								if (parent != null) {
@@ -597,15 +587,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 						} while ((i = platformPath.indexOf(PLATFORM_SEPARATOR, i)) != -1);
 
 						assert parent != null;
+						if (meta.type() == FilelistEntry.EntryType.DIR) {
+							parent.setPermissions(meta.permissions());
+						}
 						if (!platformPath.endsWith(PLATFORM_SEPARATOR)) {
-							Set<PosixFilePermission> permissions = meta.permissions();
-							if (isExecutable(platformPath)) {
-								permissions = EnumSet.copyOf(permissions);
-								permissions.add(PosixFilePermission.OWNER_EXECUTE);
-								permissions.add(PosixFilePermission.GROUP_EXECUTE);
-								permissions.add(PosixFilePermission.OTHERS_EXECUTE);
-							}
-							FileEntry fileEntry = new FileEntry(platformPath, permissions);
+							FileEntry fileEntry = new FileEntry(platformPath, meta.permissions());
 							if (extractFilter != null && extractFilter.test(Paths.get(platformPath))) {
 								fileEntry.toExtract = List.of(fileEntry);
 							}
@@ -1032,7 +1018,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 
 	private void applyPermissions(BaseEntry entry, Path path) {
 		try {
-			if (Files.getFileStore(path).supportsFileAttributeView("posix")) {
+			if (entry.getPermissions() != null && Files.getFileStore(path).supportsFileAttributeView("posix")) {
 				Files.setPosixFilePermissions(path, entry.getPermissions());
 			}
 		} catch (IOException e) {
@@ -1163,20 +1149,13 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 					String.format("read-only filesystem, write access not supported '%s'", path));
 		}
 		if (modes.contains(AccessMode.EXECUTE)) {
-
-			String normalized = path.toString().replace('\\', '/');
-
-			if (normalized.endsWith("/bin/exec.sh")) {
-				return;
-			}
-
 			if (entry != null) {
 				throw securityException("VFS.checkAccess",
-						String.format("execute access should not be possible for non-executable file '%s'", p));
+						String.format("execute access is not supported for virtual filesystem entries '%s'", p));
 			}
 
 			throw securityException("VFS.checkAccess",
-					String.format("execute access should not be possible for non-existent path '%s'", p));
+					String.format("execute access is not supported for virtual filesystem entries '%s'", p));
 		}
 
 		getEntrySafe("VFS.checkAccess", path);
