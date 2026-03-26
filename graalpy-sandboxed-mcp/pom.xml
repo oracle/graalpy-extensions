@@ -20,7 +20,7 @@
         <packaging>jar</packaging>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <project.polyglot.version>${revision}</project.polyglot.version>
+        <project.polyglot.version>25.0.2</project.polyglot.version>
         <project.url.root>https://graalvm.org/python</project.url.root>
         <project.scm.connection>scm:git:git://github.com/oracle/graalpy-extensions.git</project.scm.connection>
         <project.scm.devConnection>${project.scm.connection}</project.scm.devConnection>

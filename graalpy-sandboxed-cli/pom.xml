@@ -19,6 +19,7 @@
         <native.maven.plugin.version>0.10.4</native.maven.plugin.version>
         <!-- Resolved via OS/arch-activated profiles below -->
         <python.isolate.artifactId>python-isolate-linux-amd64</python.isolate.artifactId>
+        <project.polyglot.version>25.0.2</project.polyglot.version>
     </properties>
 
     <profiles>

@@ -310,9 +310,9 @@ jobs:
             artifact_name: graalpy-sandboxed-mcp-linux-amd64
             artifact_suffix: ""
           # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
-          # - os: ubuntu-24.04-arm
-          #   artifact_name: graalpy-sandboxed-mcp-linux-aarch64
-          #   artifact_suffix: ""
+          - os: ubuntu-24.04-arm
+            artifact_name: graalpy-sandboxed-mcp-linux-aarch64
+            artifact_suffix: ""
           # OOMs when building graalpy
           # - os: macos-latest
           #   artifact_name: graalpy-sandboxed-mcp-macosx-aarch64
@@ -365,9 +365,9 @@ jobs:
             artifact_name: graalpy-sandboxed-linux-amd64
             artifact_suffix: ""
           # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
-          # - os: ubuntu-24.04-arm
-          #   artifact_name: graalpy-sandboxed-linux-aarch64
-          #   artifact_suffix: ""
+          - os: ubuntu-24.04-arm
+            artifact_name: graalpy-sandboxed-linux-aarch64
+            artifact_suffix: ""
           # OOMs when building graalpy
           # - os: macos-latest
           #   artifact_name: graalpy-sandboxed-macosx-aarch64
