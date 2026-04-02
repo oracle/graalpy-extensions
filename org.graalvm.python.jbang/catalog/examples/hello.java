@@ -51,7 +51,7 @@ import org.graalvm.python.embedding.GraalPyResources;
 public class hello {
     public static void main(String[] args) {
         System.out.println("Running main method from Java.");
-        try (Context context = GraalPyResources.createContext()) {
+        try (Context context = Context.newBuilder().apply(GraalPyResources.DEFAULT).build()) {
             switch (args.length) {
                 case 0:
                     context.eval("python", "from termcolor import colored; print(print(colored('hello java', 'red', attrs=['reverse', 'blink'])))");

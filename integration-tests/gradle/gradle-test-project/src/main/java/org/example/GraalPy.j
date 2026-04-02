@@ -52,7 +52,7 @@ public class GraalPy {
     private static final String PYTHON = "python";
 
     public static void main(String[] args) {
-        try (Context context = GraalPyResources.createContext()) {
+        try (Context context = Context.newBuilder().apply(GraalPyResources.DEFAULT).build()) {
             Source source;
             try {
                 source = Source.newBuilder(PYTHON, "import hello", "<internal>").internal(true).build();

@@ -19,7 +19,7 @@ import org.graalvm.python.embedding.GraalPyResources;
 public class {baseName} {
     public static void main(String[] args) {
 
-        try (Context context = GraalPyResources.createContext()) {
+        try (Context context = Context.newBuilder().apply(GraalPyResources.DEFAULT).build()) {
             switch (args.length) {
                 case 0:
                     context.eval("python", "import site; site._script()");
