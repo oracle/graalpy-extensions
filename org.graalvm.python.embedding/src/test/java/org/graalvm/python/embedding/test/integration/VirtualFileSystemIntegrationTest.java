@@ -144,7 +144,8 @@ public class VirtualFileSystemIntegrationTest {
 			Context.Builder builder = Context.newBuilder().apply(GraalPyResources.DEFAULT);
 			return engine != null ? builder.engine(engine) : builder;
 		}
-		Context.Builder builder = Context.newBuilder().apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)));
+		Context.Builder builder = Context.newBuilder()
+				.apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)));
 		return engine != null ? builder.engine(engine) : builder;
 	}
 

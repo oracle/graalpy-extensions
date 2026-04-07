@@ -49,15 +49,15 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 
 public class GraalPyResourcesTests {
-        @Test
-        public void sharedEngine() {
-                // simply check if we are able to create a context with a shared engine
-                Engine sharedEngine = Engine.create("python");
-                Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
-                Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
+	@Test
+	public void sharedEngine() {
+		// simply check if we are able to create a context with a shared engine
+		Engine sharedEngine = Engine.create("python");
+		Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
 		Context.newBuilder().apply(GraalPyResources.of(Path.of("test"))).engine(sharedEngine).build().close();
 		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.newBuilder().build())).engine(sharedEngine)
 				.build().close();
-                sharedEngine.close();
-        }
+		sharedEngine.close();
+	}
 }

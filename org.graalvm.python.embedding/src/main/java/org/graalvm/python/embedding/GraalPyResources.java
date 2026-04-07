@@ -302,8 +302,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * <b>Example</b>
 	 *
 	 * <pre>
-	 * Context.Builder builder = Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(Path.of("python-resources")));
+	 * Context.Builder builder = Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources")));
 	 * try (Context context = builder.build()) {
 	 * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
 	 * } catch (PolyglotException e) {
@@ -336,8 +335,8 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * and accesses native POSIX APIs directly. Usage:
 	 *
 	 * <pre>
-	 * Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources")))
-	 * 		.option("python.PosixModuleBackend", "native")
+	 * Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources"))).option("python.PosixModuleBackend",
+	 * 		"native")
 	 * </pre>
 	 * <p>
 	 *
