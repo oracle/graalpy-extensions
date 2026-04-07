@@ -55,10 +55,9 @@ public class GraalPyResourcesTests {
                 Engine sharedEngine = Engine.create("python");
                 Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
                 Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
-                Context.newBuilder().apply(GraalPyResources.withExternalResources(Path.of("test"))).engine(sharedEngine).build()
-                                .close();
-                Context.newBuilder().apply(GraalPyResources.withVirtualFileSystem(VirtualFileSystem.newBuilder().build()))
-                                .engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(Path.of("test"))).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.newBuilder().build())).engine(sharedEngine)
+				.build().close();
                 sharedEngine.close();
         }
 }

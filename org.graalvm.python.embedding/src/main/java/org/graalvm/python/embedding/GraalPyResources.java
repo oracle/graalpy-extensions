@@ -120,7 +120,7 @@ import java.util.function.Consumer;
  * VirtualFileSystem.Builder builder = VirtualFileSystem.newBuilder();
  * builder.unixMountPoint("/python-resources");
  * VirtualFileSystem vfs = builder.build();
- * try (Context context = Context.newBuilder().apply(GraalPyResources.withVirtualFileSystem(vfs)).build()) {
+ * try (Context context = Context.newBuilder().apply(GraalPyResources.of(vfs)).build()) {
  * 	context.eval("python", "for line in open('/python-resources/data.txt').readlines(): print(line)");
  * } catch (PolyglotException e) {
  * 	if (e.isExit()) {
@@ -159,8 +159,7 @@ import java.util.function.Consumer;
  * external resource directory:
  *
  * <pre>
- * try (Context context = Context.newBuilder()
- * 		.apply(GraalPyResources.withExternalResources(Path.of("python-resources"))).build()) {
+ * try (Context context = Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources"))).build()) {
  * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
  * } catch (PolyglotException e) {
  * 	if (e.isExit()) {
@@ -283,7 +282,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *         {@link org.graalvm.polyglot.Context.Builder}
 	 * @since 25.1.0
 	 */
-	public static GraalPyResources withVirtualFileSystem(VirtualFileSystem vfs) {
+	public static GraalPyResources of(VirtualFileSystem vfs) {
 		return new GraalPyResources(builder -> applyVirtualFileSystem(builder, vfs));
 	}
 
@@ -304,7 +303,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * <pre>
 	 * Context.Builder builder = Context.newBuilder()
-	 * 		.apply(GraalPyResources.withExternalResources(Path.of("python-resources")));
+	 * 		.apply(GraalPyResources.of(Path.of("python-resources")));
 	 * try (Context context = builder.build()) {
 	 * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
 	 * } catch (PolyglotException e) {
@@ -337,7 +336,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * and accesses native POSIX APIs directly. Usage:
 	 *
 	 * <pre>
-	 * Context.newBuilder().apply(GraalPyResources.withExternalResources(Path.of("python-resources")))
+	 * Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources")))
 	 * 		.option("python.PosixModuleBackend", "native")
 	 * </pre>
 	 * <p>
@@ -353,7 +352,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *         {@link org.graalvm.polyglot.Context.Builder}
 	 * @since 25.1.0
 	 */
-	public static GraalPyResources withExternalResources(Path externalResourcesDirectory) {
+	public static GraalPyResources of(Path externalResourcesDirectory) {
 		String execPath;
 		if (VirtualFileSystemImpl.isWindows()) {
 			execPath = externalResourcesDirectory.resolve(VirtualFileSystemImpl.VFS_VENV).resolve("Scripts")
@@ -405,11 +404,11 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.withVirtualFileSystem(vfs))</code>
+	 *             <code>Context.newBuilder().apply(GraalPyResources.of(vfs))</code>
 	 */
 	@Deprecated(since = "25.1.0")
 	public static Context.Builder contextBuilder(VirtualFileSystem vfs) {
-		return Context.newBuilder().apply(withVirtualFileSystem(vfs));
+		return Context.newBuilder().apply(of(vfs));
 	}
 
 	/**
@@ -421,11 +420,11 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.withExternalResources(externalResourcesDirectory))</code>
+	 *             <code>Context.newBuilder().apply(GraalPyResources.of(externalResourcesDirectory))</code>
 	 */
 	@Deprecated(since = "25.1.0")
 	public static Context.Builder contextBuilder(Path externalResourcesDirectory) {
-		return Context.newBuilder().apply(withExternalResources(externalResourcesDirectory));
+		return Context.newBuilder().apply(of(externalResourcesDirectory));
 	}
 
 	@Override
@@ -485,14 +484,14 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * <pre>
 	 * Path resourcesDir = GraalPyResources.getNativeExecutablePath().getParent().resolve("python-resources");
-	 * try (Context context = Context.newBuilder().apply(GraalPyResources.withExternalResources(resourcesDir)).build()) {
+	 * try (Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
 	 *
 	 * @return the native executable path if it could be retrieved, otherwise
 	 *         <code>null</code>.
-	 * @see #withExternalResources(Path)
+	 * @see #of(Path)
 	 *
 	 * @since 24.2.0
 	 */
@@ -532,7 +531,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * Path resourcesDir = Path.of(System.getProperty("user.home"), ".cache", "my.java.python.app.resources");
 	 * VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build();
 	 * GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
-	 * try (Context context = Context.newBuilder().apply(GraalPyResources.withExternalResources(resourcesDir)).build()) {
+	 * try (Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
@@ -544,7 +543,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *            the target directory to extract the resources to
 	 * @throws IOException
 	 *             if resources isn't a directory
-	 * @see #withExternalResources(Path)
+	 * @see #of(Path)
 	 * @see VirtualFileSystem.Builder#resourceLoadingClass(Class)
 	 *
 	 * @since 24.2.0
