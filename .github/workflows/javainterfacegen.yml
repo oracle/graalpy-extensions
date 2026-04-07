@@ -22,7 +22,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: '25-ea'
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
         uses: ./.github/actions/setup-polyglot-mvn-repo
