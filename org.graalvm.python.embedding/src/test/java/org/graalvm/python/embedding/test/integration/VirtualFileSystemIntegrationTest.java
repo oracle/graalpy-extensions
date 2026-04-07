@@ -136,8 +136,7 @@ public class VirtualFileSystemIntegrationTest {
 		if (useDefaultResourcesDir(resourceDirectory)) {
 			return Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(engine);
 		}
-		return Context.newBuilder()
-				.apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)))
+		return Context.newBuilder().apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)))
 				.engine(engine);
 	}
 
