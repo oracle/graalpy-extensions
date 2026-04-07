@@ -97,23 +97,16 @@ public class VirtualFileSystemIntegrationTest {
 	static final String USE_DEFAULT_VFS_DIR = "--default--";
 
 	private static Engine engine;
-	private static TestProperties isolateProperties;
 
 	@BeforeAll
 	public static void makeEngine() {
-		isolateProperties = TestProperties.disableSpawnIsolate();
-		if (!isSpawnIsolateEnabled()) {
-			engine = newEngine();
-		}
+		engine = Engine.create("python");
 	}
 
 	@AfterAll
 	public static void closeEngine() {
 		if (engine != null) {
 			engine.close();
-		}
-		if (isolateProperties != null) {
-			isolateProperties.restore();
 		}
 	}
 
@@ -141,12 +134,11 @@ public class VirtualFileSystemIntegrationTest {
 
 	private Context.Builder newContextBuilder(String resourceDirectory) {
 		if (useDefaultResourcesDir(resourceDirectory)) {
-			Context.Builder builder = Context.newBuilder().apply(GraalPyResources.DEFAULT);
-			return engine != null ? builder.engine(engine) : builder;
+			return Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(engine);
 		}
-		Context.Builder builder = Context.newBuilder()
-				.apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)));
-		return engine != null ? builder.engine(engine) : builder;
+		return Context.newBuilder()
+				.apply(GraalPyResources.of(createVirtualFileSystem(resourceDirectory)))
+				.engine(engine);
 	}
 
 	private VirtualFileSystem.Builder newVirtualFileSystemBuilder(String resourceDirectory) {
