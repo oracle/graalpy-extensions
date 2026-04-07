@@ -157,7 +157,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
         run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
@@ -251,7 +251,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: ${{ matrix.tests == 'isolate-it' && 'latest-ea' || env.graalvm_version }}
 
       - name: Set GRADLE_JAVA_HOME
         run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
@@ -328,7 +328,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
         run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
@@ -383,7 +383,7 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
         run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
