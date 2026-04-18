@@ -54,6 +54,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -66,6 +67,7 @@ import static org.graalvm.python.embedding.tools.test.EmbeddingTestUtils.deleteD
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -690,6 +692,38 @@ public class VFSUtilsTest {
 		checkVenvCreate(log.getOutput(), true);
 		checkVenvContentsFile(contents, "0.1", "hello-world");
 		assertThat(log.getOutput(), containsString("Reinstalling GraalPy venv created on"));
+	}
+
+	@Test
+	public void generateVFSFilesListIncludesPosixPermissions() throws IOException {
+		Path tmpDir = Files.createTempDirectory("generateVFSFilesListIncludesPosixPermissions");
+		deleteDirOnShutdown(tmpDir);
+		assumeTrue(!System.getProperty("os.name").startsWith("Windows"));
+		assumeTrue(Files.getFileStore(tmpDir).supportsFileAttributeView("posix"));
+
+		Path resourcesRoot = tmpDir.resolve("resources");
+		Path vfsRoot = resourcesRoot.resolve("org.graalvm.python.vfs");
+		Path nestedDir = vfsRoot.resolve("pkg/bin");
+		Files.createDirectories(nestedDir);
+		Path executable = nestedDir.resolve("tool.sh");
+		Files.writeString(executable, "#!/bin/sh\n");
+		Path readme = vfsRoot.resolve("README.txt");
+		Files.writeString(readme, "hello\n");
+
+		Files.setPosixFilePermissions(vfsRoot, PosixFilePermissions.fromString("rwxr-x---"));
+		Files.setPosixFilePermissions(vfsRoot.resolve("pkg"), PosixFilePermissions.fromString("rwx------"));
+		Files.setPosixFilePermissions(nestedDir, PosixFilePermissions.fromString("rwxr-xr-x"));
+		Files.setPosixFilePermissions(executable, PosixFilePermissions.fromString("rwxr-x---"));
+		Files.setPosixFilePermissions(readme, PosixFilePermissions.fromString("rw-r-----"));
+
+		VFSUtils.generateVFSFilesList(resourcesRoot, vfsRoot);
+
+		List<String> lines = Files.readAllLines(vfsRoot.resolve(VFSUtils.VFS_FILESLIST));
+		assertTrue(lines.contains("0750 /org.graalvm.python.vfs/"));
+		assertTrue(lines.contains("0700 /org.graalvm.python.vfs/pkg/"));
+		assertTrue(lines.contains("0755 /org.graalvm.python.vfs/pkg/bin/"));
+		assertTrue(lines.contains("0750 /org.graalvm.python.vfs/pkg/bin/tool.sh"));
+		assertTrue(lines.contains("0640 /org.graalvm.python.vfs/README.txt"));
 	}
 
 	private static boolean callPackageRemoved(List<String> packages, List<String> contents, List<String> installed)

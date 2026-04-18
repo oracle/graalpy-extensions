@@ -1,0 +1,9 @@
+0750 /GRAALPY-VFS/permissions-spectrum/
+0711 /GRAALPY-VFS/permissions-spectrum/public/
+0644 /GRAALPY-VFS/permissions-spectrum/public/readme.txt
+0700 /GRAALPY-VFS/permissions-spectrum/private/
+0600 /GRAALPY-VFS/permissions-spectrum/private/secret.txt
+0755 /GRAALPY-VFS/permissions-spectrum/exec/
+0750 /GRAALPY-VFS/permissions-spectrum/exec/tool.sh
+0750 /GRAALPY-VFS/permissions-spectrum/shared/
+0640 /GRAALPY-VFS/permissions-spectrum/shared/data.txt

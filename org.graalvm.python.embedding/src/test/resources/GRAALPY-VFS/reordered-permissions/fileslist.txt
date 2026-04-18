@@ -1,0 +1,3 @@
+0644 /GRAALPY-VFS/reordered-permissions/foo/otherdir/hello.txt
+0711 /GRAALPY-VFS/reordered-permissions/foo/
+0750 /GRAALPY-VFS/reordered-permissions/foo/otherdir/
