@@ -164,7 +164,7 @@ jobs:
         shell: bash
 
       - name: Run Maven install
-        run: mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
+        run: ./mvnw --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
         shell: bash
 
       - name: Install JBang (Linux/macOS)
@@ -192,7 +192,7 @@ jobs:
       - name: Run integration tests
         id: tests_run
         run: |
-          mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
+          ./mvnw --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
       # /var/folders/sw/**/T/jbang*native-image

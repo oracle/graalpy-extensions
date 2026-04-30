@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -38,50 +38,63 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.example;
+
+package org.graalvm.python.embedding;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotAccess;
-import org.graalvm.polyglot.PolyglotException;
-import org.graalvm.polyglot.Source;
-import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.io.IOAccess;
-import java.io.IOException;
 
-import org.graalvm.python.embedding.GraalPyResources;
-import org.graalvm.python.embedding.VirtualFileSystem;
+import java.nio.file.Path;
 
-public class GraalPy {
-    private static final String PYTHON = "python";
+final class GraalPyResourcesMigrationSnippets {
+	private GraalPyResourcesMigrationSnippets() {
+	}
 
-    public static void main(String[] args) {
-        try (Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
-                .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                .apply(GraalPyResources.of(VirtualFileSystem.create()))
-                .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
-            Source source;
-            try {
-                source = Source.newBuilder(PYTHON, "import hello", "<internal>").internal(true).build();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+	static Context.Builder defaultVirtualFilesystemContextBuilder() {
+		// @start region = "default-virtual-filesystem-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowHostAccess(HostAccess.ALL)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.of(VirtualFileSystem.create()))
+				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
+		// @end
+		return builder;
+	}
 
-            context.eval(source);
+	static Context.Builder virtualFilesystemContextBuilder(VirtualFileSystem vfs) {
+		// @start region = "virtual-filesystem-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowHostAccess(HostAccess.ALL)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.of(vfs))
+				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
+		// @end
+		return builder;
+	}
 
-            // retrieve the python PyHello class
-            Value pyHelloClass = context.getPolyglotBindings().getMember("PyHello");
-            Value pyHello = pyHelloClass.newInstance();
-            // and cast it to the Hello interface which matches PyHello
-            Hello hello = pyHello.as(Hello.class);
-            hello.hello("java");
-
-        } catch (PolyglotException e) {
-            if (e.isExit()) {
-                System.exit(e.getExitStatus());
-            } else {
-                throw e;
-            }
-        }
-    }
+	static Context.Builder externalDirectoryContextBuilder(Path externalResourcesDirectory) {
+		// @start region = "external-directory-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.of(externalResourcesDirectory))
+				.allowHostAccess(HostAccess.ALL)
+				.allowIO(IOAccess.ALL).option("python.PosixModuleBackend", "java")
+				.option("python.DontWriteBytecodeFlag", "true");
+		// @end
+		return builder;
+	}
 }

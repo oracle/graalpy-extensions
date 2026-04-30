@@ -40,22 +40,142 @@
  */
 package org.graalvm.python.embedding.test.integration;
 
+import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.python.embedding.GraalPyResources;
 import org.graalvm.python.embedding.VirtualFileSystem;
+import org.graalvm.polyglot.io.IOAccess;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class GraalPyResourcesTests {
+	private static Engine newPythonEngine() {
+		return Engine.newBuilder("python").option("engine.WarnInterpreterOnly", "false").build();
+	}
+
+	private static String pythonStringLiteral(String value) {
+		return value.replace("\\", "\\\\").replace("'", "\\'");
+	}
+
+	private static String pythonPathLiteral(Path path) {
+		return pythonStringLiteral(path.toAbsolutePath().toString());
+	}
+
+	private static String runtimeConfiguration(Context.Builder builder) {
+		try (Engine engine = newPythonEngine(); Context context = builder.engine(engine).build()) {
+			return context.eval("python", """
+					import json
+					import sys
+					json.dumps([sys.executable, sys.path, sys.dont_write_bytecode, 'site' in sys.modules])
+					""").asString();
+		}
+	}
+
 	@Test
 	public void sharedEngine() {
 		// simply check if we are able to create a context with a shared engine
 		Engine sharedEngine = Engine.create("python");
-		GraalPyResources.contextBuilder().engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder().engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder(Path.of("test")).engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder(VirtualFileSystem.newBuilder().build()).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create())).engine(sharedEngine).build()
+				.close();
+		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create())).engine(sharedEngine).build()
+				.close();
+		Context.newBuilder().apply(GraalPyResources.of(Path.of("test"))).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.newBuilder().build())).engine(sharedEngine)
+				.build().close();
 		sharedEngine.close();
+	}
+
+	@Test
+	@SuppressWarnings("deprecation")
+	public void oldAndNewApiEntryPointsSetSameOptions() throws IOException {
+		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build()) {
+			assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder()),
+					runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create()))));
+			assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder(vfs)),
+					runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(vfs))));
+		}
+		Path resourcesDir = Files.createTempDirectory("graalpy-resources-options");
+		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build()) {
+			GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+		}
+		assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder(resourcesDir)),
+				runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(resourcesDir))));
+	}
+
+	@Test
+	public void testExtendJavaEmbeddingConfig() {
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL)
+						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+			context.getBindings("python").putMember("hostObject", new AtomicInteger(42));
+			assertEquals(42, context.eval("python", "hostObject.get()").asInt());
+		}
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create()))
+						.engine(engine).extendHostAccess(HostAccess.ALL,
+								hostAccessBuilder -> hostAccessBuilder.denyAccess(AtomicInteger.class))
+						.build()) {
+			context.getBindings("python").putMember("hostObject", new AtomicInteger(42));
+			assertThrows(PolyglotException.class, () -> context.eval("python", "hostObject.get()"));
+		}
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder()
+						.extendHostAccess(HostAccess.ALL,
+								hostAccessBuilder -> hostAccessBuilder.denyAccess(AtomicInteger.class))
+						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+			context.getBindings("python").putMember("hostObject", new AtomicInteger(42));
+			assertThrows(PolyglotException.class, () -> context.eval("python", "hostObject.get()"));
+		}
+	}
+
+	// file known to be in the testing VFS
+	private static String file1Path(String root) {
+		return root + (root.endsWith("\\") ? "\\file1" : "/file1");
+	}
+
+	@Test
+	public void testExtendIOConfig() throws IOException {
+		Path resourcesDir = Files.createTempDirectory("graalpy-resources-test");
+		Path file1 = Path.of(file1Path(resourcesDir.toString()));
+		String defaultFile1;
+		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build()) {
+			GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
+			defaultFile1 = file1Path(vfs.getMountPoint());
+		}
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).engine(engine)
+						.build()) {
+			assertEquals("text1\ntext2\n",
+					context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1))).asString());
+		}
+		assertThrows(PolyglotException.class, () -> {
+			try (Engine engine = newPythonEngine();
+					Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).engine(engine)
+							.extendIO(IOAccess.ALL, ioBuilder -> ioBuilder.allowHostFileAccess(false)).build()) {
+				context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1)));
+			}
+		});
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder()
+						.extendIO(IOAccess.ALL, ioBuilder -> ioBuilder.allowHostFileAccess(false))
+						.apply(GraalPyResources.of(resourcesDir)).engine(engine).build()) {
+			assertEquals("text1\ntext2\n",
+					context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1))).asString());
+		}
+		try (Engine engine = newPythonEngine();
+				Context context = Context.newBuilder().allowIO(IOAccess.NONE)
+						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+			assertEquals("text1\ntext2\n", context
+					.eval("python", "open('%s').read()".formatted(pythonStringLiteral(defaultFile1))).asString());
+		}
 	}
 }
