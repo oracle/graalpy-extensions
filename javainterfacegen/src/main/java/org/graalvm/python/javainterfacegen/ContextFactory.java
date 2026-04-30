@@ -42,6 +42,9 @@ package org.graalvm.python.javainterfacegen;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotAccess;
+import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.python.embedding.GraalPyResources;
 import org.graalvm.python.embedding.VirtualFileSystem;
 
@@ -54,7 +57,10 @@ public class ContextFactory {
 		if (context == null) {
 			VirtualFileSystem vfs = VirtualFileSystem.newBuilder()
 					.resourceDirectory("GRAALPY-VFS/org.graalvm.python/javainterfacegen").build();
-			context = GraalPyResources.contextBuilder(vfs)
+			context = Context.newBuilder().allowExperimentalOptions(false).allowAllAccess(false)
+					.allowHostAccess(HostAccess.ALL).allowCreateThread(true).allowNativeAccess(true)
+					.allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.of(vfs))
+					.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true))
 					.engine(Engine.newBuilder("python").option("engine.WarnInterpreterOnly", "false").build()).build();
 		}
 		return context;
