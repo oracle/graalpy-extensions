@@ -2,18 +2,20 @@
 
 ### Option 1: Use pre-built Maven bundle
 
-There is script that downloads the latest Maven bundle from GraalVM GitHub EA releases page, unpacks it to given
-destination directory, and in the project root generates `settings.xml` that configures that bundle as additional
-Maven repository. The `settings.xml` file can be then passed to Maven using `-s settings.xml`.
+There is script that downloads the latest Maven bundle from GraalVM GitHub EA releases page and unpacks it to
+`.mvn/maven-bundle-${revision}`. The script also updates `.mvn/maven-bundle` to point to that versioned
+directory. Maven automatically uses `.mvn/maven-bundle` as an additional repository when it exists. If the
+bundle is not present the build ignores it and uses only the standard repositories.
 
 ```
-./scripts/maven-bundle-setup.sh ./maven-bundle
-mvn -s ./settings.xml ...
+./scripts/maven-bundle-setup.sh
+./mvnw ...
 ```
 
-Alternatively pass the local repo URL as property:
+To download a bundle for another version without changing the default `.mvn/maven-bundle` symlink, use:
+
 ```
-mvn -Dlocal.repo.url=file:///path/to/maven-bundle ...
+./scripts/maven-bundle-setup.sh --version 25.0.0-SNAPSHOT
 ```
 
 ### Option 2: Build and install GraalPy/Truffle from sources

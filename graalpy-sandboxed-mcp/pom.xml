@@ -52,6 +52,35 @@
     </scm>
 
     <profiles>
+        <!-- This module uses micronaut-parent directly, so it cannot inherit the top-level bundle profile. -->
+        <profile>
+            <id>default-local-repo-profile</id>
+            <activation>
+                <file>
+                    <exists>${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</exists>
+                </file>
+            </activation>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>local-repo</id>
+                    <name>local-repo</name>
+                    <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
+                </pluginRepository>
+            </pluginRepositories>
+            <repositories>
+                <repository>
+                    <id>local-repo</id>
+                    <name>local-repo</name>
+                    <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+        </profile>
         <profile>
             <id>python-isolate-linux-amd64</id>
             <activation>

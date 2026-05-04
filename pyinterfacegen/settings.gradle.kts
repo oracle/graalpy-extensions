@@ -4,6 +4,15 @@ pluginManagement {
     repositories {
         // Allow resolving the plugin from local Maven when published
         mavenLocal()
+        generateSequence(settingsDir.absoluteFile) { it.parentFile }
+            .map { it.resolve(".mvn/maven-bundle") }
+            .firstOrNull { it.exists() }
+            ?.let { bundledRepo ->
+                maven {
+                    name = "mavenBundle"
+                    url = bundledRepo.toURI()
+                }
+            }
         gradlePluginPortal()
         mavenCentral()
     }

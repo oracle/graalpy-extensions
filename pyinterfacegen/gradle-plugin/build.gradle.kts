@@ -8,6 +8,18 @@ plugins {
     id("j2pyi.convention")
 }
 
+fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
+    generateSequence(startDir.absoluteFile) { it.parentFile }
+        .map { it.resolve(".mvn/maven-bundle") }
+        .firstOrNull { it.exists() }
+        ?.let { bundledRepo ->
+            maven {
+                name = "mavenBundle"
+                url = bundledRepo.toURI()
+            }
+        }
+}
+
 group = "org.graalvm.python"
 
 // Derive the version and metadata from the repository root pom.xml so this included build aligns with the parent build.
@@ -15,9 +27,10 @@ val rootPomMeta = readRootPomMetadata(rootProject)
 version = rootPomMeta.version
 
 repositories {
-    mavenCentral()
     // For resolving the doclet dependency when using the plugin locally
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 dependencies {

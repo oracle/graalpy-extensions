@@ -14,6 +14,18 @@ plugins {
     id("j2pyi.convention")  // Local build logic.
 }
 
+fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
+    generateSequence(startDir.absoluteFile) { it.parentFile }
+        .map { it.resolve(".mvn/maven-bundle") }
+        .firstOrNull { it.exists() }
+        ?.let { bundledRepo ->
+            maven {
+                name = "mavenBundle"
+                url = bundledRepo.toURI()
+            }
+        }
+}
+
 // Read metadata and version from the repository root pom.xml
 val rootPomMeta = readRootPomMetadata(rootProject)
 
@@ -72,8 +84,9 @@ subprojects {
 }
 
 repositories {
-    mavenCentral()
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 dependencies {
