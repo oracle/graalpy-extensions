@@ -1,50 +1,14 @@
 # Agent Notes
 
-## Maven Bundle Repository
+## Development Documentation
 
-The top-level `pom.xml` property `revision` is the source of truth for the
-project version. The GraalPy/GraalVM dependency property
-`project.polyglot.version` defaults to `${revision}`.
+General development guidance is documented in [DEVELOPMENT.md](DEVELOPMENT.md),
+including Maven bundle setup, building GraalPy/GraalVM dependencies from
+source, project structure, integration tests, and version changes.
 
-Some `revision` values are released to Maven Central. Pre-release versions may
-instead require a downloaded Maven bundle. The repository convention is:
-
-```text
-.mvn/maven-bundle -> .mvn/maven-bundle-{revision}
-```
-
-Maven adds `.mvn/maven-bundle` as an additional repository only when that path
-exists. If `.mvn/maven-bundle` is absent, the build must continue to use the
-standard configured Maven repositories, so do not make scripts fail just because
-the bundle is missing.
-
-Install the bundle for the current `pom.xml` revision with:
-
-```sh
-./scripts/maven-bundle-setup.sh
-```
-
-This downloads into `.mvn/maven-bundle-{revision}` and updates the default
-`.mvn/maven-bundle` symlink.
-
-Download a bundle for another version with:
-
-```sh
-./scripts/maven-bundle-setup.sh --version 25.0.0-SNAPSHOT
-```
-
-When `--version` is used, the script downloads into
-`.mvn/maven-bundle-25.0.0-SNAPSHOT` and deliberately does not update the
-default `.mvn/maven-bundle` symlink.
-
-Maven, recursive Maven invocations, helper scripts, pre-commit hooks, and GitHub
-Actions should rely on the default `.mvn/maven-bundle` convention.
-
-Gradle build and settings scripts should also use this convention. Because some
-Gradle projects live in subdirectories their repository setup should scan upward
-from the Gradle root or settings directory for `.mvn/maven-bundle`. Maven-to-Gradle
-invocations and standalone Gradle builds should work without extra repository
-arguments.
+Follow the `.mvn/maven-bundle` convention from
+[DEVELOPMENT.md](DEVELOPMENT.md#option-1-use-pre-built-maven-bundle) for Maven,
+Gradle, helper scripts, pre-commit hooks, and CI changes.
 
 ## Troubleshooting Stale Bundle Symlinks
 
