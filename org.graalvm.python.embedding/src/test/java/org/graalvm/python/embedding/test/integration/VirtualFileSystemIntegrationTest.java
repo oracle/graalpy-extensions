@@ -52,7 +52,6 @@ import org.graalvm.python.embedding.GraalPyResources;
 import org.graalvm.python.embedding.VirtualFileSystem;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -215,7 +214,6 @@ public class VirtualFileSystemIntegrationTest {
 
 	@ParameterizedTest
 	@MethodSource(VFS_DIRECTORIES_SOURCE)
-	@Disabled // GR-61545
 	public void parallelFsOperations(String vfsDir) throws ExecutionException, InterruptedException {
 		int threadsCount = Runtime.getRuntime().availableProcessors();
 		CountDownLatch latch = new CountDownLatch(threadsCount);
@@ -229,6 +227,7 @@ public class VirtualFileSystemIntegrationTest {
 		});
 
 		try (Context ctx = createContext(vfsDir, null, null)) {
+			Value pyExec = createExecWrapper(ctx);
 			Future<?>[] tasks = new Future<?>[threadsCount];
 			for (int i = 0; i < threadsCount; i++) {
 				tasks[i] = executorService.submit(() -> {
@@ -238,67 +237,73 @@ public class VirtualFileSystemIntegrationTest {
 					} catch (InterruptedException e) {
 						throw new RuntimeException(e);
 					}
-					fsOperations(ctx, "/test_mount_point/");
+					fsOperations(pyExec, "/test_mount_point/");
 				});
 			}
 
 			for (int i = 0; i < threadsCount; i++) {
 				tasks[i].get();
 			}
+		} finally {
+			executorService.shutdownNow();
 		}
 	}
 
 	public void fsOperations(Context ctx, String pathPrefix) {
+		fsOperations(createExecWrapper(ctx), pathPrefix);
+	}
+
+	private void fsOperations(Value pyExec, String pathPrefix) {
 
 		// os.path.exists
-		eval(ctx, "import os; assert os.path.exists('/test_mount_point')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}.')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}file1')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}dir1')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}dir1/')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}emptydir')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}emptydir/')", pathPrefix);
-		eval(ctx, "import os; assert os.path.exists('{pathPrefix}dir1/file2')", pathPrefix);
-		eval(ctx, "import os; assert not os.path.exists('{pathPrefix}doesnotexist')", pathPrefix);
-		eval(ctx, "import os; assert not os.path.exists('{pathPrefix}doesnotexist/')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('/test_mount_point')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}.')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}file1')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}dir1')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}dir1/')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}emptydir')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}emptydir/')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.exists('{pathPrefix}dir1/file2')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.exists('{pathPrefix}doesnotexist')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.exists('{pathPrefix}doesnotexist/')", pathPrefix);
 
 		// pathlib.exists
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}file1').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}dir1').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}dir1/').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}emptydir').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}emptydir/').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert not Path('{pathPrefix}doesnotexist').exists()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert not Path('{pathPrefix}doesnotexist/').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}file1').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}dir1').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}dir1/').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}emptydir').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}emptydir/').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('{pathPrefix}doesnotexist').exists()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('{pathPrefix}doesnotexist/').exists()", pathPrefix);
 
 		// path.isfile|isdir
 
-		eval(ctx, "import os; assert os.path.isfile('{pathPrefix}file1')", pathPrefix);
-		eval(ctx, "import os; assert not os.path.isfile('{pathPrefix}dir1')", pathPrefix);
-		eval(ctx, "import os; assert not os.path.isfile('{pathPrefix}dir1/')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.isfile('{pathPrefix}file1')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.isfile('{pathPrefix}dir1')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.isfile('{pathPrefix}dir1/')", pathPrefix);
 
-		eval(ctx, "import os; assert not os.path.isfile('/test_mount_point')", pathPrefix);
-		eval(ctx, "import os; assert os.path.isdir('/test_mount_point')", pathPrefix);
-		eval(ctx, "import os; assert not os.path.isdir('{pathPrefix}file1')", pathPrefix);
-		eval(ctx, "import os; assert os.path.isdir('{pathPrefix}dir1')", pathPrefix);
-		eval(ctx, "import os; assert os.path.isdir('{pathPrefix}dir1/')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.isfile('/test_mount_point')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.isdir('/test_mount_point')", pathPrefix);
+		eval(pyExec, "import os; assert not os.path.isdir('{pathPrefix}file1')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.isdir('{pathPrefix}dir1')", pathPrefix);
+		eval(pyExec, "import os; assert os.path.isdir('{pathPrefix}dir1/')", pathPrefix);
 
 		// pathlib.is_file|is_dir
 
-		eval(ctx, "from pathlib import Path; assert not Path('/test_mount_point').is_file()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}file1').is_file()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert not Path('{pathPrefix}dir1').is_file()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert not Path('{pathPrefix}dir1/').is_file()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('/test_mount_point').is_file()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}file1').is_file()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('{pathPrefix}dir1').is_file()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('{pathPrefix}dir1/').is_file()", pathPrefix);
 
-		eval(ctx, "from pathlib import Path; assert Path('/test_mount_point').is_dir()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert not Path('{pathPrefix}file1').is_dir()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}dir1').is_dir()", pathPrefix);
-		eval(ctx, "from pathlib import Path; assert Path('{pathPrefix}dir1/').is_dir()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('/test_mount_point').is_dir()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert not Path('{pathPrefix}file1').is_dir()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}dir1').is_dir()", pathPrefix);
+		eval(pyExec, "from pathlib import Path; assert Path('{pathPrefix}dir1/').is_dir()", pathPrefix);
 
 		// delete os.remove|rmdir
 
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.remove('{pathPrefix}doesnotexist')
@@ -307,7 +312,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.remove('{pathPrefix}file1')
@@ -316,7 +321,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.rmdir('{pathPrefix}file1')
@@ -325,7 +330,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.remove('{pathPrefix}dir1')
@@ -334,7 +339,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.rmdir('{pathPrefix}dir1')
@@ -343,7 +348,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import os
 				try:
 				    os.rmdir('{pathPrefix}emptydir')
@@ -355,7 +360,7 @@ public class VirtualFileSystemIntegrationTest {
 
 		// delete pathlib.unlink|rmdir
 
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}doesnotexist').unlink()
@@ -364,7 +369,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}file').unlink()
@@ -373,7 +378,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}file1').rmdir()
@@ -382,7 +387,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}dir1').unlink()
@@ -391,7 +396,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}dir1').rmdir()
@@ -400,7 +405,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				from pathlib import Path
 				try:
 				    Path('{pathPrefix}emptydir').rmdir()
@@ -412,7 +417,7 @@ public class VirtualFileSystemIntegrationTest {
 
 		// delete shutil.rmtree
 
-		eval(ctx, """
+		eval(pyExec, """
 				import shutil
 				try:
 				    shutil.rmtree('{pathPrefix}dir1')
@@ -421,7 +426,7 @@ public class VirtualFileSystemIntegrationTest {
 				else:
 				    assert False
 				""", pathPrefix);
-		eval(ctx, """
+		eval(pyExec, """
 				import shutil
 				try:
 				    shutil.rmtree('{pathPrefix}emptydir')
@@ -433,7 +438,7 @@ public class VirtualFileSystemIntegrationTest {
 
 		// os.listdir
 
-		eval(ctx, """
+		eval(pyExec, """
 				from os import listdir
 				try:
 				    f = listdir('{pathPrefix}doesnotexist')
@@ -463,7 +468,7 @@ public class VirtualFileSystemIntegrationTest {
 
 		// os.walk
 
-		eval(ctx, """
+		eval(pyExec, """
 				from os import walk
 				i = 0
 				for r, d, f in walk('{pathPrefix}doesnotexist'):
@@ -494,7 +499,7 @@ public class VirtualFileSystemIntegrationTest {
 
 		// read file
 
-		eval(ctx, """
+		eval(pyExec, """
 				with open("{pathPrefix}file1", "r") as f:
 				    l = f.readlines()
 				    assert len(l) == 2, 'expect 2 lines, got ' + len(l)
@@ -507,7 +512,7 @@ public class VirtualFileSystemIntegrationTest {
 				""", pathPrefix);
 
 		// write file
-		eval(ctx, """
+		eval(pyExec, """
 				try:
 				    f = open("{pathPrefix}file1", "w")
 				except OSError:
@@ -545,13 +550,23 @@ public class VirtualFileSystemIntegrationTest {
 		}
 	}
 
-	private static void eval(Context ctx, String s, String pathPrefix) {
-		eval(ctx, s.replace("{pathPrefix}", pathPrefix));
+	private static void eval(Value pyExec, String s, String pathPrefix) {
+		String src = patchMountPoint(s.replace("{pathPrefix}", pathPrefix));
+		pyExec.execute(src);
 	}
 
 	private static void eval(Context ctx, String s) {
 		String src = patchMountPoint(s);
 		ctx.eval(PYTHON, src);
+	}
+
+	private static Value createExecWrapper(Context ctx) {
+		ctx.eval(PYTHON, """
+				def exec_wrapper(code):
+				    __ns = {'__builtins__': __builtins__}
+				    exec(code, __ns, __ns)
+				""");
+		return ctx.getBindings(PYTHON).getMember("exec_wrapper");
 	}
 
 	private static String patchMountPoint(String src) {
