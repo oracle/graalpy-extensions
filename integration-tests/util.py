@@ -215,12 +215,12 @@ def get_executable(file):
     return None
 
 
-def replace_in_file(file, str, replace_str):
+def replace_in_file(file, str, replace_str, count=-1):
     with open(file, "r") as f:
         contents = f.read()
     assert str in contents, f"cannot find '{str}' in file '{file}' with contents:\n {contents}\n------"
     with open(file, "w") as f:
-        f.write(contents.replace(str, replace_str))
+        f.write(contents.replace(str, replace_str, count))
 
 
 def replace_main_body(filename, new_main_body):
