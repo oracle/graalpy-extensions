@@ -43,7 +43,7 @@ import re
 import shutil
 import sys
 import textwrap
-import urllib
+import xml.sax.saxutils
 
 import util
 from util import TemporaryTestDirectory, Logger, long_running_test, native_image_all
@@ -58,94 +58,72 @@ class MavenPluginTest(util.BuildToolTestBase):
         super().setUpClass()
         cls.archetypeGroupId = "org.graalvm.python"
         cls.archetypeArtifactId = "graalpy-archetype-polyglot-app"
-        cls.pluginArtifactId = "graalpy-maven-plugin"
-        cls.extraRemoteRepo = None
 
-        found = False
-        for custom_repo in util.extra_maven_repos:
-            url = urllib.parse.urlparse(custom_repo)
-            if url.scheme != "file":
-                if not cls.extraRemoteRepo:
-                    cls.extraRemoteRepo = custom_repo
-                continue
+    @classmethod
+    def _write_archetype_driver_pom(cls, tmpdir):
+        repositories = []
+        plugin_repositories = []
+        for idx, repo in enumerate(util.extra_maven_repos):
+            repo_id = f"extra-maven-repo-{idx}"
+            repo_url = xml.sax.saxutils.escape(repo)
+            repositories.append(textwrap.dedent(f"""\
+                <repository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </repository>"""))
+            plugin_repositories.append(textwrap.dedent(f"""\
+                <pluginRepository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </pluginRepository>"""))
 
-            jar = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.archetypeArtifactId,
-                util.graalvmVersion,
-                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.jar",
-            )
-            pom = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.archetypeArtifactId,
-                util.graalvmVersion,
-                f"{cls.archetypeArtifactId}-{util.graalvmVersion}.pom",
-            )
-            if not os.path.exists(pom):
-                continue
-            cmd = [
-                "mvn",
-                "install:install-file",
-                f"-Dfile={jar}",
-                f"-DgroupId={cls.archetypeGroupId}",
-                f"-DartifactId={cls.archetypeArtifactId}",
-                f"-Dversion={util.graalvmVersion}",
-                "-Dpackaging=jar",
-                f"-DpomFile={pom}",
-                "-DcreateChecksum=true",
+        repositories_xml = textwrap.indent("\n".join(repositories), "    ")
+        plugin_repositories_xml = textwrap.indent("\n".join(plugin_repositories), "    ")
+        pom = os.path.join(str(tmpdir), "graalpy-archetype-driver-pom.xml")
+        lines = [
+            '<project xmlns="http://maven.apache.org/POM/4.0.0"',
+            '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">',
+            "  <modelVersion>4.0.0</modelVersion>",
+            "  <groupId>archetype.it</groupId>",
+            "  <artifactId>graalpy-archetype-driver</artifactId>",
+            "  <version>1.0-SNAPSHOT</version>",
+        ]
+        if repositories:
+            lines += [
+                "  <repositories>",
+                repositories_xml,
+                "  </repositories>",
+                "  <pluginRepositories>",
+                plugin_repositories_xml,
+                "  </pluginRepositories>",
             ]
-            out, return_code = util.run_cmd(cmd, env=cls.env)
-            assert return_code == 0, out
-
-            jar = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.pluginArtifactId,
-                util.graalvmVersion,
-                f"{cls.pluginArtifactId}-{util.graalvmVersion}.jar",
-            )
-
-            pom = os.path.join(
-                urllib.parse.unquote(url.path),
-                cls.archetypeGroupId.replace(".", os.path.sep),
-                cls.pluginArtifactId,
-                util.graalvmVersion,
-                f"{cls.pluginArtifactId}-{util.graalvmVersion}.pom",
-            )
-
-            cmd = [
-                "mvn",
-                "install:install-file",
-                f"-Dfile={jar}",
-                f"-DgroupId={cls.archetypeGroupId}",
-                f"-DartifactId={cls.pluginArtifactId}",
-                f"-Dversion={util.graalvmVersion}",
-                "-Dpackaging=jar",
-                f"-DpomFile={pom}",
-                "-DcreateChecksum=true",
-            ]
-            out, return_code = util.run_cmd(cmd, env=cls.env)
-            assert return_code == 0, out
-            found = True
-            break
-
-        if util.extra_maven_repos and not found and not cls.extraRemoteRepo:
-            print("WARNING: extra Maven repos passed, but could not find GraalPy Maven archetype "
-                  "in any of the local repos and there is no extra remote repo. This is OK only if "
-                  "GraalPy Maven archetype of the required version is available at Mavencentral, "
-                  "otherwise the tests will fail to generate the example application.")
+        lines.append("</project>")
+        with open(pom, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        return pom
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
-        extra_repo = []
-        if MavenPluginTest.extraRemoteRepo:
-            # assuming the first repo has the archetype
-            extra_repo = [f'-DarchetypeRepository={MavenPluginTest.extraRemoteRepo}']
-
+        driver_pom = self._write_archetype_driver_pom(tmpdir)
         cmd = util.GLOBAL_MVN_CMD + [
-            "archetype:generate",
+            "-U",
+            "-f",
+            driver_pom,
+            "org.apache.maven.plugins:maven-archetype-plugin:3.4.1:generate",
             "-B",
+            "-DarchetypeCatalog=internal",
             f"-DarchetypeGroupId={self.archetypeGroupId}",
             f"-DarchetypeArtifactId={self.archetypeArtifactId}",
             f"-DarchetypeVersion={self.graalvmVersion}",
@@ -153,7 +131,8 @@ class MavenPluginTest(util.BuildToolTestBase):
             f"-DgroupId={group_id}",
             f"-Dpackage={package}",
             "-Dversion=0.1-SNAPSHOT",
-        ] + extra_repo
+            f"-DoutputDirectory={tmpdir}",
+        ]
         out, return_code = util.run_cmd(cmd, self.env, cwd=str(tmpdir), logger=log)
         util.check_ouput("BUILD SUCCESS", out, logger=log)
 

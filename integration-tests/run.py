@@ -56,11 +56,9 @@ if __name__ == "__main__":
     parser.add_argument('--skip-long-running', action='store_true', help='Skips long running tests')
     parser.add_argument('--no-clean', action='store_true', help='Do not clean the test temporary directories (for post-mortem debugging)')
     parser.add_argument('--jbang-graalpy-version', help='GraalPy version to use for JBang tests, overrides --graalpy-version')
-    parser.add_argument('--gradle-java-home', default=os.environ['JAVA_HOME'], help='Java to be used to run Gradle (by default $JAVA_HOME)')
+    parser.add_argument('--gradle-java-home', default=os.environ['JAVA_HOME'], help='JDK 21 to be used to run Gradle (by default $JAVA_HOME)')
     parser.add_argument('--help-unittest', action='store_true', help='Print help of the stdlib unittest CLI and exits')
-    parser.add_argument('--extra-maven-repos', default='', help='Semicolon separated list of additional Maven repositories. '
-                                                                'If GraalPy Maven archetype is not available in central, '
-                                                                'then it must be available in the first extra repository.')
+    parser.add_argument('--extra-maven-repos', default='', help='Semicolon separated list of additional Maven repositories')
     args, remaining_args = parser.parse_known_args()
 
     if args.help_unittest:
