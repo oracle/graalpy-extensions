@@ -44,6 +44,12 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
+      <groupId>org.graalvm.python</groupId>
+      <artifactId>python-bouncycastle-support</artifactId>
+      <version>${project.polyglot.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${project.junit.version}</version>
