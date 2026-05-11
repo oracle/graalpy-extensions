@@ -1,23 +1,13 @@
 import org.graalvm.python.pyinterfacegen.PyiFromDependencySources
 import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 
 plugins {
+    id("j2pyi.convention")
     // Apply the plugin without a version; version resolution is handled in settings.gradle.kts
     id("org.graalvm.python.pyinterfacegen")
     // Optional, but common for lifecycle tasks like 'clean'; not strictly required.
     base
-}
-
-fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
-    generateSequence(startDir.absoluteFile) { it.parentFile }
-        .map { it.resolve(".mvn/maven-bundle") }
-        .firstOrNull { it.exists() }
-        ?.let { bundledRepo ->
-            maven {
-                name = "mavenBundle"
-                url = bundledRepo.toURI()
-            }
-        }
 }
 
 repositories {

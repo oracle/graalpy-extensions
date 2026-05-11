@@ -2,6 +2,7 @@ import org.graalvm.python.pyinterfacegen.J2PyiTask
 import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 import java.net.URI
 import java.util.*
@@ -12,18 +13,6 @@ plugins {
     // Use the locally included plugin (see settings.gradle.kts pluginManagement). Version is supplied there.
     id("org.graalvm.python.pyinterfacegen")
     id("j2pyi.convention")  // Local build logic.
-}
-
-fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
-    generateSequence(startDir.absoluteFile) { it.parentFile }
-        .map { it.resolve(".mvn/maven-bundle") }
-        .firstOrNull { it.exists() }
-        ?.let { bundledRepo ->
-            maven {
-                name = "mavenBundle"
-                url = bundledRepo.toURI()
-            }
-        }
 }
 
 // Read metadata and version from the repository root pom.xml

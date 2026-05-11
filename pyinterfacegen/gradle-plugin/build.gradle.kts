@@ -1,4 +1,5 @@
 import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 
 plugins {
@@ -6,18 +7,6 @@ plugins {
     kotlin("jvm") version "2.2.10"
     `maven-publish`
     id("j2pyi.convention")
-}
-
-fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
-    generateSequence(startDir.absoluteFile) { it.parentFile }
-        .map { it.resolve(".mvn/maven-bundle") }
-        .firstOrNull { it.exists() }
-        ?.let { bundledRepo ->
-            maven {
-                name = "mavenBundle"
-                url = bundledRepo.toURI()
-            }
-        }
 }
 
 group = "org.graalvm.python"

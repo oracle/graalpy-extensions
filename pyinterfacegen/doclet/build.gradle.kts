@@ -1,19 +1,10 @@
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
+
 plugins {
     kotlin("jvm") version "2.2.10"
     java
     `maven-publish`
-}
-
-fun org.gradle.api.artifacts.dsl.RepositoryHandler.mavenBundleRepository(startDir: File) {
-    generateSequence(startDir.absoluteFile) { it.parentFile }
-        .map { it.resolve(".mvn/maven-bundle") }
-        .firstOrNull { it.exists() }
-        ?.let { bundledRepo ->
-            maven {
-                name = "mavenBundle"
-                url = bundledRepo.toURI()
-            }
-        }
+    id("j2pyi.convention")
 }
 
 repositories {
