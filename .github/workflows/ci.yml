@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  graalvm_version: '25'
+  graalvm_version: '25e1-ea'
 
 jobs:
   # This is done as one single separate step to work around rate limits for the API
@@ -89,11 +89,11 @@ jobs:
           java-version: ${{ env.graalvm_version }}
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Build project (skip tests)
-        run: mvn --batch-mode -DskipTests -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME package verify
+        run: mvn --batch-mode -DskipTests -Dgradle.java.home=$GRADLE_JAVA_HOME package verify
         shell: bash
 
       - name: Upload build artifacts
@@ -157,14 +157,14 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
+        run: mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
         shell: bash
 
       - name: Install JBang (Linux/macOS)
@@ -192,7 +192,7 @@ jobs:
       - name: Run integration tests
         id: tests_run
         run: |
-          mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
+          mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
       # /var/folders/sw/**/T/jbang*native-image
@@ -251,22 +251,22 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: ${{ matrix.tests == 'isolate-it' && 'latest-ea' || env.graalvm_version }}
 
       - name: Set GRADLE_JAVA_HOME
         run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
         shell: bash
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
+        run: mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
         shell: bash
 
       - name: Run Maven tests
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
+        run: mvn --batch-mode -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
         shell: bash
 
   pyinterfacegen:
@@ -328,15 +328,15 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Build graalpy-sandboxed-mcp native image and run integration tests
         run: >-
-          mvn --batch-mode -s settings.xml
+          mvn --batch-mode
           -pl graalpy-sandboxed-mcp -am
           -Dpackaging=native-image
           verify
@@ -383,15 +383,15 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: ${{ env.graalvm_version }}
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Build graalpy-sandboxed-cli native image and run integration tests
         run: >-
-          mvn --batch-mode -s settings.xml
+          mvn --batch-mode
           -pl graalpy-sandboxed-cli -am
           -Dpackaging=native-image
           verify

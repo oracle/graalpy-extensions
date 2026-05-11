@@ -1,4 +1,5 @@
 import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 
 plugins {
@@ -15,9 +16,10 @@ val rootPomMeta = readRootPomMetadata(rootProject)
 version = rootPomMeta.version
 
 repositories {
-    mavenCentral()
     // For resolving the doclet dependency when using the plugin locally
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 dependencies {

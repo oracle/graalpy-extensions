@@ -244,9 +244,11 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock")), log
             os.remove(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # lock with correct version
+            # lock with correct version. urllib3 2.7 requires
+            # ssl.VERIFY_X509_PARTIAL_CHAIN, which is not available with
+            # GraalPy's JSSE-backed ssl module.
             self.copy_build_files(target_dir)
-            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3"], lock_file="test-graalpy.lock"))
+            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "urllib3<2.7"], lock_file="test-graalpy.lock"))
             cmd = gradlew_cmd + ["graalpyLockPackages"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, contains=True, logger=log)
@@ -255,7 +257,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
 
             # add termcolor and build - fails as it is not part of lock file
             self.copy_build_files(target_dir)
-            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "termcolor==2.2"], lock_file="test-graalpy.lock"))
+            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "urllib3<2.7", "termcolor==2.2"], lock_file="test-graalpy.lock"))
             cmd = gradlew_cmd + ["build"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, contains=False, logger=log)

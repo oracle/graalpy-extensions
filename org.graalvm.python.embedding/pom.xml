@@ -39,6 +39,12 @@
       <type>pom</type>
     </dependency>
     <dependency>
+      <groupId>org.graalvm.python</groupId>
+      <artifactId>python-bouncycastle-support</artifactId>
+      <version>${project.polyglot.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${project.junit.version}</version>
@@ -81,9 +87,6 @@
                 <configuration>
                   <executable>${project.basedir}/../scripts/sigtest-check-embedding.sh</executable>
                   <arguments>
-                    <argument>-s</argument>
-                    <argument>${session.request.userSettingsFile.path}</argument>
-                    <argument>-Dlocal.repo.url=${local.repo.url}</argument>
                     <argument>-Drevision=${revision}</argument>
                     <argument>-Dproject.sigtest.version=${project.sigtest.version}</argument>
                     <argument>-Dproject.polyglot.version=${project.polyglot.version}</argument>

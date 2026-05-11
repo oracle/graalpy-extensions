@@ -2,6 +2,7 @@ import org.graalvm.python.pyinterfacegen.J2PyiTask
 import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 import org.gradle.internal.os.OperatingSystem
 import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 import java.net.URI
 import java.util.*
@@ -72,8 +73,9 @@ subprojects {
 }
 
 repositories {
-    mavenCentral()
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 dependencies {

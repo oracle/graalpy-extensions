@@ -24,8 +24,6 @@
     <project.hamcrest.version>3.0</project.hamcrest.version>
     <project.sigtest.version>1.3</project.sigtest.version>
     <integration.tests.args>--help</integration.tests.args>
-    <!-- intentionally empty: the default value, override with a URL the use a local repository -->
-    <local.repo.url></local.repo.url>
   </properties>
 
   <!-- submodules should override the generated URL to this exact value: -->
@@ -80,24 +78,24 @@
       </modules>
     </profile>
     <profile>
-      <id>local-repo-profile</id>
+      <id>default-local-repo-profile</id>
       <activation>
-        <property>
-          <name>local.repo.url</name>
-        </property>
+        <file>
+          <exists>${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</exists>
+        </file>
       </activation>
       <pluginRepositories>
         <pluginRepository>
           <id>local-repo</id>
           <name>local-repo</name>
-          <url>${local.repo.url}</url>
+          <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
         </pluginRepository>
       </pluginRepositories>
       <repositories>
         <repository>
           <id>local-repo</id>
           <name>local-repo</name>
-          <url>${local.repo.url}</url>
+          <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
           <releases>
             <enabled>true</enabled>
           </releases>
@@ -402,7 +400,7 @@
               </commandlineArgs>
               <!-- Maven should pull all the dependencies, e.g., GraalPy itself, into local cache before running the integration tests,
                   so that the integration tests can just use local repo even if this Maven script uses some additional repositories
-                  (e.g., via settings.xml) -->
+                  (e.g., via .mvn/maven-bundle) -->
               <includeProjectDependencies>true</includeProjectDependencies>
               <includePluginDependencies>true</includePluginDependencies>
             </configuration>
@@ -443,6 +441,31 @@
           <dependency>
             <groupId>org.graalvm.python</groupId>
             <artifactId>python-launcher</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.python</groupId>
+            <artifactId>python-bouncycastle-support</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>launcher-common</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.shadowed</groupId>
+            <artifactId>jline</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>maven-downloader</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>nativeimage</artifactId>
             <version>${project.polyglot.version}</version>
           </dependency>
           <dependency>

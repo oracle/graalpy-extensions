@@ -1,7 +1,9 @@
 import org.graalvm.python.pyinterfacegen.PyiFromDependencySources
 import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
 
 plugins {
+    id("j2pyi.convention")
     // Apply the plugin without a version; version resolution is handled in settings.gradle.kts
     id("org.graalvm.python.pyinterfacegen")
     // Optional, but common for lifecycle tasks like 'clean'; not strictly required.
@@ -10,8 +12,9 @@ plugins {
 
 repositories {
     // Resolve dependencies and the plugin/doclet locally if needed
-    mavenCentral()
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 // A resolvable configuration of dependencies to generate stubs for

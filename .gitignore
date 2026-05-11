@@ -9,10 +9,10 @@ build
 .idea
 *.iml
 .vscode
+.mvn/maven-bundle
+.mvn/maven-bundle-*
 TODO
 __pycache__
 *.swp
 .flattened-pom.xml
-settings.xml
-/maven-bundle-*
 .please

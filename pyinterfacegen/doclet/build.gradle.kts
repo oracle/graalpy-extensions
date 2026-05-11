@@ -1,10 +1,14 @@
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
+
 plugins {
     kotlin("jvm") version "2.2.10"
     java
     `maven-publish`
+    id("j2pyi.convention")
 }
 
 repositories {
+    mavenBundleRepository(rootDir)
     mavenCentral()
 }
 
