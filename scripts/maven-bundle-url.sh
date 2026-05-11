@@ -23,10 +23,19 @@ while [ -h "$source" ] ; do
 done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
+read_project_revision() {
+    local pom_file="$1/pom.xml"
+    sed -n 's:.*<revision>\(.*\)</revision>.*:\1:p' "${pom_file}" | head -n 1
+}
+
 if [[ -n "${1:-}" ]]; then
     revision="$1"
 else
-    revision="$(cd "${project_root}" && ./mvnw help:evaluate -Dexpression=revision -q -DforceStdout)"
+    revision="$(read_project_revision "${project_root}")"
+    if [[ -z "${revision}" ]]; then
+        echo "Failed to read <revision> from ${project_root}/pom.xml" >&2
+        exit 1
+    fi
 fi
 revision="${revision%-SNAPSHOT}" # remove -SNAPSHOT
 

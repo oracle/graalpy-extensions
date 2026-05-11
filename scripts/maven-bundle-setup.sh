@@ -17,6 +17,11 @@ looks_like_bundle_url() {
     [[ "${value}" == *"://"* || "${value}" == *.zip || "${value}" == *.zip\?* ]]
 }
 
+read_project_revision() {
+    local pom_file="$1/pom.xml"
+    sed -n 's:.*<revision>\(.*\)</revision>.*:\1:p' "${pom_file}" | head -n 1
+}
+
 if [[ "${1:-}" == "--help" || "${1:-}" == "help" ]]; then
   usage
   exit 0
@@ -98,7 +103,11 @@ while [ -h "$source" ] ; do
 done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 if [[ -z "${bundle_version}" ]]; then
-    bundle_version="$(cd "${project_root}" && ./mvnw help:evaluate -Dexpression=revision -q -DforceStdout)"
+    bundle_version="$(read_project_revision "${project_root}")"
+    if [[ -z "${bundle_version}" ]]; then
+        echo "Failed to read <revision> from ${project_root}/pom.xml" >&2
+        exit 1
+    fi
 fi
 default_bundle_link="${project_root}/.mvn/maven-bundle"
 default_bundle_dir="${default_bundle_link}-${bundle_version}"
