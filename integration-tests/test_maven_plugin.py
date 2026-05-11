@@ -334,8 +334,11 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock"))
             os.remove(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # freeze with correct version
+            # freeze with correct version. urllib3 2.7 requires
+            # ssl.VERIFY_X509_PARTIAL_CHAIN, which is not available with
+            # GraalPy's JSSE-backed ssl module.
             util.replace_in_file(os.path.join(target_dir, "pom.xml"), "requests", "requests==2.32.3")
+            util.replace_in_file(os.path.join(target_dir, "pom.xml"), "</packages>", "<package>urllib3&lt;2.7</package>\n</packages>")
             cmd = mvnw_cmd + ["org.graalvm.python:graalpy-maven-plugin:lock-packages", "-DgraalPyLockFile=test-graalpy.lock"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out, contains=True)
