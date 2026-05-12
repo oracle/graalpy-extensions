@@ -326,10 +326,10 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput(MISSING_FILE_WARNING, out, contains=False)
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # should be able to import requests if installed
+            # should be able to import packages installed from the lock file
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
                                  "import hello",
-                                 "import requests; import hello")
+                                 "import termcolor; import hello")
 
             # rebuild with lock file and exec
             cmd = mvnw_cmd + ["package", "exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]

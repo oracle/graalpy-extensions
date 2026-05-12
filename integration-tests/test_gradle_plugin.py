@@ -292,10 +292,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput(MISSING_FILE_WARNING, out, contains=False, logger=log)
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock")), log
 
-            # should be able to import requests if installed
+            # should be able to import packages installed from the lock file
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
                                  "import hello",
-                                 "import requests; import hello")
+                                 "import termcolor; import hello")
 
             # rebuild with lock and exec
             cmd = gradlew_cmd + ["build", "run"]
