@@ -110,6 +110,18 @@ some necessary arguments to the test driver Python script. You can pass addition
 unittest framework using the system property `integration.test.args`, for example, tests to execute
 or verbosity level.
 
+The tests can be run against artifacts released on Maven Central or in extra Maven repositories
+(local and remote). Example invocation:
+
+```
+JAVA_HOME=/path/to/graalvm python3 integration-tests/run.py -v --no-clean \
+    --native-image smoke --skip-long-running \
+    --gradle-java-home /path/to/jdk21 \
+    --graalpy-version version_to_be_tested_eg_25.0.3-SNAPSHOT \
+    --extra-maven-repos https://some-repository/with/the/artifacts/ \
+    -k test_gradle_generated_app test_gradle_plugin
+```
+
 ## Changing version
 
 - Update the top-level `pom.xml` property `revision`; everything else should be derived from it.
