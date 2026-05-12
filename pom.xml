@@ -481,7 +481,9 @@
         <version>2.46.1</version>
         <configuration>
           <java>
-            <eclipse/>
+            <eclipse>
+              <file>${maven.multiModuleProjectDirectory}/configs/eclipse-java-formatter.xml</file>
+            </eclipse>
             <trimTrailingWhitespace/>
             <removeWildcardImports/>
             <!-- We cannot use the licenseHeader, because the spotless Maven plugin does not expose the yearSeparator property -->

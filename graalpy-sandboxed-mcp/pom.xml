@@ -282,7 +282,9 @@
                 <version>2.46.1</version>
                 <configuration>
                     <java>
-                        <eclipse/>
+                        <eclipse>
+                            <file>../configs/eclipse-java-formatter.xml</file>
+                        </eclipse>
                         <trimTrailingWhitespace/>
                         <removeWildcardImports/>
                     </java>
