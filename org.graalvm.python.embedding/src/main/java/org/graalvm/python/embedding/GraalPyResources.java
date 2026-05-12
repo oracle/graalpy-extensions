@@ -53,6 +53,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * This class provides utilities related to Python resources used in GraalPy
@@ -97,7 +99,7 @@ import java.nio.file.Paths;
  *
  * <h2>Conventions</h2>
  * <p>
- * The factory methods in GraalPyResources rely on the following conventions:
+ * The builder templates in GraalPyResources rely on the following conventions:
  * <ul>
  * <li>${resources_root}/src: used for Python application files. This directory
  * will be configured as the default search path for Python module files
@@ -118,7 +120,7 @@ import java.nio.file.Paths;
  * VirtualFileSystem.Builder builder = VirtualFileSystem.newBuilder();
  * builder.unixMountPoint("/python-resources");
  * VirtualFileSystem vfs = builder.build();
- * try (Context context = GraalPyResources.contextBuilder(vfs).build()) {
+ * try (Context context = Context.newBuilder().apply(GraalPyResources.of(vfs)).build()) {
  * 	context.eval("python", "for line in open('/python-resources/data.txt').readlines(): print(line)");
  * } catch (PolyglotException e) {
  * 	if (e.isExit()) {
@@ -138,8 +140,8 @@ import java.nio.file.Paths;
  * <li>use the context to invoke a python snippet reading a resource file</li>
  * </ul>
  * <p>
- * <b>GraalPy context</b> instances created by factory methods in this class are
- * preconfigured with some particular resource paths:
+ * <b>GraalPy context</b> instances configured by the templates in this class
+ * are preconfigured with some particular resource paths:
  * <ul>
  * <li><code>${resources_root}/venv</code> - is reserved for a python virtual
  * environment holding third-party packages. The context will be configured as
@@ -157,7 +159,7 @@ import java.nio.file.Paths;
  * external resource directory:
  *
  * <pre>
- * try (Context context = GraalPyResources.contextBuilder(Path.of("python-resources")).build()) {
+ * try (Context context = Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources"))).build()) {
  * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
  * } catch (PolyglotException e) {
  * 	if (e.isExit()) {
@@ -188,9 +190,21 @@ import java.nio.file.Paths;
  *
  * @since 24.2.0
  */
-public final class GraalPyResources {
+public final class GraalPyResources implements Consumer<Context.Builder> {
 
-	private GraalPyResources() {
+	/**
+	 * Default GraalPy resource configuration for use with
+	 * {@link Context.Builder#apply(Consumer)}.
+	 *
+	 * @since 25.1.0
+	 */
+	public static final GraalPyResources DEFAULT = new GraalPyResources(
+			builder -> applyVirtualFileSystem(builder, VirtualFileSystem.create()));
+
+	private final Consumer<Context.Builder> builderTemplate;
+
+	private GraalPyResources(Consumer<Context.Builder> builderTemplate) {
+		this.builderTemplate = Objects.requireNonNull(builderTemplate);
 	}
 
 	/**
@@ -215,13 +229,16 @@ public final class GraalPyResources {
 	 *
 	 * @return a new {@link Context} instance
 	 * @since 24.2.0
+	 * @deprecated use
+	 *             <code>Context.newBuilder().apply(GraalPyResources.DEFAULT).build()</code>
 	 */
+	@Deprecated(since = "25.1.0")
 	public static Context createContext() {
-		return contextBuilder().build();
+		return Context.newBuilder().apply(DEFAULT).build();
 	}
 
 	/**
-	 * Creates a GraalPy context builder preconfigured with a
+	 * Creates a GraalPy resource configuration preconfigured with a
 	 * {@link VirtualFileSystem} and other GraalPy and polyglot Context
 	 * configuration options optimized for the usage of the
 	 * <a href="https://docs.python.org/3/library/venv.html">Python virtual
@@ -238,7 +255,7 @@ public final class GraalPyResources {
 	 * <b>Example</b> creating a GraalPy context and overriding the verbose option.
 	 *
 	 * <pre>
-	 * Context.Builder builder = GraalPyResources.contextBuilder().option("python.VerboseFlag", "true");
+	 * Context.Builder builder = Context.newBuilder().apply(GraalPyResources.DEFAULT).option("python.VerboseFlag", "true");
 	 * try (Context context = builder.build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * } catch (PolyglotException e) {
@@ -256,95 +273,28 @@ public final class GraalPyResources {
 	 * {@link VirtualFileSystem.Builder#resourceDirectory(String)} when building the
 	 * {@link VirtualFileSystem}.
 	 *
-	 * @see <a href=
-	 *      "https://github.com/oracle/graalpython/blob/master/graalpython/com.oracle.graal.python/src/com/oracle/graal/python/runtime/PythonOptions.java">PythonOptions</a>
-	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
-	 * @since 24.2.0
-	 */
-	public static Context.Builder contextBuilder() {
-		VirtualFileSystem vfs = VirtualFileSystem.create();
-		return contextBuilder(vfs);
-	}
-
-	/**
-	 * Creates a GraalPy context builder preconfigured with the given
-	 * {@link VirtualFileSystem} and other GraalPy and polygot Context configuration
-	 * options optimized for the usage of the
-	 * <a href="https://docs.python.org/3/library/venv.html">Python virtual
-	 * environment</a> contained in the virtual filesystem.
-	 * <p>
-	 * Following resource paths are preconfigured:
-	 * <ul>
-	 * <li><code>/org.graalvm.python.vfs/venv</code> - is set as the python virtual
-	 * environment location</li>
-	 * <li><code>/org.graalvm.python.vfs/src</code> - is set as the python sources
-	 * location</li>
-	 * </ul>
-	 * <p>
-	 * <b>Example</b> creating a GraalPy context configured for the usage with a
-	 * virtual {@link FileSystem}:
-	 *
-	 * <pre>
-	 * VirtualFileSystem.Builder vfsBuilder = VirtualFileSystem.newBuilder();
-	 * vfsBuilder.unixMountPoint("/python-resources");
-	 * VirtualFileSystem vfs = vfsBuilder.build();
-	 * Context.Builder ctxBuilder = GraalPyResources.contextBuilder(vfs);
-	 * try (Context context = ctxBuilder.build()) {
-	 * 	context.eval("python", "for line in open('/python-resources/data.txt').readlines(): print(line)");
-	 * } catch (PolyglotException e) {
-	 * 	if (e.isExit()) {
-	 * 		System.exit(e.getExitStatus());
-	 * 	} else {
-	 * 		throw e;
-	 * 	}
-	 * }
-	 * </pre>
-	 *
-	 * In this example we:
-	 * <ul>
-	 * <li>create a {@link VirtualFileSystem} configured to have the root
-	 * <code>/python-resources</code></li>
-	 * <li>create a GraalPy context preconfigured with that
-	 * {@link VirtualFileSystem}</li>
-	 * <li>use the context to invoke a python snippet reading a resource file</li>
-	 * </ul>
-	 *
 	 * @param vfs
 	 *            the {@link VirtualFileSystem} to be used with the created
 	 *            {@link Context}
-	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
-	 * @see VirtualFileSystem
-	 * @see VirtualFileSystem.Builder
-	 *
-	 * @since 24.2.0
+	 * @see <a href=
+	 *      "https://github.com/oracle/graalpython/blob/master/graalpython/com.oracle.graal.python/src/com/oracle/graal/python/runtime/PythonOptions.java">PythonOptions</a>
+	 * @return a {@link GraalPyResources} configuring a
+	 *         {@link org.graalvm.polyglot.Context.Builder}
+	 * @since 25.1.0
 	 */
-	public static Context.Builder contextBuilder(VirtualFileSystem vfs) {
-		return createContextBuilder().
-		// allow access to the virtual and the host filesystem, as well as sockets
-				allowIO(IOAccess.newBuilder().allowHostSocketAccess(true).fileSystem(vfs.delegatingFileSystem).build()).
-				// The sys.executable path, a virtual path that is used by the interpreter
-				// to discover packages
-				option("python.Executable", vfs.impl.vfsVenvPath()
-						+ (VirtualFileSystemImpl.isWindows() ? "\\Scripts\\python.exe" : "/bin/python"))
-				.
-				// Set python path to point to sources stored in
-				// src/main/resources/org.graalvm.python.vfs/src
-				option("python.PythonPath", vfs.impl.vfsSrcPath()).
-				// pass the path to be executed
-				option("python.InputFilePath", vfs.impl.vfsSrcPath()).
-				// causes the interpreter to always assume hash-based pycs are valid
-				option("python.CheckHashPycsMode", "never");
+	public static GraalPyResources of(VirtualFileSystem vfs) {
+		return new GraalPyResources(builder -> applyVirtualFileSystem(builder, vfs));
 	}
 
 	/**
-	 * Creates a GraalPy context preconfigured with GraalPy and polyglot Context
-	 * configuration options for use with resources located in an external directory
-	 * in real filesystem.
+	 * Creates a GraalPy resource configuration preconfigured with GraalPy and
+	 * polyglot Context configuration options for use with resources located in an
+	 * external directory in real filesystem.
 	 * <p>
 	 * Following resource paths are preconfigured:
 	 * <ul>
 	 * <li><code>${externalResourcesDirectory}/venv</code> - is set as the python
-	 * virtual environment location</li>
+	 * environment location</li>
 	 * <li><code>${externalResourcesDirectory}/src</code> - is set as the python
 	 * sources location</li>
 	 * </ul>
@@ -352,7 +302,7 @@ public final class GraalPyResources {
 	 * <b>Example</b>
 	 *
 	 * <pre>
-	 * Context.Builder builder = GraalPyResources.contextBuilder(Path.of("python-resources"));
+	 * Context.Builder builder = Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources")));
 	 * try (Context context = builder.build()) {
 	 * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
 	 * } catch (PolyglotException e) {
@@ -385,7 +335,8 @@ public final class GraalPyResources {
 	 * and accesses native POSIX APIs directly. Usage:
 	 *
 	 * <pre>
-	 * GraalPyResources.contextBuilder(Path.of("python-resources")).option("python.PosixModuleBackend", "native")
+	 * Context.newBuilder().apply(GraalPyResources.of(Path.of("python-resources"))).option("python.PosixModuleBackend",
+	 * 		"native")
 	 * </pre>
 	 * <p>
 	 *
@@ -396,10 +347,11 @@ public final class GraalPyResources {
 	 *
 	 * @param externalResourcesDirectory
 	 *            the root directory with GraalPy specific embedding resources
-	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
-	 * @since 24.2.0
+	 * @return a {@link GraalPyResources} configuring a
+	 *         {@link org.graalvm.polyglot.Context.Builder}
+	 * @since 25.1.0
 	 */
-	public static Context.Builder contextBuilder(Path externalResourcesDirectory) {
+	public static GraalPyResources of(Path externalResourcesDirectory) {
 		String execPath;
 		if (VirtualFileSystemImpl.isWindows()) {
 			execPath = externalResourcesDirectory.resolve(VirtualFileSystemImpl.VFS_VENV).resolve("Scripts")
@@ -410,9 +362,10 @@ public final class GraalPyResources {
 		}
 
 		String srcPath = externalResourcesDirectory.resolve(VirtualFileSystemImpl.VFS_SRC).toAbsolutePath().toString();
-		return createContextBuilder().
-		// allow all IO access
-				allowIO(IOAccess.ALL).
+		return new GraalPyResources(builder -> applyBaseContextTemplate(builder).
+		// allow all IO access by default while preserving explicit caller overrides
+				extendIO(IOAccess.ALL, ioBuilder -> {
+				}).
 				// The sys.executable path, a virtual path that is used by the interpreter
 				// to discover packages
 				option("python.Executable", execPath).
@@ -420,17 +373,73 @@ public final class GraalPyResources {
 				// src/main/resources/org.graalvm.python.vfs/src
 				option("python.PythonPath", srcPath).
 				// pass the path to be executed
-				option("python.InputFilePath", srcPath);
+				option("python.InputFilePath", srcPath));
 	}
 
-	private static Context.Builder createContextBuilder() {
-		return Context.newBuilder().
+	/**
+	 * Creates a GraalPy context builder preconfigured with the default resource
+	 * configuration.
+	 *
+	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
+	 * @since 24.2.0
+	 * @deprecated use
+	 *             <code>Context.newBuilder().apply(GraalPyResources.DEFAULT)</code>
+	 */
+	@Deprecated(since = "25.1.0")
+	public static Context.Builder contextBuilder() {
+		return Context.newBuilder().apply(DEFAULT);
+	}
+
+	/**
+	 * Creates a GraalPy context builder preconfigured with the given
+	 * {@link VirtualFileSystem} template.
+	 *
+	 * @param vfs
+	 *            the {@link VirtualFileSystem} to be used with the created
+	 *            {@link Context}
+	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
+	 * @see VirtualFileSystem
+	 * @see VirtualFileSystem.Builder
+	 *
+	 * @since 24.2.0
+	 * @deprecated use
+	 *             <code>Context.newBuilder().apply(GraalPyResources.of(vfs))</code>
+	 */
+	@Deprecated(since = "25.1.0")
+	public static Context.Builder contextBuilder(VirtualFileSystem vfs) {
+		return Context.newBuilder().apply(of(vfs));
+	}
+
+	/**
+	 * Creates a GraalPy context builder preconfigured with the external resources
+	 * template.
+	 *
+	 * @param externalResourcesDirectory
+	 *            the root directory with GraalPy specific embedding resources
+	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
+	 * @since 24.2.0
+	 * @deprecated use
+	 *             <code>Context.newBuilder().apply(GraalPyResources.of(externalResourcesDirectory))</code>
+	 */
+	@Deprecated(since = "25.1.0")
+	public static Context.Builder contextBuilder(Path externalResourcesDirectory) {
+		return Context.newBuilder().apply(of(externalResourcesDirectory));
+	}
+
+	@Override
+	public void accept(Context.Builder builder) {
+		builderTemplate.accept(builder);
+	}
+
+	private static Context.Builder applyBaseContextTemplate(Context.Builder builder) {
+		return builder.
 		// set true to allow experimental options
 				allowExperimentalOptions(false).
 				// setting false will deny all privileges unless configured below
 				allowAllAccess(false).
-				// allows python to access the java language
-				allowHostAccess(HostAccess.ALL).
+				// allow python to access the java language without overriding caller setup
+				extendHostAccess(HostAccess.ALL, hostAccessBuilder -> {
+				}).
 				// allow creating python threads
 				allowCreateThread(true).
 				// allow running Python native extensions
@@ -447,6 +456,24 @@ public final class GraalPyResources {
 				option("python.ForceImportSite", "true");
 	}
 
+	private static Context.Builder applyVirtualFileSystem(Context.Builder builder, VirtualFileSystem vfs) {
+		return applyBaseContextTemplate(builder).
+		// allow access to the virtual filesystem and preserve any existing IO settings
+				extendIO(IOAccess.NONE,
+						ioBuilder -> ioBuilder.allowHostSocketAccess(true).fileSystem(vfs.delegatingFileSystem))
+				.
+				// The sys.executable path, a virtual path that is used by the interpreter
+				// to discover packages
+				option("python.Executable", vfs.impl.vfsVenvPath()
+						+ (VirtualFileSystemImpl.isWindows() ? "\\Scripts\\python.exe" : "/bin/python"))
+				.
+				// Set python path to point to sources stored in
+				// src/main/resources/org.graalvm.python.vfs/src
+				option("python.PythonPath", vfs.impl.vfsSrcPath()).
+				// pass the path to be executed
+				option("python.InputFilePath", vfs.impl.vfsSrcPath());
+	}
+
 	/**
 	 * Determines a native executable path if running in
 	 * {@link ImageInfo#inImageRuntimeCode()}.
@@ -456,14 +483,14 @@ public final class GraalPyResources {
 	 *
 	 * <pre>
 	 * Path resourcesDir = GraalPyResources.getNativeExecutablePath().getParent().resolve("python-resources");
-	 * try (Context context = GraalPyResources.contextBuilder(resourcesDir).build()) {
+	 * try (Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
 	 *
 	 * @return the native executable path if it could be retrieved, otherwise
 	 *         <code>null</code>.
-	 * @see #contextBuilder(Path)
+	 * @see #of(Path)
 	 *
 	 * @since 24.2.0
 	 */
@@ -503,7 +530,7 @@ public final class GraalPyResources {
 	 * Path resourcesDir = Path.of(System.getProperty("user.home"), ".cache", "my.java.python.app.resources");
 	 * VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build();
 	 * GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
-	 * try (Context context = GraalPyResources.contextBuilder(resourcesDir).build()) {
+	 * try (Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
 	 * </pre>
@@ -515,7 +542,7 @@ public final class GraalPyResources {
 	 *            the target directory to extract the resources to
 	 * @throws IOException
 	 *             if resources isn't a directory
-	 * @see #contextBuilder(Path)
+	 * @see #of(Path)
 	 * @see VirtualFileSystem.Builder#resourceLoadingClass(Class)
 	 *
 	 * @since 24.2.0

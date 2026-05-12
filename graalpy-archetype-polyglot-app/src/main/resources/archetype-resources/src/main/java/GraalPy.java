@@ -54,7 +54,7 @@ public class GraalPy {
 
     public static void main(String[] args) {
         VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/${groupId}/${artifactId}").build();
-        try (Context context = GraalPyResources.contextBuilder(vfs).build()) {
+        try (Context context = Context.newBuilder().apply(GraalPyResources.of(vfs)).build()) {
             Source source;
             try {
                 source = Source.newBuilder(PYTHON, "import hello", "<internal>").internal(true).build();

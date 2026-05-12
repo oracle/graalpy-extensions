@@ -54,7 +54,8 @@ public class ContextFactory {
 		if (context == null) {
 			VirtualFileSystem vfs = VirtualFileSystem.newBuilder()
 					.resourceDirectory("GRAALPY-VFS/org.graalvm.python/javainterfacegen").build();
-			context = GraalPyResources.contextBuilder(vfs)
+			context = Context.newBuilder()
+					.apply(GraalPyResources.of(vfs))
 					.engine(Engine.newBuilder("python").option("engine.WarnInterpreterOnly", "false").build()).build();
 		}
 		return context;

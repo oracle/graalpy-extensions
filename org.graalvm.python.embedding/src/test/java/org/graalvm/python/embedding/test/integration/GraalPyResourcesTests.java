@@ -40,6 +40,7 @@
  */
 package org.graalvm.python.embedding.test.integration;
 
+import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.python.embedding.GraalPyResources;
 import org.graalvm.python.embedding.VirtualFileSystem;
@@ -52,10 +53,11 @@ public class GraalPyResourcesTests {
 	public void sharedEngine() {
 		// simply check if we are able to create a context with a shared engine
 		Engine sharedEngine = Engine.create("python");
-		GraalPyResources.contextBuilder().engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder().engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder(Path.of("test")).engine(sharedEngine).build().close();
-		GraalPyResources.contextBuilder(VirtualFileSystem.newBuilder().build()).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.DEFAULT).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(Path.of("test"))).engine(sharedEngine).build().close();
+		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.newBuilder().build())).engine(sharedEngine)
+				.build().close();
 		sharedEngine.close();
 	}
 }

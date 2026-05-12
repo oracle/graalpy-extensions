@@ -322,8 +322,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                 "package org.example;",
                 "package org.example;\nimport java.nio.file.Path;")
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
-                "GraalPyResources.createContext()",
-                "GraalPyResources.contextBuilder(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\")).build()")
+                "Context.newBuilder().apply(GraalPyResources.DEFAULT).build()",
+                "Context.newBuilder().apply(GraalPyResources.of(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))).build()")
 
             # patch build.gradle
             append(build_file, self.packages_termcolor_resource_dir(resources_dir))
@@ -569,8 +569,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                                    org.graalvm.python.embedding.VirtualFileSystem.newBuilder()
                                          .resourceDirectory("GRAALPY-VFS/org.graalvm.python.tests/gradleapp1")
                                          .build();
-                                 try (Context context1 = GraalPyResources.createContext();
-                                      Context context2 = GraalPyResources.contextBuilder(vfs).build()) {
+                                 try (Context context1 = Context.newBuilder().apply(GraalPyResources.DEFAULT).build();
+                                      Context context2 = Context.newBuilder().apply(GraalPyResources.of(vfs)).build()) {
                                      int index = 0;
                                      for (Context ctx: new Context[] {context1, context2}) {
                                          ctx.eval("python", "import hello");
