@@ -43,6 +43,7 @@ import re
 import shutil
 import sys
 import textwrap
+import xml.sax.saxutils
 
 import util
 from util import TemporaryTestDirectory, Logger, long_running_test, native_image_all
@@ -52,11 +53,77 @@ PACKAGES_CHANGED_ERROR = "but packages and their version constraints in graalpy-
 VENV_UPTODATE = "Virtual environment is up to date with lock file, skipping install"
 
 class MavenPluginTest(util.BuildToolTestBase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.archetypeGroupId = "org.graalvm.python"
+        cls.archetypeArtifactId = "graalpy-archetype-polyglot-app"
+
+    @classmethod
+    def _write_archetype_driver_pom(cls, tmpdir):
+        repositories = []
+        plugin_repositories = []
+        for idx, repo in enumerate(util.extra_maven_repos):
+            repo_id = f"extra-maven-repo-{idx}"
+            repo_url = xml.sax.saxutils.escape(repo)
+            repositories.append(textwrap.dedent(f"""\
+                <repository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </repository>"""))
+            plugin_repositories.append(textwrap.dedent(f"""\
+                <pluginRepository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </pluginRepository>"""))
+
+        repositories_xml = textwrap.indent("\n".join(repositories), "    ")
+        plugin_repositories_xml = textwrap.indent("\n".join(plugin_repositories), "    ")
+        pom = os.path.join(str(tmpdir), "graalpy-archetype-driver-pom.xml")
+        lines = [
+            '<project xmlns="http://maven.apache.org/POM/4.0.0"',
+            '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">',
+            "  <modelVersion>4.0.0</modelVersion>",
+            "  <groupId>archetype.it</groupId>",
+            "  <artifactId>graalpy-archetype-driver</artifactId>",
+            "  <version>1.0-SNAPSHOT</version>",
+        ]
+        if repositories:
+            lines += [
+                "  <repositories>",
+                repositories_xml,
+                "  </repositories>",
+                "  <pluginRepositories>",
+                plugin_repositories_xml,
+                "  </pluginRepositories>",
+            ]
+        lines.append("</project>")
+        with open(pom, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        return pom
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
+        driver_pom = self._write_archetype_driver_pom(tmpdir)
         cmd = util.GLOBAL_MVN_CMD + [
-            "archetype:generate",
+            "-U",
+            "-f",
+            driver_pom,
+            "org.apache.maven.plugins:maven-archetype-plugin:3.4.1:generate",
             "-B",
+            "-DarchetypeCatalog=internal",
             f"-DarchetypeGroupId={self.archetypeGroupId}",
             f"-DarchetypeArtifactId={self.archetypeArtifactId}",
             f"-DarchetypeVersion={self.graalvmVersion}",
@@ -64,12 +131,15 @@ class MavenPluginTest(util.BuildToolTestBase):
             f"-DgroupId={group_id}",
             f"-Dpackage={package}",
             "-Dversion=0.1-SNAPSHOT",
+            f"-DoutputDirectory={tmpdir}",
         ]
         out, return_code = util.run_cmd(cmd, self.env, cwd=str(tmpdir), logger=log)
         util.check_ouput("BUILD SUCCESS", out, logger=log)
 
         if pom_template:
             shutil.copyfile(pom_template, os.path.join(target_dir, "pom.xml"))
+
+        util.patch_pom_repositories(os.path.join(target_dir, "pom.xml"))
 
         mvnw_dir = os.path.join(os.path.dirname(__file__), "mvnw")
         shutil.copy(os.path.join(mvnw_dir, "mvnw"), os.path.join(target_dir, "mvnw"))
@@ -256,10 +326,10 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.check_ouput(MISSING_FILE_WARNING, out, contains=False)
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # should be able to import requests if installed
+            # should be able to import packages installed from the lock file
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
                                  "import hello",
-                                 "import requests; import hello")
+                                 "import termcolor; import hello")
 
             # rebuild with lock file and exec
             cmd = mvnw_cmd + ["package", "exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
@@ -377,6 +447,7 @@ class MavenPluginTest(util.BuildToolTestBase):
 
             # 2. process-resources with pythonHome - warning printed
             shutil.copyfile(pom_template, os.path.join(target_dir, "pom.xml"))
+            util.patch_pom_repositories(os.path.join(target_dir, "pom.xml"))
             util.replace_in_file(os.path.join(target_dir, "pom.xml"), "</configuration>", "<pythonHome></pythonHome></configuration>")
             out, return_code = util.run_cmd(process_resources_cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out)

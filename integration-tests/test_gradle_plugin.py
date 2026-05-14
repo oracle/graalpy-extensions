@@ -58,6 +58,8 @@ def _community_as_property(community):
     return 'community = true' if community else ''
 
 class GradlePluginTestBase(util.BuildToolTestBase):
+    EXPECTED_GRADLE_JAVA_VERSION = "21"
+
     def __init__(self, build_file_name:str, settings_file_name:str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.build_file_name = build_file_name
@@ -67,9 +69,34 @@ class GradlePluginTestBase(util.BuildToolTestBase):
     def setUpClass(cls):
         super().setUpClass()
         cls.test_prj_path = os.path.join(os.path.dirname(__file__), "gradle", "gradle-test-project")
+        cls.check_gradle_java_home(util.gradle_java_home)
 
-    def target_dir_name_sufix(self, target_dir):
-        pass
+    @staticmethod
+    def gradle_string(value):
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
+    def insert_extra_maven_repositories(self, file, indent):
+        marker = f"{indent}mavenLocal()\n"
+        repos = "".join(f"{indent}{self.extra_maven_repository(repo)}\n" for repo in util.extra_maven_repos)
+        util.replace_in_file(file, marker, marker + repos, count=1)
+
+    @classmethod
+    def java_version(cls, java_home):
+        release_file = os.path.join(java_home, "release")
+        assert os.path.exists(release_file), f"cannot find JDK release file '{release_file}'"
+        with open(release_file, "r") as f:
+            for line in f:
+                if line.startswith("JAVA_VERSION="):
+                    return line.split("=", 1)[1].strip().strip('"')
+        return None
+
+    @classmethod
+    def check_gradle_java_home(cls, java_home):
+        java_version = cls.java_version(java_home)
+        assert java_version == cls.EXPECTED_GRADLE_JAVA_VERSION or java_version.startswith(cls.EXPECTED_GRADLE_JAVA_VERSION + "."), (
+            f"Gradle integration tests need Java {cls.EXPECTED_GRADLE_JAVA_VERSION} to run Gradle and its plugins, "
+            f"but '{java_home}' is Java {java_version} (parsed from {java_home}/release). Pass --gradle-java-home with a JDK 21 runtime."
+        )
 
     def copy_build_files(self, target_dir):
         build_file = os.path.join(target_dir, self.build_file_name)
@@ -77,6 +104,15 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         util.replace_in_file(build_file, "$VERSION$", util.get_graalvm_version())
         settings_file = os.path.join(target_dir, self.settings_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.settings_file_name), settings_file)
+        if util.extra_maven_repos:
+            self.insert_extra_maven_repositories(build_file, "    ")
+            self.insert_extra_maven_repositories(settings_file, "        ")
+
+    def target_dir_name_sufix(self, target_dir):
+        pass
+
+    def extra_maven_repository(self, repo):
+        pass
 
     def empty_plugin(self, community):
         pass
@@ -116,9 +152,6 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                     shutil.move(os.path.join(root, file), os.path.join(root, file[0:len(file)- 1] + "java"))
 
         self.copy_build_files(target_dir)
-
-        # at the moment the gradle demon does not run with jdk <= 22
-        assert util.gradle_java_home, "in order to run standalone gradle tests, the 'GRADLE_JAVA_HOME' env var has to be set to a jdk <= 22"
         util.replace_in_file(os.path.join(target_dir, "gradle.properties"), "{GRADLE_JAVA_HOME}", util.gradle_java_home.replace("\\", "\\\\"))
 
         meta_inf_native_image_dir = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
@@ -259,10 +292,10 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             util.check_ouput(MISSING_FILE_WARNING, out, contains=False, logger=log)
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock")), log
 
-            # should be able to import requests if installed
+            # should be able to import packages installed from the lock file
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
                                  "import hello",
-                                 "import requests; import hello")
+                                 "import termcolor; import hello")
 
             # rebuild with lock and exec
             cmd = gradlew_cmd + ["build", "run"]
@@ -617,6 +650,9 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def target_dir_name_sufix(self):
         return "_groovy"
 
+    def extra_maven_repository(self, repo):
+        return f'maven {{ url "{self.gradle_string(repo)}" }}'
+
     def empty_plugin(self, community):
         return f"graalPy {{ {_community_as_property(community)} }}"
 
@@ -784,6 +820,9 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
 
     def target_dir_name_sufix(self):
         return "_kotlin"
+
+    def extra_maven_repository(self, repo):
+        return f'maven {{ url = uri("{self.gradle_string(repo)}") }}'
 
     def empty_plugin(self, community):
         return f"graalPy {{ {_community_as_property(community) } }}"
