@@ -10,9 +10,9 @@ under the "GraalPy Embedding" section.
 
 ## 25.1.0
 
-* `GraalPyResources` now provides `of(VirtualFileSystem)` and
-`of(Path)` resource configurations that can be applied to an existing
-`Context.Builder` with `Context.Builder.apply(...)`. The older
+* `GraalPyResources` now provides `forVirtualFileSystem(VirtualFileSystem)` and
+`forExternalDirectory(Path)` resource configurations that can be applied to an
+existing `Context.Builder` with `Context.Builder.apply(...)`. The older
 `createContext()` and `contextBuilder(...)` factory methods are deprecated and
 include migration snippets in the API reference documentation.
 

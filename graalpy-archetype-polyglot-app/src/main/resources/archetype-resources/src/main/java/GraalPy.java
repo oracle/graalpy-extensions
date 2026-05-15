@@ -58,7 +58,7 @@ public class GraalPy {
     public static void main(String[] args) {
         VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/${groupId}/${artifactId}").build();
         try (Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
-                .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.of(vfs))
+                .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.forVirtualFileSystem(vfs))
                 .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
             Source source;
             try {

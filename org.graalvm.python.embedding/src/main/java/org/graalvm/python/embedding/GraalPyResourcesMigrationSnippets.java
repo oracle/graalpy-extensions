@@ -61,7 +61,7 @@ final class GraalPyResourcesMigrationSnippets {
 				.allowCreateThread(true)
 				.allowNativeAccess(true)
 				.allowPolyglotAccess(PolyglotAccess.ALL)
-				.apply(GraalPyResources.of(VirtualFileSystem.create()))
+				.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
 				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
 		// @end
 		return builder;
@@ -76,7 +76,7 @@ final class GraalPyResourcesMigrationSnippets {
 				.allowCreateThread(true)
 				.allowNativeAccess(true)
 				.allowPolyglotAccess(PolyglotAccess.ALL)
-				.apply(GraalPyResources.of(vfs))
+				.apply(GraalPyResources.forVirtualFileSystem(vfs))
 				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
 		// @end
 		return builder;
@@ -90,7 +90,7 @@ final class GraalPyResourcesMigrationSnippets {
 				.allowCreateThread(true)
 				.allowNativeAccess(true)
 				.allowPolyglotAccess(PolyglotAccess.ALL)
-				.apply(GraalPyResources.of(externalResourcesDirectory))
+				.apply(GraalPyResources.forExternalDirectory(externalResourcesDirectory))
 				.allowHostAccess(HostAccess.ALL)
 				.allowIO(IOAccess.ALL).option("python.PosixModuleBackend", "java")
 				.option("python.DontWriteBytecodeFlag", "true");
