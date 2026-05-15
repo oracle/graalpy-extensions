@@ -322,8 +322,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                 "package org.example;",
                 "package org.example;\nimport java.nio.file.Path;")
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
-                "GraalPyResources.of(VirtualFileSystem.create())",
-                "GraalPyResources.of(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
+                "GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())",
+                "GraalPyResources.forExternalDirectory(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
 
             # patch build.gradle
             append(build_file, self.packages_termcolor_resource_dir(resources_dir))
@@ -571,11 +571,11 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                                          .build();
                                  try (Context context1 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
                                         .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                                        .apply(GraalPyResources.of(VirtualFileSystem.create()))
+                                        .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
                                         .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build();
                                       Context context2 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
                                         .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                                        .apply(GraalPyResources.of(vfs))
+                                        .apply(GraalPyResources.forVirtualFileSystem(vfs))
                                         .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
                                      int index = 0;
                                      for (Context ctx: new Context[] {context1, context2}) {

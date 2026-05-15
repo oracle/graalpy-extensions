@@ -59,7 +59,7 @@ public class ContextFactory {
 					.resourceDirectory("GRAALPY-VFS/org.graalvm.python/javainterfacegen").build();
 			context = Context.newBuilder().allowExperimentalOptions(false).allowAllAccess(false)
 					.allowHostAccess(HostAccess.ALL).allowCreateThread(true).allowNativeAccess(true)
-					.allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.of(vfs))
+					.allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.forVirtualFileSystem(vfs))
 					.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true))
 					.engine(Engine.newBuilder("python").option("engine.WarnInterpreterOnly", "false").build()).build();
 		}

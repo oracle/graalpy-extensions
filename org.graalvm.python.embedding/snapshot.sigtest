@@ -58,8 +58,8 @@ meth public static org.graalvm.polyglot.Context createContext()
 meth public static org.graalvm.polyglot.Context$Builder contextBuilder()
 meth public static org.graalvm.polyglot.Context$Builder contextBuilder(java.nio.file.Path)
 meth public static org.graalvm.polyglot.Context$Builder contextBuilder(org.graalvm.python.embedding.VirtualFileSystem)
-meth public static org.graalvm.python.embedding.GraalPyResources of(java.nio.file.Path)
-meth public static org.graalvm.python.embedding.GraalPyResources of(org.graalvm.python.embedding.VirtualFileSystem)
+meth public static org.graalvm.python.embedding.GraalPyResources forExternalDirectory(java.nio.file.Path)
+meth public static org.graalvm.python.embedding.GraalPyResources forVirtualFileSystem(org.graalvm.python.embedding.VirtualFileSystem)
 intf java.util.function.Consumer<org.graalvm.polyglot.Context$Builder>
 meth public static void extractVirtualFileSystemResources(org.graalvm.python.embedding.VirtualFileSystem,java.nio.file.Path) throws java.io.IOException
 supr java.lang.Object

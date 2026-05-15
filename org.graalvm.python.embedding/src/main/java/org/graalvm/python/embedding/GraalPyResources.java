@@ -121,7 +121,7 @@ import java.util.function.Consumer;
  * builder.unixMountPoint("/python-resources");
  * VirtualFileSystem vfs = builder.build();
  * try (Context context = Context.newBuilder()
- * 		.apply(GraalPyResources.of(vfs))
+ * 		.apply(GraalPyResources.forVirtualFileSystem(vfs))
  * 		.build()) {
  * 	context.eval("python", "for line in open('/python-resources/data.txt').readlines(): print(line)");
  * } catch (PolyglotException e) {
@@ -162,7 +162,7 @@ import java.util.function.Consumer;
  *
  * <pre>
  * try (Context context = Context.newBuilder()
- * 		.apply(GraalPyResources.of(Path.of("python-resources")))
+ * 		.apply(GraalPyResources.forExternalDirectory(Path.of("python-resources")))
  * 		.build()) {
  * 	context.eval("python", "import mymodule; mymodule.print_hello_world()");
  * } catch (PolyglotException e) {
@@ -222,7 +222,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * <pre>
 	 * VirtualFileSystem vfs = VirtualFileSystem.create();
 	 * Context.Builder builder = Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(vfs))
+	 * 		.apply(GraalPyResources.forVirtualFileSystem(vfs))
 	 * 		.option("python.VerboseFlag", "true")
 	 * 		.allowHostAccess(HostAccess.ALL);
 	 * try (Context context = builder.build()) {
@@ -266,7 +266,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *         {@link org.graalvm.polyglot.Context.Builder}
 	 * @since 25.1.0
 	 */
-	public static GraalPyResources of(VirtualFileSystem vfs) {
+	public static GraalPyResources forVirtualFileSystem(VirtualFileSystem vfs) {
 		return new GraalPyResources(builder -> applyVirtualFilesystemConfig(builder, vfs));
 	}
 
@@ -289,7 +289,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * <pre>
 	 * Context.Builder builder = Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(Path.of("python-resources")))
+	 * 		.apply(GraalPyResources.forExternalDirectory(Path.of("python-resources")))
 	 * 		.option("python.VerboseFlag", "true")
 	 * 		.allowHostAccess(HostAccess.ALL);
 	 * try (Context context = builder.build()) {
@@ -325,7 +325,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * <pre>
 	 * Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(Path.of("python-resources")))
+	 * 		.apply(GraalPyResources.forExternalDirectory(Path.of("python-resources")))
 	 * 		.option("python.PosixModuleBackend", "native")
 	 * </pre>
 	 * <p>
@@ -353,7 +353,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *         {@link org.graalvm.polyglot.Context.Builder}
 	 * @since 25.1.0
 	 */
-	public static GraalPyResources of(Path externalResourcesDirectory) {
+	public static GraalPyResources forExternalDirectory(Path externalResourcesDirectory) {
 		return new GraalPyResources(builder -> applyExternalDirectoryConfig(builder, externalResourcesDirectory));
 	}
 
@@ -441,8 +441,9 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * @return a new {@link Context} instance
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create())).build()</code>.
-	 *             Unlike this method, {@link #of(VirtualFileSystem)} is a
+	 *             <code>Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())).build()</code>.
+	 *             Unlike this method,
+	 *             {@link #forVirtualFileSystem(VirtualFileSystem)} is a
 	 *             {@link Consumer} for {@link Context.Builder#apply(Consumer)}. It
 	 *             configures <em>only</em> Context options relevant for GraalPy
 	 *             resource integration for the default {@link VirtualFileSystem} on
@@ -504,8 +505,9 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create()))</code>.
-	 *             Unlike this method, {@link #of(VirtualFileSystem)} is a
+	 *             <code>Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))</code>.
+	 *             Unlike this method,
+	 *             {@link #forVirtualFileSystem(VirtualFileSystem)} is a
 	 *             {@link Consumer} for {@link Context.Builder#apply(Consumer)}. It
 	 *             configures <em>only</em> Context options relevant for GraalPy
 	 *             resource integration for the default {@link VirtualFileSystem} on
@@ -578,8 +580,9 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.of(vfs))</code>.
-	 *             Unlike this method, {@link #of(VirtualFileSystem)} is a
+	 *             <code>Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs))</code>.
+	 *             Unlike this method,
+	 *             {@link #forVirtualFileSystem(VirtualFileSystem)} is a
 	 *             {@link Consumer} for {@link Context.Builder#apply(Consumer)}. It
 	 *             configures <em>only</em> Context options relevant for GraalPy
 	 *             resource integration for the given {@link VirtualFileSystem} on
@@ -677,12 +680,12 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * @return a new {@link org.graalvm.polyglot.Context.Builder} instance
 	 * @since 24.2.0
 	 * @deprecated use
-	 *             <code>Context.newBuilder().apply(GraalPyResources.of(externalResourcesDirectory))</code>.
-	 *             Unlike this method, {@link #of(Path)} is a {@link Consumer} for
-	 *             {@link Context.Builder#apply(Consumer)}. It configures
-	 *             <em>only</em> Context options relevant for GraalPy resource
-	 *             integration for an external resource directory on an existing
-	 *             Context builder.
+	 *             <code>Context.newBuilder().apply(GraalPyResources.forExternalDirectory(externalResourcesDirectory))</code>.
+	 *             Unlike this method, {@link #forExternalDirectory(Path)} is a
+	 *             {@link Consumer} for {@link Context.Builder#apply(Consumer)}. It
+	 *             configures <em>only</em> Context options relevant for GraalPy
+	 *             resource integration for an external resource directory on an
+	 *             existing Context builder.
 	 *             <p>
 	 *             Starting from a fresh builder, the following code reproduces the
 	 *             complete behavior of deprecated {@link #contextBuilder(Path)}
@@ -754,7 +757,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * 		.getParent()
 	 * 		.resolve("python-resources");
 	 * try (Context context = Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(resourcesDir))
+	 * 		.apply(GraalPyResources.forExternalDirectory(resourcesDir))
 	 * 		.build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
@@ -762,7 +765,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *
 	 * @return the native executable path if it could be retrieved, otherwise
 	 *         <code>null</code>.
-	 * @see #of(Path)
+	 * @see #forExternalDirectory(Path)
 	 *
 	 * @since 24.2.0
 	 */
@@ -803,7 +806,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 * VirtualFileSystem vfs = VirtualFileSystem.create();
 	 * GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
 	 * try (Context context = Context.newBuilder()
-	 * 		.apply(GraalPyResources.of(resourcesDir))
+	 * 		.apply(GraalPyResources.forExternalDirectory(resourcesDir))
 	 * 		.build()) {
 	 * 	context.eval("python", "print('hello world')");
 	 * }
@@ -816,7 +819,7 @@ public final class GraalPyResources implements Consumer<Context.Builder> {
 	 *            the target directory to extract the resources to
 	 * @throws IOException
 	 *             if resources isn't a directory
-	 * @see #of(Path)
+	 * @see #forExternalDirectory(Path)
 	 * @see VirtualFileSystem.Builder#resourceLoadingClass(Class)
 	 *
 	 * @since 24.2.0

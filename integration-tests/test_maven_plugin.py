@@ -409,8 +409,8 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
                  f'VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/archetype.it/{target_name}").build();', "")
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
-                "GraalPyResources.of(vfs)",
-                "GraalPyResources.of(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
+                "GraalPyResources.forVirtualFileSystem(vfs)",
+                "GraalPyResources.forExternalDirectory(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
 
             # patch pom.xml
             util.replace_in_file(os.path.join(target_dir, "pom.xml"),
@@ -811,11 +811,11 @@ class MavenPluginTest(util.BuildToolTestBase):
                                     .build();
                             try (Context context1 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
                                    .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                                   .apply(GraalPyResources.of(VirtualFileSystem.create()))
+                                   .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
                                    .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build();
                                  Context context2 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
                                    .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                                   .apply(GraalPyResources.of(vfs))
+                                   .apply(GraalPyResources.forVirtualFileSystem(vfs))
                                    .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
                                 int index = 0;
                                 for (Context ctx: new Context[] {context1, context2}) {
@@ -1026,7 +1026,7 @@ class MavenPluginTest(util.BuildToolTestBase):
                                     .build();
                             String path1 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app1.txt").toString();
                             String path2 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app2.txt").toString();
-                            try (Context context = Context.newBuilder().apply(GraalPyResources.of(vfs)).build()) {
+                            try (Context context = Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)).build()) {
                                 context.eval("python", "def read_vfs_file(path): import os; print(open(path, 'r').read().strip())");
                                 var readVfsFile = context.getBindings("python").getMember("read_vfs_file");
                                 readVfsFile.execute(path1);

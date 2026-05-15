@@ -84,12 +84,16 @@ public class GraalPyResourcesTests {
 	public void sharedEngine() {
 		// simply check if we are able to create a context with a shared engine
 		Engine sharedEngine = Engine.create("python");
-		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create())).engine(sharedEngine).build()
+		Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+				.engine(sharedEngine).build()
 				.close();
-		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create())).engine(sharedEngine).build()
+		Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+				.engine(sharedEngine).build()
 				.close();
-		Context.newBuilder().apply(GraalPyResources.of(Path.of("test"))).engine(sharedEngine).build().close();
-		Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.newBuilder().build())).engine(sharedEngine)
+		Context.newBuilder().apply(GraalPyResources.forExternalDirectory(Path.of("test"))).engine(sharedEngine).build()
+				.close();
+		Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.newBuilder().build()))
+				.engine(sharedEngine)
 				.build().close();
 		sharedEngine.close();
 	}
@@ -99,28 +103,31 @@ public class GraalPyResourcesTests {
 	public void oldAndNewApiEntryPointsSetSameOptions() throws IOException {
 		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build()) {
 			assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder()),
-					runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create()))));
+					runtimeConfiguration(Context.newBuilder()
+							.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))));
 			assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder(vfs)),
-					runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(vfs))));
+					runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs))));
 		}
 		Path resourcesDir = Files.createTempDirectory("graalpy-resources-options");
 		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().build()) {
 			GraalPyResources.extractVirtualFileSystemResources(vfs, resourcesDir);
 		}
 		assertEquals(runtimeConfiguration(GraalPyResources.contextBuilder(resourcesDir)),
-				runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.of(resourcesDir))));
+				runtimeConfiguration(Context.newBuilder().apply(GraalPyResources.forExternalDirectory(resourcesDir))));
 	}
 
 	@Test
 	public void testExtendJavaEmbeddingConfig() {
 		try (Engine engine = newPythonEngine();
 				Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL)
-						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+						.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())).engine(engine)
+						.build()) {
 			context.getBindings("python").putMember("hostObject", new AtomicInteger(42));
 			assertEquals(42, context.eval("python", "hostObject.get()").asInt());
 		}
 		try (Engine engine = newPythonEngine();
-				Context context = Context.newBuilder().apply(GraalPyResources.of(VirtualFileSystem.create()))
+				Context context = Context.newBuilder()
+						.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
 						.engine(engine).extendHostAccess(HostAccess.ALL,
 								hostAccessBuilder -> hostAccessBuilder.denyAccess(AtomicInteger.class))
 						.build()) {
@@ -131,7 +138,8 @@ public class GraalPyResourcesTests {
 				Context context = Context.newBuilder()
 						.extendHostAccess(HostAccess.ALL,
 								hostAccessBuilder -> hostAccessBuilder.denyAccess(AtomicInteger.class))
-						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+						.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())).engine(engine)
+						.build()) {
 			context.getBindings("python").putMember("hostObject", new AtomicInteger(42));
 			assertThrows(PolyglotException.class, () -> context.eval("python", "hostObject.get()"));
 		}
@@ -152,14 +160,16 @@ public class GraalPyResourcesTests {
 			defaultFile1 = file1Path(vfs.getMountPoint());
 		}
 		try (Engine engine = newPythonEngine();
-				Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).engine(engine)
+				Context context = Context.newBuilder().apply(GraalPyResources.forExternalDirectory(resourcesDir))
+						.engine(engine)
 						.build()) {
 			assertEquals("text1\ntext2\n",
 					context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1))).asString());
 		}
 		assertThrows(PolyglotException.class, () -> {
 			try (Engine engine = newPythonEngine();
-					Context context = Context.newBuilder().apply(GraalPyResources.of(resourcesDir)).engine(engine)
+					Context context = Context.newBuilder().apply(GraalPyResources.forExternalDirectory(resourcesDir))
+							.engine(engine)
 							.extendIO(IOAccess.ALL, ioBuilder -> ioBuilder.allowHostFileAccess(false)).build()) {
 				context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1)));
 			}
@@ -167,13 +177,14 @@ public class GraalPyResourcesTests {
 		try (Engine engine = newPythonEngine();
 				Context context = Context.newBuilder()
 						.extendIO(IOAccess.ALL, ioBuilder -> ioBuilder.allowHostFileAccess(false))
-						.apply(GraalPyResources.of(resourcesDir)).engine(engine).build()) {
+						.apply(GraalPyResources.forExternalDirectory(resourcesDir)).engine(engine).build()) {
 			assertEquals("text1\ntext2\n",
 					context.eval("python", "open('%s').read()".formatted(pythonPathLiteral(file1))).asString());
 		}
 		try (Engine engine = newPythonEngine();
 				Context context = Context.newBuilder().allowIO(IOAccess.NONE)
-						.apply(GraalPyResources.of(VirtualFileSystem.create())).engine(engine).build()) {
+						.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())).engine(engine)
+						.build()) {
 			assertEquals("text1\ntext2\n", context
 					.eval("python", "open('%s').read()".formatted(pythonStringLiteral(defaultFile1))).asString());
 		}

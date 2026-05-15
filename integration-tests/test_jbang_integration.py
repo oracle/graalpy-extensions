@@ -252,8 +252,8 @@ def hello():
                 f"//PIP termcolor==2.2\n//PYTHON_RESOURCES_DIRECTORY {resources_dir}")
         rd = resources_dir.replace("\\", "\\\\")
         util.replace_in_file(hello_java_file,
-                "GraalPyResources.of(VirtualFileSystem.create())",
-                f"GraalPyResources.of(java.nio.file.Path.of(\"{rd}\"))")
+                "GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())",
+                f"GraalPyResources.forExternalDirectory(java.nio.file.Path.of(\"{rd}\"))")
 
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]

@@ -57,7 +57,7 @@ public class hello {
         System.out.println("Running main method from Java.");
         try (Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
                 .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
-                .apply(GraalPyResources.of(VirtualFileSystem.create()))
+                .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
                 .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
             switch (args.length) {
                 case 0:
