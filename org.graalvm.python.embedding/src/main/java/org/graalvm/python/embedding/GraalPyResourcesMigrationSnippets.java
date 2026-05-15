@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2026, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -38,31 +38,63 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.graalvm.python.javainterfacegen;
+
+package org.graalvm.python.embedding;
 
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotAccess;
 import org.graalvm.polyglot.io.IOAccess;
-import org.graalvm.python.embedding.GraalPyResources;
-import org.graalvm.python.embedding.VirtualFileSystem;
 
-public class ContextFactory {
+import java.nio.file.Path;
 
-	// One context per application
-	private static Context context = null;
+final class GraalPyResourcesMigrationSnippets {
+	private GraalPyResourcesMigrationSnippets() {
+	}
 
-	public static Context getContext() {
-		if (context == null) {
-			VirtualFileSystem vfs = VirtualFileSystem.newBuilder()
-					.resourceDirectory("GRAALPY-VFS/org.graalvm.python/javainterfacegen").build();
-			context = Context.newBuilder().allowExperimentalOptions(false).allowAllAccess(false)
-					.allowHostAccess(HostAccess.ALL).allowCreateThread(true).allowNativeAccess(true)
-					.allowPolyglotAccess(PolyglotAccess.ALL).apply(GraalPyResources.forVirtualFileSystem(vfs))
-					.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true))
-					.engine(Engine.newBuilder("python").option("engine.WarnInterpreterOnly", "false").build()).build();
-		}
-		return context;
+	static Context.Builder defaultVirtualFilesystemContextBuilder() {
+		// @start region = "default-virtual-filesystem-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowHostAccess(HostAccess.ALL)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
+		// @end
+		return builder;
+	}
+
+	static Context.Builder virtualFilesystemContextBuilder(VirtualFileSystem vfs) {
+		// @start region = "virtual-filesystem-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowHostAccess(HostAccess.ALL)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.forVirtualFileSystem(vfs))
+				.extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true));
+		// @end
+		return builder;
+	}
+
+	static Context.Builder externalDirectoryContextBuilder(Path externalResourcesDirectory) {
+		// @start region = "external-directory-context-builder"
+		Context.Builder builder = Context.newBuilder()
+				.allowExperimentalOptions(false)
+				.allowAllAccess(false)
+				.allowCreateThread(true)
+				.allowNativeAccess(true)
+				.allowPolyglotAccess(PolyglotAccess.ALL)
+				.apply(GraalPyResources.forExternalDirectory(externalResourcesDirectory))
+				.allowHostAccess(HostAccess.ALL)
+				.allowIO(IOAccess.ALL).option("python.PosixModuleBackend", "java")
+				.option("python.DontWriteBytecodeFlag", "true");
+		// @end
+		return builder;
 	}
 }

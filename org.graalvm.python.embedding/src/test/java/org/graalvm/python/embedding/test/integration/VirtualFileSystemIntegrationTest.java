@@ -133,9 +133,12 @@ public class VirtualFileSystemIntegrationTest {
 
 	private Context.Builder newContextBuilder(String resourceDirectory) {
 		if (useDefaultResourcesDir(resourceDirectory)) {
-			return GraalPyResources.contextBuilder().engine(engine);
+			return Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+					.engine(engine);
 		}
-		return GraalPyResources.contextBuilder(createVirtualFileSystem(resourceDirectory)).engine(engine);
+		return Context.newBuilder()
+				.apply(GraalPyResources.forVirtualFileSystem(createVirtualFileSystem(resourceDirectory)))
+				.engine(engine);
 	}
 
 	private VirtualFileSystem.Builder newVirtualFileSystemBuilder(String resourceDirectory) {
@@ -179,7 +182,8 @@ public class VirtualFileSystemIntegrationTest {
 				unixMountPoint(multiPathUnixMountPoint).//
 				windowsMountPoint(multiPathWinMountPoint).//
 				resourceLoadingClass(VirtualFileSystemIntegrationTest.class).build();
-		try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(vfs)).build()) {
+		try (Context ctx = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)))
+				.build()) {
 			ctx.eval(PYTHON, "from os import listdir; listdir('"
 					+ (IS_WINDOWS ? multiPathWinMountPoint.replace("\\", "\\\\") : multiPathUnixMountPoint) + "')");
 		}
@@ -592,7 +596,8 @@ public class VirtualFileSystemIntegrationTest {
 			builder = vfsBuilderFunction.apply(builder);
 		}
 		VirtualFileSystem fs = builder.build();
-		Context.Builder ctxBuilder = addTestOptions(GraalPyResources.contextBuilder(fs));
+		Context.Builder ctxBuilder = addTestOptions(
+				Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(fs)));
 		if (ctxBuilderFunction != null) {
 			ctxBuilder = ctxBuilderFunction.apply(ctxBuilder);
 		}
@@ -623,7 +628,8 @@ public class VirtualFileSystemIntegrationTest {
 				unixMountPoint(VFS_MOUNT_POINT).//
 				windowsMountPoint(VFS_WIN_MOUNT_POINT).//
 				resourceLoadingClass(VirtualFileSystemIntegrationTest.class).build();
-		try (Context context = addTestOptions(GraalPyResources.contextBuilder(fs)).build()) {
+		try (Context context = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(fs)))
+				.build()) {
 			context.eval(PYTHON, patchMountPoint("from os import listdir; listdir('/test_mount_point')"));
 		}
 
@@ -670,7 +676,8 @@ public class VirtualFileSystemIntegrationTest {
 
 		// create context with extracted resource dir and check if we can see the
 		// extracted file
-		try (Context context = addTestOptions(GraalPyResources.contextBuilder(resourcesDir)).build()) {
+		try (Context context = addTestOptions(
+				Context.newBuilder().apply(GraalPyResources.forExternalDirectory(resourcesDir))).build()) {
 			context.eval("python", "import os; assert os.path.exists('"
 					+ resourcesDir.resolve("file1").toString().replace("\\", "\\\\") + "')");
 		}
@@ -726,13 +733,15 @@ public class VirtualFileSystemIntegrationTest {
 				unixMountPoint(VFS_UNIX_MOUNT_POINT).//
 				windowsMountPoint(VFS_WIN_MOUNT_POINT).build();
 		assertEquals(VFS_MOUNT_POINT, vfs.getMountPoint());
-		try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(vfs)).build()) {
+		try (Context ctx = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)))
+				.build()) {
 			Value paths = ctx.eval("python", getPathsSource);
 			checkPaths(paths.as(List.class), vfs.getMountPoint());
 		}
 		Path resourcesDir = Files.createTempDirectory("python-resources");
 
-		try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(resourcesDir)).build()) {
+		try (Context ctx = addTestOptions(
+				Context.newBuilder().apply(GraalPyResources.forExternalDirectory(resourcesDir))).build()) {
 			Value paths = ctx.eval("python", getPathsSource);
 			checkPaths(paths.as(List.class), resourcesDir.toString());
 		}
@@ -753,7 +762,8 @@ public class VirtualFileSystemIntegrationTest {
 	@Test
 	public void testAnotherVfs() throws IOException {
 		try (var vfs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/foo").build()) {
-			try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(vfs)).build()) {
+			try (Context ctx = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)))
+					.build()) {
 				eval(ctx, """
 						def test(mount_point):
 						    import os
@@ -774,7 +784,8 @@ public class VirtualFileSystemIntegrationTest {
 	@Test
 	public void testVfsWithoutVenv() throws IOException {
 		try (var vfs = VirtualFileSystem.newBuilder().resourceDirectory("SIMPLE-VFS").build()) {
-			try (Context ctx = addTestOptions(GraalPyResources.contextBuilder(vfs)).build()) {
+			try (Context ctx = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)))
+					.build()) {
 				eval(ctx, """
 						def test(mount_point):
 						    import os

@@ -259,7 +259,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 			if (externalDirectory != null && Files.exists(srcPath)) {
 				getLog().warn(String.format(
 						"Found Java resources directory %s, however, the GraalPy Maven plugin is configured to use <externalDirectory> instead of Java resources. "
-								+ "The files from %s will not be available in Contexts created using GraalPyResources#contextBuilder(Path). Move them to '%s' if "
+								+ "The files from %s will not be available in Contexts configured using Context.Builder#apply(GraalPyResources.forExternalDirectory(Path)). Move them to '%s' if "
 								+ "you want to make them available when using external directory, or use Java resources by removing <externalDirectory> option.",
 						srcPath, srcPath, Path.of(externalDirectory, "src")));
 			}
