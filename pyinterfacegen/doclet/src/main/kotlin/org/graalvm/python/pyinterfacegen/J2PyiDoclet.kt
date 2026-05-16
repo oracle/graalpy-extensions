@@ -73,11 +73,17 @@ class J2PyiDoclet : Doclet {
 
         compileAssumedTypedPkgMatchers()
 
-        // Build an intermediate representation for all included types (classes, interfaces, enums) honoring include/exclude and visibility.
+        // Build an intermediate representation for all included types (classes, records, interfaces, enums)
+        // honoring include/exclude and visibility.
         val typeIRs = environment.includedElements
             .asSequence()
             .filterIsInstance<TypeElement>()
-            .filter { it.kind == ElementKind.CLASS || it.kind == ElementKind.INTERFACE || it.kind == ElementKind.ENUM }
+            .filter {
+                it.kind == ElementKind.CLASS ||
+                    it.kind == ElementKind.RECORD ||
+                    it.kind == ElementKind.INTERFACE ||
+                    it.kind == ElementKind.ENUM
+            }
             .filter { shouldIncludeType(it) }
             .mapNotNull { maybeBuildTypeIR(it) }
             .sortedBy { it.qualifiedName }
