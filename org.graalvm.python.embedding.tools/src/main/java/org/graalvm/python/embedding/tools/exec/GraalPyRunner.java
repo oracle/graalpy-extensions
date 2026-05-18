@@ -40,54 +40,46 @@
  */
 package org.graalvm.python.embedding.tools.exec;
 
+import org.graalvm.python.embedding.tools.JavaToolchain;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.net.InetSocketAddress;
 
-public class GraalPyRunner {
+public final class GraalPyRunner {
 
 	private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
 	private static final String BIN_DIR = IS_WINDOWS ? "Scripts" : "bin";
 	private static final String EXE_SUFFIX = IS_WINDOWS ? ".exe" : "";
 
-	public static String[] getExtraJavaOptions() {
-		String javaVersion = System.getProperty("java.version");
-		try {
-			if (Integer.parseInt(javaVersion) >= 24) {
-				return new String[]{"--sun-misc-unsafe-memory-access=allow"};
-			}
-		} catch (NumberFormatException ex) {
-			// covers also javaVersion being 'null'
+	private GraalPyRunner() {
+	}
+
+	public static String[] getExtraJavaOptions(JavaToolchain javaToolchain) {
+		if (javaToolchain.isAtLeast(24)) {
+			return new String[]{"--sun-misc-unsafe-memory-access=allow"};
 		}
 		return new String[0];
 	}
 
-	public static void run(Set<String> classpath, BuildToolLog log, String... args)
-			throws IOException, InterruptedException {
-		run(String.join(File.pathSeparator, classpath), log, args);
-	}
-
-	public static void run(String classpath, BuildToolLog log, String... args)
+	public static void run(String classpath, BuildToolLog log, JavaToolchain javaToolchain, String... args)
 			throws IOException, InterruptedException {
 		String workdir = System.getProperty("exec.workingdir");
-		Path java = Paths.get(System.getProperty("java.home"), "bin", "java");
 		List<String> cmd = new ArrayList<>();
-		cmd.add(java.toString());
+		cmd.add(javaToolchain.javaExecutable().toString());
 		cmd.add("--enable-native-access=ALL-UNNAMED");
-		cmd.addAll(Arrays.asList(getExtraJavaOptions()));
+		cmd.addAll(Arrays.asList(getExtraJavaOptions(javaToolchain)));
 		cmd.add("-classpath");
 		cmd.add(classpath);
 		cmd.add("com.oracle.graal.python.shell.GraalPythonMain");

@@ -89,6 +89,13 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         return None
 
     @classmethod
+    def java_major_version(cls, java_home):
+        java_version = cls.java_version(java_home)
+        if java_version.startswith("1."):
+            return java_version.split(".", 2)[1]
+        return java_version.split(".", 1)[0].split("-", 1)[0]
+
+    @classmethod
     def check_gradle_java_home(cls, java_home):
         java_version = cls.java_version(java_home)
         assert java_version == cls.EXPECTED_GRADLE_JAVA_VERSION or java_version.startswith(cls.EXPECTED_GRADLE_JAVA_VERSION + "."), (
@@ -100,6 +107,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         build_file = os.path.join(target_dir, self.build_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.build_file_name), build_file)
         util.replace_in_file(build_file, "$VERSION$", util.get_graalvm_version())
+        util.replace_in_file(build_file, "$JAVA_LANGUAGE_VERSION$", self.java_major_version(os.environ["JAVA_HOME"]))
         settings_file = os.path.join(target_dir, self.settings_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.settings_file_name), settings_file)
         if util.extra_maven_repos:

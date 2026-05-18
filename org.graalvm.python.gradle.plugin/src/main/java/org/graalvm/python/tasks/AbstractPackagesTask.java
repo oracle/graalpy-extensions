@@ -42,6 +42,7 @@ package org.graalvm.python.tasks;
 
 import org.graalvm.python.GradleLogger;
 import org.graalvm.python.dsl.GraalPyExtension;
+import org.graalvm.python.embedding.tools.JavaToolchain;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils.Launcher;
 import org.gradle.api.DefaultTask;
@@ -54,10 +55,12 @@ import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.jvm.toolchain.JavaLauncher;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -113,13 +116,16 @@ public abstract class AbstractPackagesTask extends DefaultTask {
 	@Input
 	public abstract Property<String> getPolyglotVersion();
 
+	@Nested
+	public abstract Property<JavaLauncher> getJavaLauncher();
+
 	protected Set<String> calculateLauncherClasspath() {
 		return getLauncherClasspath().getFiles().stream().map(File::getAbsolutePath)
 				.collect(Collectors.toUnmodifiableSet());
 	}
 
 	protected Launcher createLauncher() {
-		return new Launcher(getLauncherPath()) {
+		return new Launcher(getLauncherPath(), getJavaToolchain()) {
 			public Set<String> computeClassPath() {
 				return calculateLauncherClasspath();
 			}
@@ -133,6 +139,12 @@ public abstract class AbstractPackagesTask extends DefaultTask {
 
 	private Path getLauncherPath() {
 		return computeLauncherDirectory().resolve(LAUNCHER_NAME);
+	}
+
+	private JavaToolchain getJavaToolchain() {
+		JavaLauncher javaLauncher = getJavaLauncher().get();
+		return JavaToolchain.fromJavaExecutable(javaLauncher.getExecutablePath().getAsFile().toPath(),
+				javaLauncher.getMetadata().getLanguageVersion().asInt());
 	}
 
 	@NotNull

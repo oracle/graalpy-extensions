@@ -45,6 +45,7 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.toolchain.ToolchainManager;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils.PackagesChangedException;
 
@@ -81,8 +82,8 @@ public class InstallPackagesMojo extends AbstractGraalPyMojo {
 			""";
 
 	@Inject
-	public InstallPackagesMojo(ProjectBuilder projectBuilder) {
-		super(projectBuilder);
+	public InstallPackagesMojo(ProjectBuilder projectBuilder, ToolchainManager toolchainManager) {
+		super(projectBuilder, toolchainManager);
 	}
 
 	public void execute() throws MojoExecutionException {

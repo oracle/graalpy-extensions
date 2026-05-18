@@ -40,8 +40,8 @@
  */
 package org.graalvm.python.embedding.tools.vfs;
 
+import org.graalvm.python.embedding.tools.JavaToolchain;
 import org.graalvm.python.embedding.tools.exec.BuildToolLog;
-import org.graalvm.python.embedding.tools.exec.BuildToolLog.CollectOutputLog;
 import org.graalvm.python.embedding.tools.exec.GraalPyRunner;
 
 import java.io.File;
@@ -52,7 +52,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
@@ -72,6 +71,9 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 public final class VFSUtils {
+
+	private VFSUtils() {
+	}
 
 	/**
 	 * Patterns which should be excluded by default, like .gitignore or SCM files.
@@ -159,7 +161,7 @@ public final class VFSUtils {
 
 	public static final String VFS_ROOT = "org.graalvm.python.vfs";
 	public static final String VFS_VENV = "venv";
-	public static final String VFS_FILESLIST = "fileslist.txt";
+	private static final String VFS_FILESLIST = "fileslist.txt";
 
 	public static final String GRAALPY_GROUP_ID = "org.graalvm.python";
 
@@ -295,10 +297,15 @@ public final class VFSUtils {
 
 	public abstract static class Launcher {
 		private final Path launcherPath;
+		private final JavaToolchain javaToolchain;
 
 		protected Launcher(Path launcherPath) {
-			Objects.requireNonNull(launcherPath);
-			this.launcherPath = launcherPath;
+			this(launcherPath, JavaToolchain.fromSystemJava());
+		}
+
+		protected Launcher(Path launcherPath, JavaToolchain javaToolchain) {
+			this.launcherPath = Objects.requireNonNull(launcherPath);
+			this.javaToolchain = Objects.requireNonNull(javaToolchain);
 		}
 
 		protected abstract Set<String> computeClassPath() throws IOException;
@@ -331,6 +338,79 @@ public final class VFSUtils {
 			Files.writeString(installedFile, toWrite, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
 
 			logDebug(log, packages, "VFSUtils venv packages after install %s:", installedFile);
+		}
+	}
+
+	private static final class CollectOutputLog implements BuildToolLog {
+		private final List<String> output = new ArrayList<>();
+		private final BuildToolLog delegate;
+
+		private CollectOutputLog(BuildToolLog delegate) {
+			this.delegate = delegate;
+		}
+
+		private List<String> getOutput() {
+			return output;
+		}
+
+		@Override
+		public boolean isDebugEnabled() {
+			return delegate.isDebugEnabled();
+		}
+
+		@Override
+		public boolean isInfoEnabled() {
+			return delegate.isInfoEnabled();
+		}
+
+		@Override
+		public void info(String s) {
+			delegate.info(s);
+		}
+
+		@Override
+		public void warning(String s) {
+			delegate.warning(s);
+		}
+
+		@Override
+		public void warning(String s, Throwable t) {
+			delegate.warning(s, t);
+		}
+
+		@Override
+		public void error(String s) {
+			delegate.error(s);
+		}
+
+		@Override
+		public void debug(String s) {
+			delegate.debug(s);
+		}
+
+		@Override
+		public boolean isWarningEnabled() {
+			return delegate.isWarningEnabled();
+		}
+
+		@Override
+		public boolean isErrorEnabled() {
+			return delegate.isErrorEnabled();
+		}
+
+		@Override
+		public boolean isSubprocessOutEnabled() {
+			return true;
+		}
+
+		@Override
+		public void subProcessOut(String s) {
+			output.add(s);
+		}
+
+		@Override
+		public void subProcessErr(String s) {
+			delegate.error(s);
 		}
 	}
 
@@ -781,7 +861,7 @@ public final class VFSUtils {
 				.filter(line -> !line.isEmpty() && !line.startsWith("#")).toList();
 	}
 
-	public static List<String> requirementsPackages(Path requirementsFile) throws IOException {
+	private static List<String> requirementsPackages(Path requirementsFile) throws IOException {
 		return Files.exists(requirementsFile) ? readPackagesFromFile(requirementsFile) : Collections.emptyList();
 	}
 
@@ -927,17 +1007,17 @@ public final class VFSUtils {
 	private static void generateLaunchers(Launcher launcherArgs, BuildToolLog log) throws IOException {
 		debug(log, "Generating GraalPy launchers");
 		createParentDirectories(launcherArgs.launcherPath);
-		Path java = Paths.get(System.getProperty("java.home"), "bin", "java");
+		JavaToolchain javaToolchain = launcherArgs.javaToolchain;
 		String classpath = String.join(File.pathSeparator, launcherArgs.computeClassPath());
-		String extraJavaOptions = String.join(" ", GraalPyRunner.getExtraJavaOptions());
+		String extraJavaOptions = String.join(" ", GraalPyRunner.getExtraJavaOptions(javaToolchain));
 		if (!IS_WINDOWS) {
 			// we do not bother checking if it exists and has correct java home, since it is
-			// simple
-			// to regenerate the launcher
+			// simple to regenerate the launcher
 			var script = formatMultiline("""
 					#!/usr/bin/env bash
 					%s --enable-native-access=ALL-UNNAMED %s -classpath %s %s --python.Executable="$0" "$@"
-					""", java, extraJavaOptions, String.join(File.pathSeparator, classpath), GRAALPY_MAIN_CLASS);
+					""", javaToolchain.javaExecutable(), extraJavaOptions, String.join(File.pathSeparator, classpath),
+					GRAALPY_MAIN_CLASS);
 			try {
 				Files.writeString(launcherArgs.launcherPath, script);
 				var perms = Files.getPosixFilePermissions(launcherArgs.launcherPath);
@@ -947,8 +1027,18 @@ public final class VFSUtils {
 			} catch (IOException e) {
 				throw new IOException(String.format("failed to create launcher %s", launcherArgs.launcherPath), e);
 			}
-		} else if (!Files.exists(launcherArgs.launcherPath)
-				|| !checkWinLauncherJavaPath(launcherArgs.launcherPath.getParent().resolve("pyenv.cfg"), java)) {
+		} else {
+			Path launcherDirectory = launcherArgs.launcherPath.getParent();
+			Path pyvenvCfg;
+			if (launcherDirectory == null) {
+				pyvenvCfg = Path.of("pyenv.cfg");
+			} else {
+				pyvenvCfg = launcherDirectory.resolve("pyenv.cfg");
+			}
+			if (Files.exists(launcherArgs.launcherPath)
+					&& checkWinLauncherJavaPath(pyvenvCfg, javaToolchain.javaExecutable())) {
+				return;
+			}
 			// on windows, generate a venv launcher that executes the java command
 			var script = formatMultiline("""
 					import os, shutil, struct, venv
@@ -962,7 +1052,8 @@ public final class VFSUtils {
 					with open(pyvenvcfg, 'w', encoding='utf-8') as f:
 					    f.write('venvlauncher_command = ')
 					    f.write(cmd)
-					""", launcherArgs.launcherPath, java, extraJavaOptions, classpath, GRAALPY_MAIN_CLASS);
+					""", launcherArgs.launcherPath, javaToolchain.javaExecutable(), extraJavaOptions, classpath,
+					GRAALPY_MAIN_CLASS);
 			File tmp;
 			try {
 				tmp = File.createTempFile("create_launcher", ".py");
@@ -977,7 +1068,7 @@ public final class VFSUtils {
 			}
 
 			try {
-				GraalPyRunner.run(classpath, log, tmp.getAbsolutePath());
+				GraalPyRunner.run(classpath, log, javaToolchain, tmp.getAbsolutePath());
 			} catch (InterruptedException e) {
 				throw new IOException("failed to run Graalpy launcher", e);
 			}

@@ -9,6 +9,12 @@ repositories {
     mavenCentral()
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of($JAVA_LANGUAGE_VERSION$))
+    }
+}
+
 application {
     // Define the main class for the application.
     mainClass = "org.example.GraalPy"
