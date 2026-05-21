@@ -7,7 +7,7 @@ Collection of tools and libraries that extend [GraalPy](https://graalvm.org/pyth
 Java library with utility classes useful when embedding GraalPy.
 
 * `VirtualFileSystem`: implementation of the [FileSystem SPI](https://www.graalvm.org/sdk/javadoc/org/graalvm/polyglot/io/FileSystem.html) backed by Java resources and tailored for use with GraalPy Maven/Gradle plugin (see below).
-* `GraalPyResources`: factory methods for creating a [Context](https://www.graalvm.org/sdk/javadoc/org/graalvm/polyglot/Context.html) configured with the `VirtualFileSystem`.
+* `GraalPyResources`: reusable [Context.Builder](https://www.graalvm.org/sdk/javadoc/org/graalvm/polyglot/Context.Builder.html) templates for configuring GraalPy resources, including the `VirtualFileSystem`.
 * `PositionalArguments` and `KeywordArguments`: provide way to pass positional and keyword arguments via the generic [Context API](https://www.graalvm.org/sdk/javadoc/org/graalvm/polyglot/Context.html).
 
 See the [GraalPy Embedding API Javadocs](https://oracle.github.io/graalpy-extensions/latest/org.graalvm.python.embedding/org/graalvm/python/embedding/package-summary.html) for the full class and module reference.

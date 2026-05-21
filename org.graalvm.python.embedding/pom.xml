@@ -123,6 +123,8 @@
             <configuration>
               <argLine>
                 --add-opens org.graalvm.truffle/com.oracle.truffle.polyglot=org.graalvm.python.embedding
+                --add-opens org.graalvm.polyglot/org.graalvm.polyglot=org.graalvm.python.embedding
+                --add-opens org.graalvm.polyglot/org.graalvm.polyglot.io=org.graalvm.python.embedding
               </argLine>
               <useModulePath>true</useModulePath>
             </configuration>
@@ -174,6 +176,10 @@
           <additionalJOptions>
             <additionalJOption>-Xdoclint:all</additionalJOption>
           </additionalJOptions>
+          <additionalOptions>
+            <additionalOption>--snippet-path</additionalOption>
+            <additionalOption>${project.basedir}/src/main/java</additionalOption>
+          </additionalOptions>
         </configuration>
         <executions>
           <execution>

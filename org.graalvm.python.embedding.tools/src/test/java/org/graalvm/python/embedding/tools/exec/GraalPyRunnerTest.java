@@ -51,13 +51,16 @@ public class GraalPyRunnerTest {
 
 	@Test
 	public void detectsExtraOptionsFromConfiguredJavaVersion() {
-		assertArrayEquals(new String[]{"--sun-misc-unsafe-memory-access=allow"}, GraalPyRunner
-				.getExtraJavaOptions(JavaToolchain.fromJavaExecutable(Path.of("custom-java-home", "bin", "java"), 25)));
+		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutableAndVersion(
+				Path.of("custom-java-home", "bin", "java"), 25);
+		assertArrayEquals(new String[]{"--sun-misc-unsafe-memory-access=allow"},
+				GraalPyRunner.getExtraJavaOptions(javaToolchain));
 	}
 
 	@Test
 	public void skipsExtraOptionsForOlderConfiguredJavaVersion() {
-		assertArrayEquals(new String[0], GraalPyRunner
-				.getExtraJavaOptions(JavaToolchain.fromJavaExecutable(Path.of("custom-java-home", "bin", "java"), 21)));
+		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutableAndVersion(
+				Path.of("custom-java-home", "bin", "java"), 21);
+		assertArrayEquals(new String[0], GraalPyRunner.getExtraJavaOptions(javaToolchain));
 	}
 }

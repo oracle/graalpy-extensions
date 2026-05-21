@@ -264,7 +264,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 			if (externalDirectory != null && Files.exists(srcPath)) {
 				getLog().warn(String.format(
 						"Found Java resources directory %s, however, the GraalPy Maven plugin is configured to use <externalDirectory> instead of Java resources. "
-								+ "The files from %s will not be available in Contexts created using GraalPyResources#contextBuilder(Path). Move them to '%s' if "
+								+ "The files from %s will not be available in Contexts configured using Context.Builder#apply(GraalPyResources.forExternalDirectory(Path)). Move them to '%s' if "
 								+ "you want to make them available when using external directory, or use Java resources by removing <externalDirectory> option.",
 						srcPath, srcPath, Path.of(externalDirectory, "src")));
 			}
@@ -321,7 +321,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		Path javaExecutable = java == null || java.isBlank() ? null : Path.of(java);
 		// Maven's public Toolchain API exposes the selected executable, but not the
 		// matching JDK version. JavaToolchain will infer it from the selected JDK.
-		return JavaToolchain.fromJavaExecutable(javaExecutable, (String) null);
+		return JavaToolchain.fromJavaExecutable(javaExecutable);
 	}
 
 	protected static String getGraalPyVersion(MavenProject project) throws IOException {

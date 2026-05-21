@@ -13,16 +13,20 @@
 //PIP termcolor==2.2
 |}
 import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Context.Builder;
+import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.PolyglotAccess;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.python.embedding.GraalPyResources;
+import org.graalvm.python.embedding.VirtualFileSystem;
 
 public class {baseName} {
     public static void main(String[] args) {
 
-        try (Context context = GraalPyResources.createContext()) {
+        try (Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+                .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
             switch (args.length) {
                 case 0:
                     context.eval("python", "import site; site._script()");
