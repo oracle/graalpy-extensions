@@ -54,7 +54,10 @@ import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuildingResult;
+import org.apache.maven.toolchain.Toolchain;
+import org.apache.maven.toolchain.ToolchainManager;
 import org.eclipse.aether.graph.Dependency;
+import org.graalvm.python.embedding.tools.JavaToolchain;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
 import java.io.File;
@@ -86,8 +89,9 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	private static final String PYTHON_ARTIFACT_ID = "python";
 	private static final String GRAALPY_MAVEN_PLUGIN_ARTIFACT_ID = "graalpy-maven-plugin";
 
-	public AbstractGraalPyMojo(ProjectBuilder projectBuilder) {
+	public AbstractGraalPyMojo(ProjectBuilder projectBuilder, ToolchainManager toolchainManager) {
 		this.projectBuilder = projectBuilder;
+		this.toolchainManager = toolchainManager;
 	}
 
 	@Parameter(defaultValue = "${project}", required = true, readonly = true)
@@ -126,6 +130,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	private MavenSession session;
 
 	private final ProjectBuilder projectBuilder;
+	private final ToolchainManager toolchainManager;
 
 	private Set<String> launcherClassPath;
 
@@ -285,7 +290,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	}
 
 	protected Launcher createLauncher() {
-		return new Launcher(getLauncherPath()) {
+		return new Launcher(getLauncherPath(), getJavaToolchain()) {
 			public Set<String> computeClassPath() throws IOException {
 				return calculateLauncherClasspath(project);
 			}
@@ -303,6 +308,20 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 
 	private Path getLauncherPath() {
 		return Paths.get(project.getBuild().getDirectory(), LAUNCHER_NAME);
+	}
+
+	private JavaToolchain getJavaToolchain() {
+		Toolchain toolchain = toolchainManager == null
+				? null
+				: toolchainManager.getToolchainFromBuildContext("jdk", session);
+		if (toolchain == null) {
+			return JavaToolchain.fromSystemJava();
+		}
+		String java = toolchain.findTool("java");
+		Path javaExecutable = java == null || java.isBlank() ? null : Path.of(java);
+		// Maven's public Toolchain API exposes the selected executable, but not the
+		// matching JDK version. JavaToolchain will infer it from the selected JDK.
+		return JavaToolchain.fromJavaExecutable(javaExecutable, (String) null);
 	}
 
 	protected static String getGraalPyVersion(MavenProject project) throws IOException {

@@ -63,6 +63,7 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.jvm.toolchain.JavaToolchainService;
 import org.gradle.jvm.tasks.Jar;
 
 import java.io.File;
@@ -246,11 +247,14 @@ public abstract class GraalPyGradlePlugin implements Plugin<Project> {
 		ProjectLayout layout = project.getLayout();
 		DirectoryProperty buildDirectory = layout.getBuildDirectory();
 		Directory projectDirectory = layout.getProjectDirectory();
+		var javaPluginExtension = project.getExtensions().getByType(JavaPluginExtension.class);
+		var javaToolchains = project.getExtensions().getByType(JavaToolchainService.class);
 
 		t.getLauncherClasspath().from(launcherClasspath);
 		t.getLauncherDirectory().convention(buildDirectory.dir("python-launcher"));
 		t.getPolyglotVersion().convention(extension.getPolyglotVersion().orElse(determineGraalPyDefaultVersion()));
 		t.getPackages().set(extension.getPackages());
+		t.getJavaLauncher().convention(javaToolchains.launcherFor(javaPluginExtension.getToolchain()));
 
 		DirectoryProperty externalDirectory = extension.getExternalDirectory();
 		Directory output = externalDirectory
