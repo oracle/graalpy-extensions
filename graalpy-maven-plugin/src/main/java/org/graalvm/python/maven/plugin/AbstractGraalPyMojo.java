@@ -321,7 +321,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 		Path javaExecutable = java == null || java.isBlank() ? null : Path.of(java);
 		// Maven's public Toolchain API exposes the selected executable, but not the
 		// matching JDK version. JavaToolchain will infer it from the selected JDK.
-		return JavaToolchain.fromJavaExecutable(javaExecutable, (String) null);
+		return JavaToolchain.fromJavaExecutable(javaExecutable);
 	}
 
 	protected static String getGraalPyVersion(MavenProject project) throws IOException {

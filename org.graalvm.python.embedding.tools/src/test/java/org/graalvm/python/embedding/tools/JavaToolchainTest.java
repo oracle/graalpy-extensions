@@ -64,16 +64,9 @@ public class JavaToolchainTest {
 	@Test
 	public void usesConfiguredJavaExecutableAndVersion() {
 		Path java = Path.of("custom-java-home", "bin", "java");
-		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java, 25);
+		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutableAndVersion(java, 25);
 		assertEquals(java, javaToolchain.javaExecutable());
 		assertEquals(25, javaToolchain.javaMajorVersion());
-	}
-
-	@Test
-	public void parsesConfiguredJavaVersion() {
-		Path java = Path.of("custom-java-home", "bin", "java");
-		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java, "21.0.11");
-		assertEquals(21, javaToolchain.javaMajorVersion());
 	}
 
 	@Test
@@ -81,7 +74,7 @@ public class JavaToolchainTest {
 			throws IOException {
 		Files.writeString(fakeJavaHome.resolve("release"), "JAVA_VERSION=\"25.0.1\"\n");
 		Path java = fakeJavaHome.resolve("bin").resolve("java");
-		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java, (String) null);
+		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java);
 		assertEquals(java, javaToolchain.javaExecutable());
 		assertEquals(25, javaToolchain.javaMajorVersion());
 	}
@@ -92,7 +85,7 @@ public class JavaToolchainTest {
 		try {
 			System.setProperty("java.version", "25.0.1");
 			Path java = Path.of("custom-java-home", "bin", "java");
-			JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java, (String) null);
+			JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(java);
 			assertEquals(java, javaToolchain.javaExecutable());
 			assertEquals(-1, javaToolchain.javaMajorVersion());
 		} finally {
@@ -105,7 +98,7 @@ public class JavaToolchainTest {
 		String originalJavaVersion = System.getProperty("java.version");
 		try {
 			System.setProperty("java.version", "25.0.1");
-			JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(null, "17");
+			JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutable(null);
 			assertEquals(Path.of(System.getProperty("java.home"), "bin", "java"), javaToolchain.javaExecutable());
 			assertEquals(25, javaToolchain.javaMajorVersion());
 		} finally {

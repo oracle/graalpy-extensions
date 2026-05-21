@@ -65,22 +65,18 @@ public final class JavaToolchain {
 				parseJavaMajorVersion(System.getProperty("java.version")));
 	}
 
-	public static JavaToolchain fromJavaExecutable(Path javaExecutable, int javaMajorVersion) {
+	public static JavaToolchain fromJavaExecutableAndVersion(Path javaExecutable, int javaMajorVersion) {
 		if (javaExecutable == null) {
 			return fromSystemJava();
 		}
 		return new JavaToolchain(javaExecutable, javaMajorVersion);
 	}
 
-	public static JavaToolchain fromJavaExecutable(Path javaExecutable, String javaVersion) {
+	public static JavaToolchain fromJavaExecutable(Path javaExecutable) {
 		if (javaExecutable == null) {
 			return fromSystemJava();
 		}
-		int javaMajorVersion = parseJavaMajorVersion(javaVersion);
-		if (javaMajorVersion < 0) {
-			javaMajorVersion = javaMajorVersion(javaExecutable);
-		}
-		return fromJavaExecutable(javaExecutable, javaMajorVersion);
+		return fromJavaExecutableAndVersion(javaExecutable, javaMajorVersion(javaExecutable));
 	}
 
 	public Path javaExecutable() {

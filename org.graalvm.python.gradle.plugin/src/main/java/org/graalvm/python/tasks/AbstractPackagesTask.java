@@ -143,7 +143,7 @@ public abstract class AbstractPackagesTask extends DefaultTask {
 
 	private JavaToolchain getJavaToolchain() {
 		JavaLauncher javaLauncher = getJavaLauncher().get();
-		return JavaToolchain.fromJavaExecutable(javaLauncher.getExecutablePath().getAsFile().toPath(),
+		return JavaToolchain.fromJavaExecutableAndVersion(javaLauncher.getExecutablePath().getAsFile().toPath(),
 				javaLauncher.getMetadata().getLanguageVersion().asInt());
 	}
 
