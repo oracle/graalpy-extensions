@@ -10,6 +10,10 @@ under the "GraalPy Embedding" section.
 
 ## 25.1.0
 
+* `VirtualFileSystem` can now be configured with a custom `ClassLoader` for
+resource lookup. The existing `resourceLoadingClass(Class<?>)` builder method
+now delegates to the class loader of the supplied class.
+
 * `GraalPyResources` now provides `forVirtualFileSystem(VirtualFileSystem)` and
 `forExternalDirectory(Path)` resource configurations that can be applied to an
 existing `Context.Builder` with `Context.Builder.apply(...)`. The older

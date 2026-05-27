@@ -147,7 +147,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	private final Map<String, BaseEntry> vfsEntries = new HashMap<>();
 
 	/**
-	 * Classloader used to read resources. By defaut, the classloader of
+	 * Classloader used to read resources. By default, the classloader of
 	 * VirtualFileSystem.class.
 	 */
 	private final ClassLoader resourceClassLoader;
@@ -745,8 +745,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		// the venv
 		ArrayList<URL> venvUrls;
 		try {
-			venvUrls = Collections
-					.list(this.resourceLoadingClass.getClassLoader().getResources(resourcePath(vfsRoot, VFS_VENV)));
+			venvUrls = Collections.list(resourceClassLoader.getResources(resourcePath(vfsRoot, VFS_VENV)));
 		} catch (IOException e) {
 			warn("Cannot check compatibility of the merged virtual environments. Cannot read list of packages installed in the virtual environments. IOException: "
 					+ e.getMessage());

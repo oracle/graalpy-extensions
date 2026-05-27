@@ -264,7 +264,7 @@ public final class VirtualFileSystem implements AutoCloseable {
 		 * @param cl
 		 *            the classloader used to load resources
 		 * @return this builder
-		 * @since 26.0.0
+		 * @since 25.1.0
 		 */
 		public Builder resourceClassLoader(ClassLoader cl) {
 			resourceClassLoader = cl;
