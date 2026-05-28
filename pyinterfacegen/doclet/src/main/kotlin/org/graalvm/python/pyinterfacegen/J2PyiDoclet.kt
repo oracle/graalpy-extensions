@@ -428,6 +428,19 @@ class J2PyiDoclet : Doclet {
             TypeParamIR(name, normalized)
         }.filterNotNull()
         val typeDoc: String? = docTrees?.javadocFull(te)
+        fun mapSuperType(tm: TypeMirror?): PyType? {
+            if (tm == null || tm.kind == TypeKind.NONE) return null
+            return when (val mapped = mapType(tm)) {
+                PyType.AnyT, PyType.ObjectT, PyType.NoneT -> null
+                else -> mapped
+            }
+        }
+        val superTypes = buildList {
+            if (kind == Kind.CLASS) {
+                mapSuperType(te.superclass)?.let(::add)
+            }
+            te.interfaces.mapNotNullTo(this, ::mapSuperType)
+        }
         val fields = if (kind == Kind.INTERFACE) {
             emptyList()
         } else {
@@ -485,6 +498,7 @@ class J2PyiDoclet : Doclet {
             kind = kind,
             isAbstract = te.modifiers.contains(Modifier.ABSTRACT),
             typeParams = typeParams,
+            superTypes = superTypes,
             doc = typeDoc,
             fields = fields,
             constructors = constructors,
@@ -617,6 +631,7 @@ class J2PyiDoclet : Doclet {
                     if (node is PyType.TypeVarRef) used += node.name
                 }
             }
+            for (s in t.superTypes) walk(s)
             for (f in t.fields) walk(f.type)
             for (c in t.constructors) for (p in c.params) walk(p.type)
             for (m in t.methods) {
@@ -853,6 +868,9 @@ class J2PyiDoclet : Doclet {
         // Build class header with Protocol/Enum bases using PEP 484 generics.
         val header = run {
             val bases = mutableListOf<String>()
+            if (t.kind != Kind.ENUM) {
+                bases += t.superTypes.map { it.render() }
+            }
             when (t.kind) {
                 Kind.INTERFACE -> if (config.interfaceAsProtocol) bases += "Protocol"
                 Kind.ENUM -> bases += "Enum"
@@ -1138,7 +1156,7 @@ class J2PyiDoclet : Doclet {
     private fun TypeIR.needsAnyImport(): Boolean {
         // Base scan for Any present anywhere in the type signatures.
         val base =
-            fields.any { anyInType(it.type) } || constructors.any { it.params.any { p -> anyInType(p.type) } } || methods.any {
+            superTypes.any { anyInType(it) } || fields.any { anyInType(it.type) } || constructors.any { it.params.any { p -> anyInType(p.type) } } || methods.any {
                 anyInType(it.returnType) || it.params.any { p -> anyInType(p.type) }
             } || properties.any { anyInType(it.type) } || typeParams.any { it.bound?.let { b -> anyInType(b) } == true }
         if (base) return true
@@ -1159,12 +1177,12 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun TypeIR.needsNumberImport(): Boolean =
-        fields.any { numberInType(it.type) } || constructors.any { it.params.any { p -> numberInType(p.type) } } || methods.any {
+        superTypes.any { numberInType(it) } || fields.any { numberInType(it.type) } || constructors.any { it.params.any { p -> numberInType(p.type) } } || methods.any {
             numberInType(it.returnType) || it.params.any { p -> numberInType(p.type) }
         } || properties.any { numberInType(it.type) } || typeParams.any { it.bound?.let { b -> numberInType(b) } == true }
 
     private fun TypeIR.needsBuiltinsImport(): Boolean =
-        fields.any { objectInType(it.type) } || constructors.any { it.params.any { p -> objectInType(p.type) } } || methods.any {
+        superTypes.any { objectInType(it) } || fields.any { objectInType(it.type) } || constructors.any { it.params.any { p -> objectInType(p.type) } } || methods.any {
             objectInType(it.returnType) || it.params.any { p -> objectInType(p.type) }
         } || properties.any { objectInType(it.type) } || typeParams.any { it.bound?.let { b -> objectInType(b) } == true }
 
@@ -1199,7 +1217,7 @@ class J2PyiDoclet : Doclet {
                 if (it is PyType.Ref) {
                     // Only import types that are within the set of packages we are emitting.
                     if (!isFullyQualifiedNameAJDKType(it.packageName) && isAssumedTypedPackage(it.packageName)) {
-                        refs += it
+                        refs += it.copy(args = emptyList())
                     }
                 }
             }
@@ -1212,7 +1230,7 @@ class J2PyiDoclet : Doclet {
     private fun scrubExternalRefs(t: TypeIR): TypeIR {
         fun scrub(pt: PyType): PyType {
             return when (pt) {
-                is PyType.Ref -> if (isAssumedTypedPackage(pt.packageName)) pt else PyType.ObjectT
+                is PyType.Ref -> if (isAssumedTypedPackage(pt.packageName)) pt.copy(args = pt.args.map(::scrub)) else PyType.ObjectT
                 is PyType.Generic -> pt.copy(args = pt.args.map(::scrub))
                 is PyType.Abc -> pt.copy(args = pt.args.map(::scrub))
                 is PyType.Union -> pt.copy(items = pt.items.map(::scrub))
@@ -1222,12 +1240,14 @@ class J2PyiDoclet : Doclet {
 
         fun scrubParams(params: List<ParamIR>) = params.map { it.copy(type = scrub(it.type)) }
         // Scrub fields/constructors/methods/properties and type param bounds
+        val superTypes = t.superTypes.map(::scrub)
         val fields = t.fields.map { it.copy(type = scrub(it.type)) }
         val ctors = t.constructors.map { it.copy(params = scrubParams(it.params)) }
         val methods = t.methods.map { it.copy(params = scrubParams(it.params), returnType = scrub(it.returnType)) }
         val props = t.properties.map { it.copy(type = scrub(it.type)) }
         val tparams = t.typeParams.map { it.copy(bound = it.bound?.let(::scrub)) }
         return t.copy(
+            superTypes = superTypes,
             fields = fields,
             constructors = ctors,
             methods = methods,
@@ -1237,6 +1257,9 @@ class J2PyiDoclet : Doclet {
     }
 
     private fun collectAllMembers(t: TypeIR, function: (pt: PyType) -> Unit) {
+        for (superType in t.superTypes) {
+            function(superType)
+        }
         for (field in t.fields) {
             function(field.type)
         }
