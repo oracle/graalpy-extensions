@@ -43,9 +43,19 @@ package org.graalvm.python.embedding.tools.exec;
 import org.graalvm.python.embedding.tools.JavaToolchain;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketAddress;
+import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class GraalPyRunnerTest {
 
@@ -62,5 +72,42 @@ public class GraalPyRunnerTest {
 		JavaToolchain javaToolchain = JavaToolchain.fromJavaExecutableAndVersion(
 				Path.of("custom-java-home", "bin", "java"), 21);
 		assertArrayEquals(new String[0], GraalPyRunner.getExtraJavaOptions(javaToolchain));
+	}
+
+	@Test
+	public void addsSystemProxyWithoutUnresolvedAddressMarker() {
+		var args = new ArrayList<String>();
+		var address = InetSocketAddress.createUnresolved("127.0.0.1", 7897);
+		GraalPyRunner.addProxy(args, Map.of(), proxySelector(new Proxy(Proxy.Type.HTTP, address)));
+		assertEquals(List.of("--proxy", "http://127.0.0.1:7897"), args);
+	}
+
+	@Test
+	public void formatsIpv6ProxyHost() {
+		var address = InetSocketAddress.createUnresolved("::1", 7897);
+		assertEquals("http://[::1]:7897", GraalPyRunner.formatProxyAddress(address));
+	}
+
+	@Test
+	public void skipsSystemProxyWhenProxyEnvironmentIsConfigured() {
+		var args = new ArrayList<String>();
+		var address = InetSocketAddress.createUnresolved("system-proxy.example.com", 7897);
+		GraalPyRunner.addProxy(args, Map.of("HTTPS_PROXY", "http://env-proxy.example.com:7897"),
+				proxySelector(new Proxy(Proxy.Type.HTTP, address)));
+		assertEquals(List.of(), args);
+	}
+
+	private static ProxySelector proxySelector(Proxy... proxies) {
+		return new ProxySelector() {
+			@Override
+			public List<Proxy> select(URI uri) {
+				assertEquals(URI.create("https://pypi.org"), uri);
+				return List.of(proxies);
+			}
+
+			@Override
+			public void connectFailed(URI uri, SocketAddress sa, IOException ioe) {
+			}
+		};
 	}
 }
