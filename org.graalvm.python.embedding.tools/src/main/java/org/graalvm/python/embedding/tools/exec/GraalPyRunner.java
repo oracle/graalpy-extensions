@@ -56,6 +56,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public final class GraalPyRunner {
 
@@ -130,18 +131,30 @@ public final class GraalPyRunner {
 	}
 
 	private static void addProxy(ArrayList<String> args) {
-		if (System.getenv("http_proxy") == null && System.getenv("https_proxy") == null) {
-			ProxySelector proxySelector = ProxySelector.getDefault();
+		addProxy(args, System.getenv(), ProxySelector.getDefault());
+	}
+
+	static void addProxy(ArrayList<String> args, Map<String, String> env, ProxySelector proxySelector) {
+		if (env.keySet().stream().noneMatch(k -> k.equalsIgnoreCase("http_proxy") || k.equalsIgnoreCase("https_proxy"))
+				&& proxySelector != null) {
 			List<Proxy> proxies = proxySelector.select(URI.create("https://pypi.org"));
 			for (Proxy proxy : proxies) {
 				if (proxy.type() == Proxy.Type.HTTP && proxy.address() instanceof InetSocketAddress addr) {
-					String proxyAddr = "http://" + addr.getHostName() + ":" + addr.getPort();
 					args.add("--proxy");
-					args.add(proxyAddr);
+					args.add(formatProxyAddress(addr));
 					return;
 				}
 			}
 		}
+	}
+
+	static String formatProxyAddress(InetSocketAddress addr) {
+		String host = addr.getHostString();
+		// IPv6 literals in URI authorities must be enclosed in square brackets.
+		if (host.indexOf(':') >= 0 && !host.startsWith("[")) {
+			host = "[" + host + "]";
+		}
+		return "http://" + host + ":" + addr.getPort();
 	}
 
 	private static void runProcess(ProcessBuilder pb, BuildToolLog log) throws IOException, InterruptedException {
