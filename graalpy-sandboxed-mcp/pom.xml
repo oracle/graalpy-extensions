@@ -15,7 +15,7 @@
     </parent>
 
     <properties>
-        <revision>25.1.0-SNAPSHOT</revision>
+        <revision>25.2.4-SNAPSHOT</revision>
         <!-- packaging defaults to jar for faster testing and development, but the intended distribution target is native-image -->
         <packaging>jar</packaging>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
