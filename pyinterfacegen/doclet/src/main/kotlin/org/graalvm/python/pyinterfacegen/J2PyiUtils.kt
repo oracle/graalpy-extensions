@@ -299,7 +299,8 @@ fun mapDeclaredType(dt: DeclaredType, extraPlatformPackages: List<String>): PyTy
                 if (isTopLevel && isPublic) {
                     val pkg = packageOf(el)
                     val name = el.simpleName.toString()
-                    PyType.Ref(pkg, name)
+                    val args = dt.typeArguments.map { mapType(it, extraPlatformPackages) }
+                    PyType.Ref(pkg, name, args)
                 } else {
                     PyType.ObjectT
                 }
