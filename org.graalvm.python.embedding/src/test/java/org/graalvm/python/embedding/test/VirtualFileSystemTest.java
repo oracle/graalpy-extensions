@@ -41,12 +41,18 @@
 
 package org.graalvm.python.embedding.test;
 
-import org.graalvm.polyglot.io.FileSystem;
-import org.graalvm.python.embedding.VirtualFileSystem;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ;
+import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ_WRITE;
+import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,6 +76,9 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.FileTime;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -82,24 +91,18 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
-
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.NONE;
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ;
-import static org.graalvm.python.embedding.VirtualFileSystem.HostIO.READ_WRITE;
-import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.graalvm.polyglot.io.FileSystem;
+import org.graalvm.python.embedding.VirtualFileSystem;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 public class VirtualFileSystemTest {
 
-	private static String MOUNT_POINT_NAME = "test_mount_point";
-	static final String VFS_UNIX_MOUNT_POINT = "/test_mount_point";
-	static final String VFS_WIN_MOUNT_POINT = "X:\\test_mount_point";
+	private static final String MOUNT_POINT_NAME = "test_mount_point";
+	static final String VFS_UNIX_MOUNT_POINT = "/" + MOUNT_POINT_NAME;
+	static final String VFS_WIN_MOUNT_POINT = "X:\\" + MOUNT_POINT_NAME;
 	static final String VFS_MOUNT_POINT = IS_WINDOWS ? VFS_WIN_MOUNT_POINT : VFS_UNIX_MOUNT_POINT;
 
 	private static final Path VFS_ROOT_PATH = Path.of(VFS_MOUNT_POINT);
@@ -125,7 +128,7 @@ public class VirtualFileSystemTest {
 		logger.setLevel(Level.FINE);
 	}
 
-	private List<AutoCloseable> toBeClosed = new ArrayList<>();
+	private final List<AutoCloseable> toBeClosed = new ArrayList<>();
 
 	@BeforeEach
 	public void initFS() throws Exception {
@@ -250,23 +253,23 @@ public class VirtualFileSystemTest {
 			// absolute path starting with real FS, pointing to VFS
 			// /real/fs/path/../../../VFS_MOUNT_POINT
 			// XXX return same abs path ???
-			p = Path.of(fromPathToFSRoot(realFSDir).toString(), MOUNT_POINT_NAME);
+			p = Path.of(fromPathToFSRoot(realFSDir), MOUNT_POINT_NAME);
 			assertEquals(p, fs.toAbsolutePath(p));
 			// /real/fs/path/../../../VFS_MOUNT_POINT/../VFS_MOUNT_POINT
-			p = Path.of(fromPathToFSRoot(realFSDir).toString(), MOUNT_POINT_NAME, "..", MOUNT_POINT_NAME);
+			p = Path.of(fromPathToFSRoot(realFSDir), MOUNT_POINT_NAME, "..", MOUNT_POINT_NAME);
 			assertEquals(p, fs.toAbsolutePath(p));
 
 			// no CWD set, so relative path starting in real FS, pointing to VFS
 			// ../../../VFS_ROOT
 			Path cwd = Path.of(".").toAbsolutePath();
 			if (!IS_WINDOWS) {
-				p = fs.toAbsolutePath(Path.of(dotdot(cwd.getNameCount()).toString(), MOUNT_POINT_NAME));
+				p = fs.toAbsolutePath(Path.of(dotdot(cwd.getNameCount()), MOUNT_POINT_NAME));
 				assertTrue(p.isAbsolute());
 				assertEquals(VFS_ROOT_PATH, p.normalize());
 
 				// ../../../VFS_ROOT/../real/fs/path
 				p = fs.toAbsolutePath(
-						Path.of(dotdot(cwd.getNameCount()).toString(), MOUNT_POINT_NAME, "..", realFSPath.toString()));
+						Path.of(dotdot(cwd.getNameCount()), MOUNT_POINT_NAME, "..", realFSPath.toString()));
 				assertTrue(p.isAbsolute());
 				assertEquals(realFSPath, p.normalize());
 
@@ -423,7 +426,7 @@ public class VirtualFileSystemTest {
 		assertThrows(SecurityException.class, () -> fs.checkAccess(Path.of(pathPrefix, "extractme"),
 				Set.of(AccessMode.WRITE), LinkOption.NOFOLLOW_LINKS));
 		fs.checkAccess(Path.of(pathPrefix, "extractme"), Set.of(AccessMode.READ));
-		// even though extracted -> FS is read-only and we are limiting the access to
+		// even though extracted -> FS is read-only, and we are limiting the access to
 		// read-only also
 		// for extracted files
 		assertThrows(IOException.class,
@@ -434,18 +437,23 @@ public class VirtualFileSystemTest {
 		assertThrows(NoSuchFileException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exits", "extractme"), Set.of(AccessMode.READ)));
 
+		// write must still be forbidden in VFS
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "SomeFile"), Set.of(AccessMode.WRITE)),
 				"write access should not be possible with VFS");
+
+		// execute access is not supported for virtual entries
 		checkException(SecurityException.class,
-				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exist"), Set.of(AccessMode.WRITE)),
-				"execute access should not be possible with VFS");
+				() -> fs.checkAccess(Path.of(pathPrefix, "bin", "exec.sh"), Set.of(AccessMode.EXECUTE)),
+				"execute access should not be possible for VFS entries");
+
 		checkException(SecurityException.class,
-				() -> fs.checkAccess(Path.of(pathPrefix, "SomeFile"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible with VFS");
+				() -> fs.checkAccess(Path.of(pathPrefix, "bin", "nonexec.txt"), Set.of(AccessMode.EXECUTE)),
+				"execute access should not be possible for VFS entries");
+
 		checkException(SecurityException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exist"), Set.of(AccessMode.EXECUTE)),
-				"execute access should not be possible with VFS");
+				"execute access should not be possible for VFS entries");
 
 		checkException(NoSuchFileException.class,
 				() -> fs.checkAccess(Path.of(pathPrefix, "does-not-exits"), Set.of(AccessMode.READ)),
@@ -785,9 +793,13 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(p, null);
 			Path extractedRoot = p.getParent().getParent().getParent();
 
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency1.so"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2"), null);
-			assertFalse(Files.exists(extractedRoot.resolve("src/package2.libs/not-extracted.so")));
+			Path dep1 = extractedRoot.resolve("src/package1.libs/fake-dependency1.so");
+			Path dep2 = extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2");
+			Path notExtracted = extractedRoot.resolve("src/package2.libs/not-extracted.so");
+
+			checkExtractedFile(dep1, null);
+			checkExtractedFile(dep2, null);
+			assertFalse(Files.exists(notExtracted));
 		}
 	}
 
@@ -803,11 +815,119 @@ public class VirtualFileSystemTest {
 			checkExtractedFile(p, null);
 			Path extractedRoot = p.getParent().getParent().getParent();
 
-			checkExtractedFile(extractedRoot.resolve("src/pkg1/__init__.py"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency1.so"), null);
-			checkExtractedFile(extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2"), null);
-			assertFalse(Files.exists(extractedRoot.resolve("src/package2.libs/not-extracted.so")));
+			Path initPy = extractedRoot.resolve("src/pkg1/__init__.py");
+			Path dep1 = extractedRoot.resolve("src/package1.libs/fake-dependency1.so");
+			Path dep2 = extractedRoot.resolve("src/package1.libs/fake-dependency2.so.2");
+			Path notExtracted = extractedRoot.resolve("src/package2.libs/not-extracted.so");
+
+			checkExtractedFile(initPy, null);
+			checkExtractedFile(dep1, null);
+			checkExtractedFile(dep2, null);
+			assertFalse(Files.exists(notExtracted));
 		}
+	}
+
+	@Test
+	void lazyExtractionAllowsMultipleFilesInReadOnlyParentDirs() throws Exception {
+		assumeTrue(!IS_WINDOWS, "POSIX permissions are not supported on Windows");
+		assumeTrue(Files.getFileStore(Path.of(".")).supportsFileAttributeView("posix"),
+				"POSIX permissions are not supported on this filesystem");
+
+		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().//
+				allowHostIO(READ_WRITE).//
+				unixMountPoint(VFS_UNIX_MOUNT_POINT).//
+				windowsMountPoint(VFS_WIN_MOUNT_POINT).//
+				resourceDirectory("GRAALPY-VFS/reordered-permissions").//
+				extractFilter(p -> p.getFileName() != null
+						&& Set.of("hello.txt", "hi.txt").contains(p.getFileName().toString()))
+				.//
+				resourceLoadingClass(VirtualFileSystemTest.class).build()) {
+			FileSystem fs = getDelegatingFS(vfs);
+			Path extracted = fs.toRealPath(Path.of(VFS_MOUNT_POINT, "foo", "otherdir", "hello.txt"));
+
+			try {
+				assertEquals(PosixFilePermissions.fromString("rw-r--r--"), Files.getPosixFilePermissions(extracted));
+				assertEquals(PosixFilePermissions.fromString("r-x------"),
+						Files.getPosixFilePermissions(extracted.getParent()));
+				assertEquals(PosixFilePermissions.fromString("r-x------"),
+						Files.getPosixFilePermissions(extracted.getParent().getParent()));
+
+				Path second = fs.toRealPath(Path.of(VFS_MOUNT_POINT, "foo", "otherdir", "hi.txt"));
+				assertTrue(Files.isRegularFile(second));
+				assertEquals("hi\n", Files.readString(second));
+				assertEquals(PosixFilePermissions.fromString("rw-r--r--"), Files.getPosixFilePermissions(second));
+				assertEquals(PosixFilePermissions.fromString("r-x------"),
+						Files.getPosixFilePermissions(second.getParent()));
+				assertEquals(PosixFilePermissions.fromString("r-x------"),
+						Files.getPosixFilePermissions(second.getParent().getParent()));
+			} finally {
+				// Allow VFS close() to remove the extracted test resources.
+				Files.setPosixFilePermissions(extracted.getParent().getParent(),
+						PosixFilePermissions.fromString("rwx------"));
+				Files.setPosixFilePermissions(extracted.getParent(), PosixFilePermissions.fromString("rwx------"));
+			}
+		}
+	}
+
+	@Test
+	void parallelLazyExtractionSerializesReadOnlyParentPermissions() throws Exception {
+		assumeTrue(!IS_WINDOWS, "POSIX permissions are not supported on Windows");
+		try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().allowHostIO(READ_WRITE)
+				.unixMountPoint(VFS_UNIX_MOUNT_POINT).resourceDirectory("GRAALPY-VFS/reordered-permissions")
+				.extractFilter(p -> Set.of("hello.txt", "hi.txt").contains(p.getFileName().toString()))
+				.resourceLoadingClass(VirtualFileSystemTest.class).build()) {
+			FileSystem fs = getDelegatingFS(vfs);
+			Field implField = vfs.getClass().getDeclaredField("impl");
+			implField.setAccessible(true);
+			Object impl = implField.get(vfs);
+			Field extractDirField = impl.getClass().getDeclaredField("extractDir");
+			extractDirField.setAccessible(true);
+			Path extractDir = (Path) extractDirField.get(impl);
+			assumeTrue(Files.getFileStore(extractDir).supportsFileAttributeView("posix"));
+			Path parent = Files.createDirectories(extractDir.resolve("foo/otherdir"));
+			var readOnly = PosixFilePermissions.fromString("r-x------");
+			Files.setPosixFilePermissions(parent, readOnly);
+			Files.setPosixFilePermissions(parent.getParent(), readOnly);
+			FutureTask<Path> hello = new FutureTask<>(
+					() -> fs.toRealPath(Path.of(VFS_MOUNT_POINT, "foo", "otherdir", "hello.txt")));
+			FutureTask<Path> hi = new FutureTask<>(
+					() -> fs.toRealPath(Path.of(VFS_MOUNT_POINT, "foo", "otherdir", "hi.txt")));
+			Thread first = new Thread(hello, "extract-hello");
+			Thread second = new Thread(hi, "extract-hi");
+			try {
+				// Hold the shared directory lock until both extractions reach it.
+				synchronized (impl) {
+					first.start();
+					second.start();
+					awaitExtractionLock(first);
+					awaitExtractionLock(second);
+					assertFalse(Files.exists(parent.resolve("hello.txt")));
+					assertFalse(Files.exists(parent.resolve("hi.txt")));
+				}
+				assertTrue(Files.isRegularFile(hello.get(10, TimeUnit.SECONDS)));
+				assertEquals("hi\n", Files.readString(hi.get(10, TimeUnit.SECONDS)));
+				assertEquals(readOnly, Files.getPosixFilePermissions(parent));
+				assertEquals(readOnly, Files.getPosixFilePermissions(parent.getParent()));
+			} finally {
+				first.join(10000);
+				second.join(10000);
+				Files.setPosixFilePermissions(parent.getParent(), PosixFilePermissions.fromString("rwx------"));
+				Files.setPosixFilePermissions(parent, PosixFilePermissions.fromString("rwx------"));
+			}
+		}
+	}
+
+	private static void awaitExtractionLock(Thread thread) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+		while (thread.isAlive() && System.nanoTime() < deadline) {
+			StackTraceElement[] stack = thread.getStackTrace();
+			if (thread.getState() == Thread.State.BLOCKED && stack.length > 0
+					&& stack[0].getMethodName().equals("extractSingleFile")) {
+				return;
+			}
+			Thread.sleep(10);
+		}
+		fail("Extraction did not wait for the shared instance lock: " + thread.getName());
 	}
 
 	private static void checkExtractedFile(Path extractedFile, String[] expectedContents) throws IOException {

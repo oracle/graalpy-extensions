@@ -50,6 +50,9 @@ include migration snippets in the API reference documentation.
 * API reference documentation for the embedding module is now published at
 [oracle.github.io/graalpy-extensions](https://oracle.github.io/graalpy-extensions/latest/org.graalvm.python.embedding/module-summary.html).
 
+* `VirtualFileSystem` preserves explicit POSIX file and directory permissions
+when extracting VFS resources from metadata and `fileslist`.
+
 * GraalPy Maven plugin supports configuration of Python dependencies via
 external `requirements.txt` file as an alternative to specifying those
 dependencies in `pom.xml` (#30). See the [documentation](https://github.com/oracle/graalpython/blob/e41e01aa69144b9d9adf5526cd96ffedc6d502c9/docs/user/Embedding-Build-Tools.md#using-requirementstxt)
