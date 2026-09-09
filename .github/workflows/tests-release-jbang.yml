@@ -8,6 +8,9 @@ on:
 jobs:
   run-jbang-tests-on-release:
     runs-on: ubuntu-latest
+    env:
+      graalpy_version: '25.3.4.1'
+      graalvm_version: '25.3.4.1'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -16,13 +19,27 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: '24'
+          version: ${{ env.graalvm_version }}
+
+      - name: Install JBang
+        run: |
+          curl -Ls https://sh.jbang.dev | bash
+          echo "$HOME/.jbang/bin" >> $GITHUB_PATH
+        shell: bash
 
       # doesn't even build the project, we just need polyglot dependencies
       # to run the GraalPy launcher to drive the Python based test
       - name: Run JBang integration tests
         run: |
-          mvn --batch-mode exec:java@integration-tests \
-              -Dproject.polyglot.version=25.0.2 \
+          mvn --batch-mode -N exec:java@integration-tests \
+              -Dproject.polyglot.version=${{ env.graalpy_version }} \
               -Dintegration.tests.args="test_jbang_integration.py \
-              --jbang-graalpy-version=25.0.2"
+              --jbang-graalpy-version=${{ env.graalpy_version }}"
+
+      - name: Upload JBang native-image logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jbang-native-image-log
+          path: |
+            /tmp/jbang*native-image
