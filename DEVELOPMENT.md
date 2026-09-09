@@ -122,6 +122,25 @@ JAVA_HOME=/path/to/graalvm python3 integration-tests/run.py -v --no-clean \
     -k test_gradle_generated_app test_gradle_plugin
 ```
 
+One may need to update URLs if executed behind corporate proxy:
+```
+./mvnw -N -Pmxurlrewrite exec:java@patch-gradle-props
+```
+Changes created by this command should not be committed.
+
 ## Changing version
 
-- Update the top-level `pom.xml` property `revision`; everything else should be derived from it.
+- Update the top-level `pom.xml` property `revision`.
+- Update the `graalpy-sandboxed-mcp/pom.xml` property `revision` to the same
+  value. That module uses `micronaut-parent` directly, so it cannot inherit the
+  top-level parent POM and must repeat the project version metadata.
+- For building the project locally: make sure the Maven bundle symlink matches the new revision:
+
+```sh
+./mvnw help:evaluate -Dexpression=revision -q -DforceStdout
+./mvnw -pl graalpy-sandboxed-mcp help:evaluate -Dexpression=revision -q -DforceStdout
+ls -l .mvn/maven-bundle
+```
+
+The `.mvn/maven-bundle` link should point to `.mvn/maven-bundle-{revision}`.
+If it does not, rerun `./scripts/maven-bundle-setup.sh`.

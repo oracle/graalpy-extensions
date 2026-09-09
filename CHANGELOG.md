@@ -37,6 +37,10 @@ add `org.graalvm.python:python-bouncycastle-support`.
 
 ## 25.2
 
+* Fix JVM proxy properties parsing. Issue reported at https://github.com/graalvm/graal-languages-demos/issues/75.
+
+## 25.1
+
 * `VirtualFileSystem` can now be configured with a custom `ClassLoader` for
 resource lookup. The existing `resourceLoadingClass(Class<?>)` builder method
 now delegates to the class loader of the supplied class.

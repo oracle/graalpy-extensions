@@ -185,6 +185,7 @@ public final class VFSUtils {
 	public static final String GRAALPY_WINDOWS_LAUNCHER_NAME = "graalpy.exe";
 	public static final String GRAALPY_MACOS_LAUNCHER_NAME = "graalpy";
 	public static final String GRAALPY_LINUX_LAUNCHER_NAME = "graalpy.sh";
+	private static final String GRAALPY_WINDOWS_STDLIB_VENV_LAUNCHER_NAME = "venvlauncher.exe";
 	public static final String LAUNCHER_NAME = IS_WINDOWS
 			? GRAALPY_WINDOWS_LAUNCHER_NAME
 			: IS_MAC ? GRAALPY_MACOS_LAUNCHER_NAME : GRAALPY_LINUX_LAUNCHER_NAME;
@@ -1042,7 +1043,9 @@ public final class VFSUtils {
 			var launcherFolder = IS_WINDOWS
 					? GRAALPY_WIN_STDLIB_VENV_LAUNCHER_DIR_NAME
 					: GRAALPY_MACOS_STDLIB_VENV_LAUNCHER_DIR_NAME;
-			var launcherName = IS_WINDOWS ? GRAALPY_WINDOWS_LAUNCHER_NAME : GRAALPY_MACOS_LAUNCHER_NAME;
+			var launcherTemplateName = IS_WINDOWS
+					? GRAALPY_WINDOWS_STDLIB_VENV_LAUNCHER_NAME
+					: GRAALPY_MACOS_LAUNCHER_NAME;
 			var script = formatMultiline("""
 					import os, shutil, struct, venv
 					from pathlib import Path
@@ -1059,7 +1062,8 @@ public final class VFSUtils {
 					    if os.name == 'nt':
 					        f.write('\\nbase-executable = ')
 					        f.write(os.path.realpath(tl))
-					""", launcherFolder, launcherName, launcherArgs.launcherPath, javaToolchain.javaExecutable(),
+					""", launcherFolder, launcherTemplateName, launcherArgs.launcherPath,
+					javaToolchain.javaExecutable(),
 					extraJavaOptions, classpath,
 					GRAALPY_MAIN_CLASS);
 			File tmp;
