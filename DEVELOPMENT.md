@@ -144,3 +144,8 @@ ls -l .mvn/maven-bundle
 
 The `.mvn/maven-bundle` link should point to `.mvn/maven-bundle-{revision}`.
 If it does not, rerun `./scripts/maven-bundle-setup.sh`.
+
+## Releasing
+
+- After each GraalPy release, update `graalpy_version` in
+  `.github/workflows/tests-release-jbang.yml` to the latest release.
