@@ -161,7 +161,7 @@ public final class VFSUtils {
 
 	public static final String VFS_ROOT = "org.graalvm.python.vfs";
 	public static final String VFS_VENV = "venv";
-	private static final String VFS_FILESLIST = "fileslist.txt";
+	public static final String VFS_FILESLIST = "fileslist.txt";
 
 	public static final String GRAALPY_GROUP_ID = "org.graalvm.python";
 
