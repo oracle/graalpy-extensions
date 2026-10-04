@@ -44,7 +44,7 @@ import glob
 import shutil
 import sys
 import textwrap
-import urllib
+import xml.sax.saxutils
 
 import util
 from util import TemporaryTestDirectory, Logger, long_running_test, native_image_all
@@ -115,45 +115,72 @@ class MavenPluginTest(util.BuildToolTestBase):
         super().setUpClass()
         cls.archetypeGroupId = "org.graalvm.python"
         cls.archetypeArtifactId = "graalpy-archetype-polyglot-app"
-        cls.pluginArtifactId = "graalpy-maven-plugin"
-        cls.extraRemoteRepo = None
 
-        found = False
-        log = []
-        for custom_repo in util.extra_maven_repos:
-            url = urllib.parse.urlparse(custom_repo)
-            if url.scheme != "file":
-                log.append(f"'{custom_repo}' was identified as a remote repo and skipped")
-                if not cls.extraRemoteRepo:
-                    cls.extraRemoteRepo = custom_repo
-                continue
+    @classmethod
+    def _write_archetype_driver_pom(cls, tmpdir):
+        repositories = []
+        plugin_repositories = []
+        for idx, repo in enumerate(util.extra_maven_repos):
+            repo_id = f"extra-maven-repo-{idx}"
+            repo_url = xml.sax.saxutils.escape(repo)
+            repositories.append(textwrap.dedent(f"""\
+                <repository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </repository>"""))
+            plugin_repositories.append(textwrap.dedent(f"""\
+                <pluginRepository>
+                  <id>{repo_id}</id>
+                  <url>{repo_url}</url>
+                  <releases>
+                    <enabled>true</enabled>
+                  </releases>
+                  <snapshots>
+                    <enabled>true</enabled>
+                  </snapshots>
+                </pluginRepository>"""))
 
-            base_path = urllib.parse.unquote(url.path)
-
-            if not cls._install_artifact_from_local_repo(base_path, custom_repo, cls.archetypeArtifactId, log):
-                continue
-            if not cls._install_artifact_from_local_repo(base_path, custom_repo, cls.pluginArtifactId, log):
-                continue
-
-            found = True
-            break
-
-        if util.extra_maven_repos and not found and not cls.extraRemoteRepo:
-            print("WARNING: extra Maven repos passed, but could not find GraalPy Maven archetype "
-                  "in any of the local repos and there is no extra remote repo. This is OK only if "
-                  "GraalPy Maven archetype of the required version is available at Mavencentral, "
-                  "otherwise the tests will fail to generate the example application. Searched these repositories: \n"
-                  '\n'.join(['    ' + x for x in log]))
+        repositories_xml = textwrap.indent("\n".join(repositories), "    ")
+        plugin_repositories_xml = textwrap.indent("\n".join(plugin_repositories), "    ")
+        pom = os.path.join(str(tmpdir), "graalpy-archetype-driver-pom.xml")
+        lines = [
+            '<project xmlns="http://maven.apache.org/POM/4.0.0"',
+            '         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">',
+            "  <modelVersion>4.0.0</modelVersion>",
+            "  <groupId>archetype.it</groupId>",
+            "  <artifactId>graalpy-archetype-driver</artifactId>",
+            "  <version>1.0-SNAPSHOT</version>",
+        ]
+        if repositories:
+            lines += [
+                "  <repositories>",
+                repositories_xml,
+                "  </repositories>",
+                "  <pluginRepositories>",
+                plugin_repositories_xml,
+                "  </pluginRepositories>",
+            ]
+        lines.append("</project>")
+        with open(pom, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        return pom
 
     def generate_app(self, tmpdir, target_dir, target_name, pom_template=None, group_id="archetype.it", package="it.pkg", log=Logger()):
-        extra_repo = []
-        if MavenPluginTest.extraRemoteRepo:
-            # assuming the first repo has the archetype
-            extra_repo = [f'-DarchetypeRepository={MavenPluginTest.extraRemoteRepo}']
-
+        driver_pom = self._write_archetype_driver_pom(tmpdir)
         cmd = util.GLOBAL_MVN_CMD + [
-            "archetype:generate",
+            "-U",
+            "-f",
+            driver_pom,
+            "org.apache.maven.plugins:maven-archetype-plugin:3.4.1:generate",
             "-B",
+            "-DarchetypeCatalog=internal",
             f"-DarchetypeGroupId={self.archetypeGroupId}",
             f"-DarchetypeArtifactId={self.archetypeArtifactId}",
             f"-DarchetypeVersion={self.graalvmVersion}",
@@ -161,7 +188,8 @@ class MavenPluginTest(util.BuildToolTestBase):
             f"-DgroupId={group_id}",
             f"-Dpackage={package}",
             "-Dversion=0.1-SNAPSHOT",
-        ] + extra_repo
+            f"-DoutputDirectory={tmpdir}",
+        ]
         out, return_code = util.run_cmd(cmd, self.env, cwd=str(tmpdir), logger=log)
         util.check_ouput("BUILD SUCCESS", out, logger=log)
 
@@ -334,8 +362,11 @@ class MavenPluginTest(util.BuildToolTestBase):
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock"))
             os.remove(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # freeze with correct version
+            # freeze with correct version. urllib3 2.7 requires
+            # ssl.VERIFY_X509_PARTIAL_CHAIN, which is not available with
+            # GraalPy's JSSE-backed ssl module.
             util.replace_in_file(os.path.join(target_dir, "pom.xml"), "requests", "requests==2.32.3")
+            util.replace_in_file(os.path.join(target_dir, "pom.xml"), "</packages>", "<package>urllib3&lt;2.7</package>\n</packages>")
             cmd = mvnw_cmd + ["org.graalvm.python:graalpy-maven-plugin:lock-packages", "-DgraalPyLockFile=test-graalpy.lock"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir)
             util.check_ouput("BUILD SUCCESS", out, contains=True)
@@ -406,8 +437,8 @@ class MavenPluginTest(util.BuildToolTestBase):
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
                  f'VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/archetype.it/{target_name}").build();', "")
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "it", "pkg", "GraalPy.java"),
-                "GraalPyResources.contextBuilder(vfs).build()",
-                "GraalPyResources.contextBuilder(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\")).build()")
+                "GraalPyResources.forVirtualFileSystem(vfs)",
+                "GraalPyResources.forExternalDirectory(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
 
             # patch pom.xml
             util.replace_in_file(os.path.join(target_dir, "pom.xml"),
@@ -806,8 +837,14 @@ class MavenPluginTest(util.BuildToolTestBase):
                               org.graalvm.python.embedding.VirtualFileSystem.newBuilder()
                                     .resourceDirectory("GRAALPY-VFS/org.graalvm.python.tests/app1")
                                     .build();
-                            try (Context context1 = GraalPyResources.createContext();
-                                 Context context2 = GraalPyResources.contextBuilder(vfs).build()) {
+                            try (Context context1 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                                   .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                                   .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+                                   .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build();
+                                 Context context2 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                                   .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                                   .apply(GraalPyResources.forVirtualFileSystem(vfs))
+                                   .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
                                 int index = 0;
                                 for (Context ctx: new Context[] {context1, context2}) {
                                     ctx.eval("python", "import hello");
@@ -1017,7 +1054,7 @@ class MavenPluginTest(util.BuildToolTestBase):
                                     .build();
                             String path1 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app1.txt").toString();
                             String path2 = java.nio.file.Paths.get(vfs.getMountPoint(), "src", "app2.txt").toString();
-                            try (Context context = GraalPyResources.contextBuilder(vfs).build()) {
+                            try (Context context = Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)).build()) {
                                 context.eval("python", "def read_vfs_file(path): import os; print(open(path, 'r').read().strip())");
                                 var readVfsFile = context.getBindings("python").getMember("read_vfs_file");
                                 readVfsFile.execute(path1);

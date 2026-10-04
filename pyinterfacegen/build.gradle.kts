@@ -1,22 +1,81 @@
 import org.graalvm.python.pyinterfacegen.J2PyiTask
+import org.graalvm.python.pyinterfacegen.TypeCheckPyiTask
 import org.gradle.internal.os.OperatingSystem
+import org.gradle.api.publish.maven.MavenPublication
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
+import org.graalvm.python.pyinterfacegen.build.readRootPomMetadata
 import java.net.URI
 import java.util.*
 
 plugins {
-    kotlin("jvm") version "2.2.10"
+    kotlin("jvm") version "2.4.10"
     java
-    id("org.graalvm.python.pyinterfacegen") version "1.3-SNAPSHOT"
+    // Use the locally included plugin (see settings.gradle.kts pluginManagement). Version is supplied there.
+    id("org.graalvm.python.pyinterfacegen")
+    id("j2pyi.convention")  // Local build logic.
 }
 
+// Read metadata and version from the repository root pom.xml
+val rootPomMeta = readRootPomMetadata(rootProject)
+
 allprojects {
-    group = "com.oracle.graal.python"
-    version = "1.3-SNAPSHOT"
+    group = "org.graalvm.python"
+    version = rootPomMeta.version
+}
+
+// When developing locally, always use the local doclet project for any requests to the published module,
+// regardless of version requested by the plugin.
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.dependencySubstitution {
+            substitute(module("org.graalvm.python.pyinterfacegen:j2pyi-doclet"))
+                .using(project(":doclet"))
+        }
+    }
+}
+
+// For projects that publish, project the POM data from the root pom.xml into their publications.
+subprojects {
+    plugins.withId("maven-publish") {
+        extensions.configure<PublishingExtension> {
+            publications.withType<MavenPublication>().configureEach {
+                pom {
+                    url.set(rootPomMeta.url)
+                    version = this@subprojects.version.toString()
+                    licenses {
+                        rootPomMeta.licenses.forEach { lic ->
+                            license {
+                                name.set(lic.name)
+                                url.set(lic.url)
+                            }
+                        }
+                    }
+                    developers {
+                        rootPomMeta.developers.forEach { d ->
+                            developer {
+                                name.set(d.name)
+                                email.set(d.email)
+                                d.organization?.let { organization.set(it) }
+                                d.organizationUrl?.let { organizationUrl.set(it) }
+                            }
+                        }
+                    }
+                    scm {
+                        url.set(rootPomMeta.scm.url)
+                        connection.set(rootPomMeta.scm.connection)
+                        developerConnection.set(rootPomMeta.scm.developerConnection)
+                        rootPomMeta.scm.tag?.let { tag.set(it) }
+                    }
+                }
+            }
+        }
+    }
 }
 
 repositories {
-    mavenCentral()
     mavenLocal()
+    mavenBundleRepository(rootDir)
+    mavenCentral()
 }
 
 dependencies {
@@ -26,9 +85,15 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+}
+
 kotlin {
-    // Use JDK 21 present on this host; adjust as needed in other environments
-    jvmToolchain(21)
+    // Use JDK 25 present on this host; adjust as needed in other environments
+    jvmToolchain(25)
 }
 
 // ------- GraalPy Integration Test Support -------
@@ -99,15 +164,39 @@ val graalPyBindingsMain by tasks.register<J2PyiTask>("graalPyBindingsMain") {
     setDestinationDir(layout.buildDirectory.dir("pymodule/${project.name}").get().asFile)
 }
 
-// Execute a simple GraalPy run that imports the generated module and calls a method
+// Optional verification: run a Python type checker over the generated module.
+// Not wired into the standard 'check' lifecycle; invoke explicitly.
+val typecheckGraalPyStubs by tasks.registering(TypeCheckPyiTask::class) {
+    description = "Run mypy (or pyright) over the generated .pyi module to detect internal inconsistencies"
+    moduleDir.set(layout.buildDirectory.dir("pymodule/${project.name}"))
+    // Ensure stubs are generated before checking them
+    dependsOn(graalPyBindingsMain)
+    // Default checker is mypy; customize via:
+    //   typeChecker.set("pyright")
+    //   extraArgs.set(listOf("--strict"))
+}
+
+val graalPyIntegrationScript = layout.projectDirectory.file("src/test/python/graalpy_integration_test.py")
+
+// Execute generated bindings with a real GraalPy JVM runtime.
 val graalPyIntegrationTest by tasks.registering {
     group = "verification"
-    description = "Generate stubs, compile Java, and verify import/call under GraalPy"
+    description = "Generate bindings, then verify imports, constructors, and calls under GraalPy"
     dependsOn("classes", graalPyBindingsMain, extractGraalPy)
+    inputs.file(graalPyIntegrationScript)
+    inputs.dir(layout.buildDirectory.dir("pymodule/${project.name}"))
+    inputs.dir(layout.buildDirectory.dir("classes/java/main"))
 
     doLast {
         // Locate graalpy executable under the extracted directory
-        val home = extractDir.listFiles()?.firstOrNull { it.isDirectory } ?: error("No GraalPy directory found under $extractDir")
+        val expectedDist = resolveGraalPyDist(graalPyVersion)
+        val expectedHomeName = expectedDist.archiveName
+            .removeSuffix(".tar.gz")
+            .removeSuffix(".zip")
+        val home = extractDir.resolve(expectedHomeName)
+        require(home.isDirectory) {
+            "Expected GraalPy directory not found at $home. Available: ${extractDir.listFiles()?.map { it.name }}"
+        }
         val exe = if (OperatingSystem.current().isWindows) home.resolve("bin/graalpy.exe") else home.resolve("bin/graalpy")
         require(exe.exists()) { "graalpy executable not found at: $exe" }
 
@@ -115,31 +204,11 @@ val graalPyIntegrationTest by tasks.registering {
         val moduleRoot = layout.buildDirectory.dir("pymodule").get().asFile.resolve(project.name)
         require(moduleRoot.exists()) { "Generated Python module not found at: $moduleRoot. Run graalPyBindingsMain first." }
 
-        // Write a tiny Python script for the verification
-        val scriptDir = graalPyDir.resolve("integration").apply { mkdirs() }
-        val script = scriptDir.resolve("verify_import.py")
-        script.writeText(
-            """
-            |import os, sys
-            |# Make the generated module importable
-            |sys.path.insert(0, os.path.abspath(${"\"" + moduleRoot.absolutePath.replace("\\", "\\\\") + "\""}))
-            |from com.example import Hello
-            |h = Hello()
-            |s = h.greet("GraalPy")
-            |# Print a known line so Gradle can assert success heuristically
-            |print("GREETING:", s)
-            |# Basic sanity assertion
-            |assert "Hello, GraalPy!" == str(s)
-            |print("OK: import and call worked")
-            |""".trimMargin()
-        )
-
         // Construct environment for JVM interop: ensure our compiled classes are on the classpath
         val classpath = listOf(
             layout.buildDirectory.dir("classes/java/main").get().asFile.absolutePath,
             layout.buildDirectory.dir("classes/kotlin/main").get().asFile.absolutePath,
-        ).filter { File(it).exists() }
-             .joinToString(File.pathSeparator)
+        ).filter { File(it).exists() }.joinToString(File.pathSeparator)
 
         val cmd = mutableListOf(exe.absolutePath)
         // Enable JVM mode for Java interop and pass the host JVM classpath
@@ -147,17 +216,28 @@ val graalPyIntegrationTest by tasks.registering {
         if (classpath.isNotBlank()) {
             cmd += listOf("--vm.classpath=$classpath")
         }
-        cmd += script.absolutePath
+        cmd += graalPyIntegrationScript.asFile.absolutePath
         val pb = ProcessBuilder(cmd)
             .directory(project.projectDir)
             .redirectErrorStream(true)
-        // Also set CLASSPATH for completeness; some tooling honors it.
+        // Also set CLASSPATH and PYTHONPATH for the runtime package.
         if (classpath.isNotBlank()) pb.environment()["CLASSPATH"] = classpath
+        val existingPythonPath = pb.environment()["PYTHONPATH"]
+        pb.environment()["PYTHONPATH"] = listOfNotNull(moduleRoot.absolutePath, existingPythonPath)
+            .joinToString(File.pathSeparator)
         val proc = pb.start()
         val out = proc.inputStream.readAllBytes().toString(Charsets.UTF_8)
         val code = proc.waitFor()
         logger.lifecycle(out)
         if (code != 0) error("GraalPy integration run failed ($code). See output above.")
-        if (!out.contains("OK: import and call worked")) error("GraalPy run did not report success. Output:\n$out")
     }
+}
+
+// Unit tests inspect generated files.
+tasks.test {
+    dependsOn(graalPyBindingsMain)
+}
+
+tasks.check {
+    dependsOn(graalPyIntegrationTest, typecheckGraalPyStubs, project(":apache-commons-sample").tasks.named("typecheckApacheCommonsStubs"))
 }

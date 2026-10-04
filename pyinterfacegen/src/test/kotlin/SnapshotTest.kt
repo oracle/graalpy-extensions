@@ -11,45 +11,49 @@ private fun normalize(text: String): String =
 class SnapshotTest {
     @BeforeTest
     fun prepare() {
-        Generation.ensureMainGenerated()
+        ensureMainGenerated()
     }
 
     @Test
     fun boxSnapshot() {
-        val actual = normalize(Generation.mainModuleBase().resolve("Box.pyi").readText())
+        val actual = normalize(mainModuleBase().resolve("Box.pyi").readText())
         val expected = normalize(object {}.javaClass.getResource("/snapshots/Box.pyi")!!.readText())
         assertEquals(expected, actual, "Box.pyi should match snapshot")
     }
 
     @Test
     fun boundedSnapshot() {
-        val actual = normalize(Generation.mainModuleBase().resolve("Bounded.pyi").readText())
+        val actual = normalize(mainModuleBase().resolve("Bounded.pyi").readText())
         val expected = normalize(object {}.javaClass.getResource("/snapshots/Bounded.pyi")!!.readText())
         assertEquals(expected, actual, "Bounded.pyi should match snapshot")
     }
 
     @Test
     fun useSiteSnapshot() {
-        val actual = normalize(Generation.mainModuleBase().resolve("UseSite.pyi").readText())
+        val actual = normalize(mainModuleBase().resolve("UseSite.pyi").readText())
         val expected = normalize(object {}.javaClass.getResource("/snapshots/UseSite.pyi")!!.readText())
         assertEquals(expected, actual, "UseSite.pyi should match snapshot")
     }
 
     @Test
     fun helloSnapshot() {
-        val actual = normalize(Generation.mainModuleBase().resolve("Hello.pyi").readText())
+        val actual = normalize(mainModuleBase().resolve("Hello.pyi").readText())
         val expected = normalize(object {}.javaClass.getResource("/snapshots/Hello.pyi")!!.readText())
         assertEquals(expected, actual, "Hello.pyi should match snapshot")
     }
 
     @Test
     fun packageInitExports() {
-        val text = normalize(Generation.mainModuleBase().resolve("__init__.pyi").readText())
+        val text = normalize(mainModuleBase().resolve("__init__.pyi").readText())
         // Expect stable re-exports for the public API of the package
         val expectedLines = listOf(
             "from .Bounded import Bounded as Bounded",
             "from .Box import Box as Box",
+            "from .EnthusiasticHello import EnthusiasticHello as EnthusiasticHello",
             "from .Hello import Hello as Hello",
+            "from .Nameable import Nameable as Nameable",
+            "from .NamedHello import NamedHello as NamedHello",
+            "from .StringBox import StringBox as StringBox",
             "from .UseSite import UseSite as UseSite",
         )
         for (line in expectedLines) {

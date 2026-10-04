@@ -47,9 +47,18 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 MAVEN_VERSION = "3.9.8"
-GLOBAL_MVN_CMD = [shutil.which('mvn'), "--batch-mode"]
 
-GRADLE_VERSION = "8.13"
+
+def _maven_command():
+    if sys.platform == "win32":
+        mvn = shutil.which("mvn.cmd")
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", mvn, "--batch-mode"]
+    return [shutil.which("mvn"), "--batch-mode"]
+
+
+GLOBAL_MVN_CMD = _maven_command()
+
+GRADLE_VERSION = "9.7"
 
 DEFAULT_VFS_PREFIX = "org.graalvm.python.vfs"
 
@@ -215,12 +224,12 @@ def get_executable(file):
     return None
 
 
-def replace_in_file(file, str, replace_str):
+def replace_in_file(file, str, replace_str, count=-1):
     with open(file, "r") as f:
         contents = f.read()
     assert str in contents, f"cannot find '{str}' in file '{file}' with contents:\n {contents}\n------"
     with open(file, "w") as f:
-        f.write(contents.replace(str, replace_str))
+        f.write(contents.replace(str, replace_str, count))
 
 
 def replace_main_body(filename, new_main_body):

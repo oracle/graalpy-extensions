@@ -1,13 +1,26 @@
+import org.graalvm.python.pyinterfacegen.build.mavenBundleRepository
+
 plugins {
-    kotlin("jvm") version "2.2.10"
+    kotlin("jvm") version "2.4.10"
+    java
     `maven-publish`
+    id("j2pyi.convention")
 }
 
 repositories {
+    mavenBundleRepository(rootDir)
     mavenCentral()
 }
 
-group = "org.graalvm.python.pyinterfacegen"
+group = "org.graalvm.python"
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
 
 dependencies {
     // Kotlin stdlib is brought in by the Kotlin plugin.
@@ -18,7 +31,7 @@ tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 publishing {
@@ -27,9 +40,23 @@ publishing {
             from(components["java"])
             // Publish a clearer artifact name
             artifactId = "j2pyi-doclet"
+
+            pom {
+                name.set("J2PyI doclet")
+                description.set("A JavaDoc doclet that emits Python .pyi stub modules for use with GraalPy")
+            }
         }
     }
+    // Allow publishing to a specific local repository via -PlocalRepoUrl=...
     repositories {
-        mavenLocal()
+        val localRepoUrl = (project.findProperty("localRepoUrl") as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        if (localRepoUrl != null) {
+            maven {
+                name = "local"
+                url = uri(localRepoUrl)
+            }
+        } else {
+            mavenLocal()
+        }
     }
 }

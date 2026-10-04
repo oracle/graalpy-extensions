@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'
 
 env:
   graalvm_distribution: 'graalvm'
@@ -21,13 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
       - name: Set Maven Bundle URL
         id: set_url
         run: |
@@ -41,13 +36,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -73,17 +61,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set GRADLE_JAVA_HOME
-        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
-        shell: bash
-
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -91,13 +68,11 @@ jobs:
           java-version: ${{ env.graalvm_version }}
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Build project (skip tests)
-        run: >
-          mvn --batch-mode -V -DskipTests -s settings.xml
-          -Dgradle.java.home="$GRADLE_JAVA_HOME" verify
+        run: mvn --batch-mode -DskipTests package verify
         shell: bash
 
       - name: Upload build artifacts
@@ -146,17 +121,6 @@ jobs:
           name: build-artifacts-${{ runner.os }}
           path: .
 
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
-      - name: Set GRADLE_JAVA_HOME
-        run: echo "GRADLE_JAVA_HOME=${{ steps.java21.outputs.path }}" >> $GITHUB_ENV
-        shell: bash
-
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -164,11 +128,11 @@ jobs:
           java-version: ${{ env.graalvm_version }}
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
+        run: ./mvnw --batch-mode -DskipTests install
         shell: bash
 
       - name: Install JBang (Linux/macOS)
@@ -244,13 +208,6 @@ jobs:
           name: build-artifacts-${{ runner.os }}
           path: .
 
-      - name: Setup Java 21
-        id: java21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-
       - name: Set up GraalVM
         uses: graalvm/setup-graalvm@v1
         with:
@@ -262,15 +219,15 @@ jobs:
         shell: bash
 
       - name: Setup Polyglot Maven bundle
-        run: ./scripts/maven-bundle-setup.sh "${{ github.workspace }}/maven-resource-bundle" "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
         shell: bash
 
       - name: Run Maven install
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME -DskipTests install
+        run: mvn --batch-mode -DskipTests install
         shell: bash
 
       - name: Run Maven tests
-        run: mvn --batch-mode -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME ${{ matrix.maven_args }}
+        run: mvn --batch-mode ${{ matrix.maven_args }}
         shell: bash
 
   pyinterfacegen:
@@ -286,11 +243,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
         with:
-          distribution: temurin
-          java-version: 21
+          distribution: 'graalvm'
+          java-version: ${{ env.graalvm_version }}
 
       - name: Run Gradle tests (Linux/macOS)
         if: runner.os != 'Windows'
@@ -303,3 +260,113 @@ jobs:
         working-directory: pyinterfacegen
         run: .\\gradlew.bat --no-daemon --info check
         shell: pwsh
+
+  build_graalpy_sandboxed_mcp:
+    runs-on: ${{ matrix.os }}
+    needs: [pre_commit, maven_bundle_url]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: graalpy-sandboxed-mcp-linux-amd64
+            artifact_suffix: ""
+          # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
+          # - os: ubuntu-24.04-arm
+          #   artifact_name: graalpy-sandboxed-mcp-linux-aarch64
+          #   artifact_suffix: ""
+          # OOMs when building graalpy
+          # - os: macos-latest
+          #   artifact_name: graalpy-sandboxed-mcp-macosx-aarch64
+          #   artifact_suffix: ""
+          # - os: windows-latest
+          #   artifact_name: graalpy-sandboxed-mcp-windows-amd64
+          #   artifact_suffix: .exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: latest-ea
+
+      - name: Setup Polyglot Maven bundle
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        shell: bash
+
+      - name: Build graalpy-sandboxed-mcp native image and run integration tests
+        run: >-
+          mvn --batch-mode
+          -pl graalpy-sandboxed-mcp -am
+          -Dpackaging=native-image
+          verify
+        shell: bash
+
+      - name: Add the license file
+        run: cp common/GraalVM_GFTC_License.txt graalpy-sandboxed-mcp/target/
+        shell: bash
+
+      - name: Upload graalpy-sandboxed-mcp binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            graalpy-sandboxed-mcp/target/graalpy-sandboxed-mcp${{ matrix.artifact_suffix }}
+            graalpy-sandboxed-mcp/target/GraalVM_GFTC_License.txt
+          if-no-files-found: error
+
+  build_graalpy_sandboxed_cli:
+    runs-on: ${{ matrix.os }}
+    needs: [pre_commit, maven_bundle_url]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: graalpy-sandboxed-linux-amd64
+            artifact_suffix: ""
+          # Other platforms cannot be built against the bundle because the bundle only contains the isolate for linux-amd64 (it does contain artifacts for other platforms, but they are incomplete)
+          # - os: ubuntu-24.04-arm
+          #   artifact_name: graalpy-sandboxed-linux-aarch64
+          #   artifact_suffix: ""
+          # OOMs when building graalpy
+          # - os: macos-latest
+          #   artifact_name: graalpy-sandboxed-macosx-aarch64
+          #   artifact_suffix: ""
+          # - os: windows-latest
+          #   artifact_name: graalpy-sandboxed-windows-amd64
+          #   artifact_suffix: .exe
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: latest-ea
+
+      - name: Setup Polyglot Maven bundle
+        run: ./scripts/maven-bundle-setup.sh "${{ needs.maven_bundle_url.outputs.maven_bundle_url }}"
+        shell: bash
+
+      - name: Build graalpy-sandboxed-cli native image and run integration tests
+        run: >-
+          mvn --batch-mode
+          -pl graalpy-sandboxed-cli -am
+          -Dpackaging=native-image
+          verify
+        shell: bash
+
+      - name: Add the license file
+        run: cp common/GraalVM_GFTC_License.txt graalpy-sandboxed-cli/target/
+        shell: bash
+
+      - name: Upload graalpy-sandboxed-cli binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            graalpy-sandboxed-cli/target/graalpy-sandboxed${{ matrix.artifact_suffix }}
+            graalpy-sandboxed-cli/target/GraalVM_GFTC_License.txt
+          if-no-files-found: error

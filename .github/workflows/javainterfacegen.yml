@@ -22,13 +22,14 @@ jobs:
         uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: '25-ea'
+          java-version: latest-ea
 
       - name: Setup Polyglot Maven bundle
-        uses: ./.github/actions/setup-polyglot-mvn-repo
+        run: ./scripts/maven-bundle-setup.sh
+        shell: bash
 
       - name: Build javainterfacegen tool
-        run: mvn --batch-mode -s settings.xml -DskipTests -pl javainterfacegen -am -Pnative package
+        run: mvn --batch-mode -DskipTests -pl javainterfacegen -am -Pnative package
 
       - name: Detect architecture
         run: echo "ARCH=$(uname -m)" >> $GITHUB_ENV

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -54,7 +54,10 @@ import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuildingResult;
+import org.apache.maven.toolchain.Toolchain;
+import org.apache.maven.toolchain.ToolchainManager;
 import org.eclipse.aether.graph.Dependency;
+import org.graalvm.python.embedding.tools.JavaToolchain;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
 import java.io.File;
@@ -85,8 +88,9 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	private static final String PYTHON_ARTIFACT_ID = "python";
 	private static final String GRAALPY_MAVEN_PLUGIN_ARTIFACT_ID = "graalpy-maven-plugin";
 
-	public AbstractGraalPyMojo(ProjectBuilder projectBuilder) {
+	public AbstractGraalPyMojo(ProjectBuilder projectBuilder, ToolchainManager toolchainManager) {
 		this.projectBuilder = projectBuilder;
+		this.toolchainManager = toolchainManager;
 	}
 
 	@Parameter(defaultValue = "${project}", required = true, readonly = true)
@@ -125,6 +129,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	private MavenSession session;
 
 	private final ProjectBuilder projectBuilder;
+	private final ToolchainManager toolchainManager;
 
 	private Set<String> launcherClassPath;
 
@@ -258,7 +263,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 			if (externalDirectory != null && Files.exists(srcPath)) {
 				getLog().warn(String.format(
 						"Found Java resources directory %s, however, the GraalPy Maven plugin is configured to use <externalDirectory> instead of Java resources. "
-								+ "The files from %s will not be available in Contexts created using GraalPyResources#contextBuilder(Path). Move them to '%s' if "
+								+ "The files from %s will not be available in Contexts configured using Context.Builder#apply(GraalPyResources.forExternalDirectory(Path)). Move them to '%s' if "
 								+ "you want to make them available when using external directory, or use Java resources by removing <externalDirectory> option.",
 						srcPath, srcPath, Path.of(externalDirectory, "src")));
 			}
@@ -284,7 +289,7 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 	}
 
 	protected Launcher createLauncher() {
-		return new Launcher(getLauncherPath()) {
+		return new Launcher(getLauncherPath(), getJavaToolchain()) {
 			public Set<String> computeClassPath() throws IOException {
 				return calculateLauncherClasspath(project);
 			}
@@ -302,6 +307,20 @@ public abstract class AbstractGraalPyMojo extends AbstractMojo {
 
 	private Path getLauncherPath() {
 		return Paths.get(project.getBuild().getDirectory(), LAUNCHER_NAME);
+	}
+
+	private JavaToolchain getJavaToolchain() {
+		Toolchain toolchain = toolchainManager == null
+				? null
+				: toolchainManager.getToolchainFromBuildContext("jdk", session);
+		if (toolchain == null) {
+			return JavaToolchain.fromSystemJava();
+		}
+		String java = toolchain.findTool("java");
+		Path javaExecutable = java == null || java.isBlank() ? null : Path.of(java);
+		// Maven's public Toolchain API exposes the selected executable, but not the
+		// matching JDK version. JavaToolchain will infer it from the selected JDK.
+		return JavaToolchain.fromJavaExecutable(javaExecutable);
 	}
 
 	protected static String getGraalPyVersion(MavenProject project) throws IOException {

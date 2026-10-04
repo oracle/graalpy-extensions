@@ -40,54 +40,47 @@
  */
 package org.graalvm.python.embedding.tools.exec;
 
+import org.graalvm.python.embedding.tools.JavaToolchain;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.net.InetSocketAddress;
+import java.util.Map;
 
-public class GraalPyRunner {
+public final class GraalPyRunner {
 
 	private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
 	private static final String BIN_DIR = IS_WINDOWS ? "Scripts" : "bin";
 	private static final String EXE_SUFFIX = IS_WINDOWS ? ".exe" : "";
 
-	public static String[] getExtraJavaOptions() {
-		String javaVersion = System.getProperty("java.version");
-		try {
-			if (Integer.parseInt(javaVersion) >= 24) {
-				return new String[]{"--sun-misc-unsafe-memory-access=allow"};
-			}
-		} catch (NumberFormatException ex) {
-			// covers also javaVersion being 'null'
+	private GraalPyRunner() {
+	}
+
+	public static String[] getExtraJavaOptions(JavaToolchain javaToolchain) {
+		if (javaToolchain.isAtLeast(24)) {
+			return new String[]{"--sun-misc-unsafe-memory-access=allow"};
 		}
 		return new String[0];
 	}
 
-	public static void run(Set<String> classpath, BuildToolLog log, String... args)
-			throws IOException, InterruptedException {
-		run(String.join(File.pathSeparator, classpath), log, args);
-	}
-
-	public static void run(String classpath, BuildToolLog log, String... args)
+	public static void run(String classpath, BuildToolLog log, JavaToolchain javaToolchain, String... args)
 			throws IOException, InterruptedException {
 		String workdir = System.getProperty("exec.workingdir");
-		Path java = Paths.get(System.getProperty("java.home"), "bin", "java");
 		List<String> cmd = new ArrayList<>();
-		cmd.add(java.toString());
+		cmd.add(javaToolchain.javaExecutable().toString());
 		cmd.add("--enable-native-access=ALL-UNNAMED");
-		cmd.addAll(Arrays.asList(getExtraJavaOptions()));
+		cmd.addAll(Arrays.asList(getExtraJavaOptions(javaToolchain)));
 		cmd.add("-classpath");
 		cmd.add(classpath);
 		cmd.add("com.oracle.graal.python.shell.GraalPythonMain");
@@ -138,27 +131,41 @@ public class GraalPyRunner {
 	}
 
 	private static void addProxy(ArrayList<String> args) {
-		if (System.getenv("http_proxy") == null && System.getenv("https_proxy") == null) {
-			ProxySelector proxySelector = ProxySelector.getDefault();
+		addProxy(args, System.getenv(), ProxySelector.getDefault());
+	}
+
+	static void addProxy(ArrayList<String> args, Map<String, String> env, ProxySelector proxySelector) {
+		if (env.keySet().stream().noneMatch(k -> k.equalsIgnoreCase("http_proxy") || k.equalsIgnoreCase("https_proxy"))
+				&& proxySelector != null) {
 			List<Proxy> proxies = proxySelector.select(URI.create("https://pypi.org"));
 			for (Proxy proxy : proxies) {
 				if (proxy.type() == Proxy.Type.HTTP && proxy.address() instanceof InetSocketAddress addr) {
-					String proxyAddr = "http://" + addr.getHostName() + ":" + addr.getPort();
 					args.add("--proxy");
-					args.add(proxyAddr);
+					args.add(formatProxyAddress(addr));
 					return;
 				}
 			}
 		}
 	}
 
+	static String formatProxyAddress(InetSocketAddress addr) {
+		String host = addr.getHostString();
+		// IPv6 literals in URI authorities must be enclosed in square brackets.
+		if (host.indexOf(':') >= 0 && !host.startsWith("[")) {
+			host = "[" + host + "]";
+		}
+		return "http://" + host + ":" + addr.getPort();
+	}
+
 	private static void runProcess(ProcessBuilder pb, BuildToolLog log) throws IOException, InterruptedException {
 		Process process = pb.start();
+		List<String> processOutput = java.util.Collections.synchronizedList(new ArrayList<>());
 		Thread outputReader = new Thread(() -> {
 			try (InputStream is = process.getInputStream();
 					BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
 				String line;
 				while ((line = reader.readLine()) != null) {
+					processOutput.add("[stdout] " + line);
 					subProcessOut(log, line);
 				}
 			} catch (IOException e) {
@@ -174,6 +181,7 @@ public class GraalPyRunner {
 					new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
 				String line;
 				while ((line = errorBufferedReader.readLine()) != null) {
+					processOutput.add("[stderr] " + line);
 					subProcessErr(log, line);
 				}
 			} catch (IOException e) {
@@ -189,9 +197,12 @@ public class GraalPyRunner {
 		errorReader.join();
 
 		if (process.exitValue() != 0) {
-			throw new RuntimeException(
-					String.format("Running command: '%s' ended with code %d.See the error output above.",
-							String.join(" ", pb.command()), process.exitValue()));
+			String message = String.format("Running command: '%s' ended with code %d.",
+					String.join(" ", pb.command()), process.exitValue());
+			if (!processOutput.isEmpty()) {
+				message += "\nSubprocess output:\n" + String.join("\n", processOutput);
+			}
+			throw new RuntimeException(message);
 		}
 	}
 

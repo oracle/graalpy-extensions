@@ -45,6 +45,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleScriptException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
@@ -53,6 +54,7 @@ import java.io.IOException;
 
 import static org.graalvm.python.embedding.tools.vfs.VFSUtils.VFS_ROOT;
 
+@CacheableTask
 public abstract class MetaInfTask extends DefaultTask {
 
 	private static final String GRAALPY_GRADLE_PLUGIN_ARTIFACT_ID = "org.graalvm.python.gradle.plugin";

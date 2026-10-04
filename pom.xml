@@ -9,7 +9,7 @@
   <properties>
     <!-- NOTE: revision is special and one can change it from cmd line: `mvn -Drevision=... package` -->
     <!-- See https://maven.apache.org/guides/mini/guide-maven-ci-friendly.html -->
-    <revision>25.1.0-SNAPSHOT</revision>
+    <revision>25.3.4.1-SNAPSHOT</revision>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <project.polyglot.version>${revision}</project.polyglot.version>
@@ -24,8 +24,6 @@
     <project.hamcrest.version>3.0</project.hamcrest.version>
     <project.sigtest.version>1.3</project.sigtest.version>
     <integration.tests.args>--help</integration.tests.args>
-    <!-- intentionally empty: the default value, override with a URL the use a local repository -->
-    <local.repo.url></local.repo.url>
   </properties>
 
   <!-- submodules should override the generated URL to this exact value: -->
@@ -59,9 +57,12 @@
     <module>org.graalvm.python.embedding.tools</module>
     <module>org.graalvm.python.jbang</module>
     <module>org.graalvm.python.gradle.plugin</module>
+    <module>graalpy-sandboxed-cli</module>
+    <module>graalpy-sandboxed-mcp</module>
   </modules>
 
   <!-- javainterfacegen module is excluded on Windows -->
+  <!-- it also native access, which is only supported on JDK 25+ -->
   <profiles>
     <profile>
       <id>javainterfacegen-unix</id>
@@ -72,30 +73,33 @@
         <property>
           <name>!skipJavainterfacegen</name>
         </property>
+        <jdk>
+          [25,)
+        </jdk>
       </activation>
       <modules>
         <module>javainterfacegen</module>
       </modules>
     </profile>
     <profile>
-      <id>local-repo-profile</id>
+      <id>default-local-repo-profile</id>
       <activation>
-        <property>
-          <name>local.repo.url</name>
-        </property>
+        <file>
+          <exists>${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</exists>
+        </file>
       </activation>
       <pluginRepositories>
         <pluginRepository>
           <id>local-repo</id>
           <name>local-repo</name>
-          <url>${local.repo.url}</url>
+          <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
         </pluginRepository>
       </pluginRepositories>
       <repositories>
         <repository>
           <id>local-repo</id>
           <name>local-repo</name>
-          <url>${local.repo.url}</url>
+          <url>file://${maven.multiModuleProjectDirectory}/.mvn/maven-bundle</url>
           <releases>
             <enabled>true</enabled>
           </releases>
@@ -275,6 +279,14 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>3.11.2</version>
+          <configuration>
+            <header>
+              <![CDATA[
+                Version: ${project.revision}<br/>
+                Commit: ${git.commit.id.abbrev}
+              ]]>
+            </header>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -392,7 +404,7 @@
               </commandlineArgs>
               <!-- Maven should pull all the dependencies, e.g., GraalPy itself, into local cache before running the integration tests,
                   so that the integration tests can just use local repo even if this Maven script uses some additional repositories
-                  (e.g., via settings.xml) -->
+                  (e.g., via .mvn/maven-bundle) -->
               <includeProjectDependencies>true</includeProjectDependencies>
               <includePluginDependencies>true</includePluginDependencies>
             </configuration>
@@ -436,6 +448,26 @@
             <version>${project.polyglot.version}</version>
           </dependency>
           <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>launcher-common</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.shadowed</groupId>
+            <artifactId>jline</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>maven-downloader</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.graalvm.sdk</groupId>
+            <artifactId>nativeimage</artifactId>
+            <version>${project.polyglot.version}</version>
+          </dependency>
+          <dependency>
             <groupId>org.netbeans.tools</groupId>
             <artifactId>sigtest-maven-plugin</artifactId>
             <version>${project.sigtest.version}</version>
@@ -448,7 +480,9 @@
         <version>2.46.1</version>
         <configuration>
           <java>
-            <eclipse/>
+            <eclipse>
+              <file>${maven.multiModuleProjectDirectory}/configs/eclipse-java-formatter.xml</file>
+            </eclipse>
             <trimTrailingWhitespace/>
             <removeWildcardImports/>
             <!-- We cannot use the licenseHeader, because the spotless Maven plugin does not expose the yearSeparator property -->

@@ -41,9 +41,6 @@
 
 package org.graalvm.python.embedding.tools.exec;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * Build tool verbosity: maven - debug, info, warning, error gradle - debug,
  * info, lifecycle, warning, error
@@ -80,77 +77,4 @@ public interface BuildToolLog {
 	boolean isDebugEnabled();
 
 	boolean isSubprocessOutEnabled();
-
-	final class CollectOutputLog implements BuildToolLog {
-		private final List<String> output = new ArrayList<>();
-		private final BuildToolLog delegate;
-
-		public CollectOutputLog(BuildToolLog delegate) {
-			this.delegate = delegate;
-		}
-
-		public List<String> getOutput() {
-			return output;
-		}
-
-		@Override
-		public boolean isDebugEnabled() {
-			return delegate.isDebugEnabled();
-		}
-
-		@Override
-		public boolean isInfoEnabled() {
-			return delegate.isInfoEnabled();
-		}
-
-		@Override
-		public void info(String s) {
-			delegate.info(s);
-		}
-
-		@Override
-		public void warning(String s) {
-			delegate.warning(s);
-		}
-
-		@Override
-		public void warning(String s, Throwable t) {
-			delegate.warning(s, t);
-		}
-
-		@Override
-		public void error(String s) {
-			delegate.error(s);
-		}
-
-		@Override
-		public void debug(String s) {
-			delegate.debug(s);
-		}
-
-		@Override
-		public boolean isWarningEnabled() {
-			return delegate.isWarningEnabled();
-		}
-
-		@Override
-		public boolean isErrorEnabled() {
-			return delegate.isErrorEnabled();
-		}
-
-		@Override
-		public boolean isSubprocessOutEnabled() {
-			return true;
-		}
-
-		@Override
-		public void subProcessOut(String s) {
-			output.add(s);
-		}
-
-		@Override
-		public void subProcessErr(String s) {
-			delegate.error(s);
-		}
-	}
 }

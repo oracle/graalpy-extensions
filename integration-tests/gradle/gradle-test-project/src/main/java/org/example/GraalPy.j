@@ -41,18 +41,25 @@
 package org.example;
 
 import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.HostAccess;
+import org.graalvm.polyglot.PolyglotAccess;
 import org.graalvm.polyglot.PolyglotException;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.io.IOAccess;
 import java.io.IOException;
 
 import org.graalvm.python.embedding.GraalPyResources;
+import org.graalvm.python.embedding.VirtualFileSystem;
 
 public class GraalPy {
     private static final String PYTHON = "python";
 
     public static void main(String[] args) {
-        try (Context context = GraalPyResources.createContext()) {
+        try (Context context = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+                .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
             Source source;
             try {
                 source = Source.newBuilder(PYTHON, "import hello", "<internal>").internal(true).build();

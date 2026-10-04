@@ -12,17 +12,25 @@ version = project.version
 group = 'org.graalvm.python'
 def polyglotVersion = project.properties.getOrDefault('polyglot.version', version)
 
+def addMavenBundleRepository = { repositoryHandler ->
+    def dir = rootDir
+    while (dir != null) {
+        def bundledRepo = new File(dir, ".mvn/maven-bundle")
+        if (bundledRepo.exists()) {
+            repositoryHandler.maven {
+                name = "mavenBundle"
+                url = bundledRepo.toURI()
+            }
+            return
+        }
+        dir = dir.parentFile
+    }
+}
+
 repositories {
     mavenLocal()
+    addMavenBundleRepository(delegate)
     mavenCentral()
-    if (project.hasProperty('localRepoUrl')) {
-        def path = project.localRepoUrl?.trim()
-        if (path) {
-            maven {
-                url uri(project.localRepoUrl)
-            }
-        }
-    }
 }
 
 gradlePlugin {

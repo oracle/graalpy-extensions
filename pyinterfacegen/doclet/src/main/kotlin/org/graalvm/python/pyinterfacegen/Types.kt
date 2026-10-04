@@ -8,8 +8,16 @@ sealed interface PyType {
     }
 
     // Reference to another declared (top-level) type.
-    data class Ref(val packageName: String, val simpleName: String) : PyType {
-        override fun render(): String = simpleName
+    data class Ref(val packageName: String, val simpleName: String, val args: List<PyType> = emptyList()) : PyType {
+        override fun render(): String =
+            if (args.isEmpty()) simpleName else "$simpleName[${args.joinToString(", ") { it.render() }}]"
+
+        override fun walk(visit: (PyType) -> Unit) {
+            visit(this)
+            for (arg in args) {
+                arg.walk(visit)
+            }
+        }
     }
 
     // Reference to a type variable declared on the containing type.
@@ -43,7 +51,9 @@ sealed interface PyType {
 
     // Python's root object type
     object ObjectT : PyType {
-        override fun render() = "object"
+        // Always qualify as builtins.object to avoid shadowing within class scopes
+        // (e.g., a class attribute named 'object' would otherwise conflict).
+        override fun render() = "builtins.object"
     }
 
     object NumberT : PyType {
@@ -57,7 +67,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -69,7 +81,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            args.forEach { it.walk(visit) }
+            for (arg in args) {
+                arg.walk(visit)
+            }
         }
     }
 
@@ -83,7 +97,9 @@ sealed interface PyType {
 
         override fun walk(visit: (PyType) -> Unit) {
             visit(this)
-            items.forEach { it.walk(visit) }
+            for (item in items) {
+                item.walk(visit)
+            }
         }
     }
 }
@@ -95,6 +111,11 @@ data class TypeIR(
     val kind: Kind,
     val isAbstract: Boolean,
     val typeParams: List<TypeParamIR>,
+    val superTypes: List<PyType>,
+    val superTypeVariances: List<List<Variance>>,
+    val omittedSuperTypeNames: List<String>,
+    // Java members omitted because their inherited Python base provides the authoritative signature.
+    val suppressedMemberNames: List<String>,
     val doc: String?,   // First-sentence Javadoc summary for the type
     val fields: List<FieldIR>,
     val constructors: List<ConstructorIR>,
@@ -104,6 +125,8 @@ data class TypeIR(
 )
 
 enum class Kind { CLASS, INTERFACE, ENUM }
+
+enum class Variance { COVARIANT, CONTRAVARIANT, INVARIANT }
 
 data class TypeParamIR(
     val name: String,
@@ -115,18 +138,23 @@ data class FieldIR(
     val type: PyType
 )
 
-data class ConstructorIR(
-    val params: List<ParamIR>,
+interface WithParamsIR {
+    val params: List<ParamIR>
     val doc: String?
-)
+}
+
+data class ConstructorIR(
+    override val params: List<ParamIR>,
+    override val doc: String?
+) : WithParamsIR
 
 data class MethodIR(
     val name: String,
-    val params: List<ParamIR>,
+    override val params: List<ParamIR>,
     val returnType: PyType,
     val isStatic: Boolean,
-    val doc: String?
-)
+    override val doc: String?
+) : WithParamsIR
 
 data class PropertyIR(
     val name: String,

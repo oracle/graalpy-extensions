@@ -75,7 +75,6 @@ public class MultiContextCExtTest {
 	}
 
 	static final class TestLog extends Handler implements BuildToolLog {
-		final StringBuilder logCharSequence = new StringBuilder();
 		final StringBuilder logThrowable = new StringBuilder();
 		final StringBuilder stderr = new StringBuilder();
 		final StringBuilder stdout = new StringBuilder();

@@ -6,7 +6,6 @@ import java.io.PrintStream
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.util.spi.ToolProvider
-import javax.tools.ToolProvider as JdkToolProvider
 
 /**
  * Test utilities for invoking the javadoc tool with our doclet and preparing sources.
@@ -14,11 +13,17 @@ import javax.tools.ToolProvider as JdkToolProvider
  */
 object DocletTestUtil {
     private fun extractTypeName(src: String): String {
-        val classMatch = Regex("""\bclass\s+([A-Za-z0-9_]+)""").find(src)?.groupValues?.get(1)
+        // Ignore comments: a Javadoc phrase such as "Greeter class summary" is not a declaration.
+        val source = src
+            .replace(Regex("""(?s)/\*.*?\*/"""), "")
+            .replace(Regex("""(?m)//.*$"""), "")
+        val recordMatch = Regex("""\brecord\s+([A-Za-z0-9_]+)""").find(source)?.groupValues?.get(1)
+        if (recordMatch != null) return recordMatch
+        val classMatch = Regex("""\bclass\s+([A-Za-z0-9_]+)""").find(source)?.groupValues?.get(1)
         if (classMatch != null) return classMatch
-        val ifaceMatch = Regex("""\binterface\s+([A-Za-z0-9_]+)""").find(src)?.groupValues?.get(1)
+        val ifaceMatch = Regex("""\binterface\s+([A-Za-z0-9_]+)""").find(source)?.groupValues?.get(1)
         if (ifaceMatch != null) return ifaceMatch
-        val enumMatch = Regex("""\benum\s+([A-Za-z0-9_]+)""").find(src)?.groupValues?.get(1)
+        val enumMatch = Regex("""\benum\s+([A-Za-z0-9_]+)""").find(source)?.groupValues?.get(1)
         if (enumMatch != null) return enumMatch
         return "TestClass"
     }
@@ -36,7 +41,7 @@ object DocletTestUtil {
         val tmpSrc = Files.createTempDirectory("javadoc2pyi-multi-src").toFile()
         // Write all provided sources
         val basePkgs = linkedSetOf<String>()
-        sources.forEach { (pkg, src) ->
+        for ((pkg, src) in sources) {
             basePkgs += pkg
             val pkgDir = File(tmpSrc, pkg.replace('.', '/'))
             pkgDir.mkdirs()
@@ -125,11 +130,11 @@ object DocletTestUtil {
         val tmpSrc = Files.createTempDirectory("javadoc2pyi-m2-src").toFile()
         // Write all provided sources
         val basePkgs = linkedSetOf<String>()
-        sources.forEach { (pkg, src) ->
+        for ((pkg, src) in sources) {
             basePkgs += pkg
             val pkgDir = File(tmpSrc, pkg.replace('.', '/'))
             pkgDir.mkdirs()
-            val className = Regex("""class\s+([A-Za-z0-9_]+)""").find(src)?.groupValues?.get(1) ?: "TestClass"
+            val className = extractTypeName(src)
             File(pkgDir, "$className.java").writeText(
                 """
                 package $pkg;

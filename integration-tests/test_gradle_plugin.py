@@ -66,23 +66,48 @@ class GradlePluginTestBase(util.BuildToolTestBase):
         super().setUpClass()
         cls.test_prj_path = os.path.join(os.path.dirname(__file__), "gradle", "gradle-test-project")
 
-    def target_dir_name_sufix(self, target_dir):
-        pass
+    @staticmethod
+    def gradle_string(value):
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
+    def insert_extra_maven_repositories(self, file, indent):
+        marker = f"{indent}mavenLocal()\n"
+        repos = "".join(f"{indent}{self.extra_maven_repository(repo)}\n" for repo in util.extra_maven_repos)
+        util.replace_in_file(file, marker, marker + repos, count=1)
+
+    @classmethod
+    def java_version(cls, java_home):
+        release_file = os.path.join(java_home, "release")
+        assert os.path.exists(release_file), f"cannot find JDK release file '{release_file}'"
+        with open(release_file, "r") as f:
+            for line in f:
+                if line.startswith("JAVA_VERSION="):
+                    return line.split("=", 1)[1].strip().strip('"')
+        return None
+
+    @classmethod
+    def java_major_version(cls, java_home):
+        java_version = cls.java_version(java_home)
+        if java_version.startswith("1."):
+            return java_version.split(".", 2)[1]
+        return java_version.split(".", 1)[0].split("-", 1)[0]
 
     def copy_build_files(self, target_dir):
         build_file = os.path.join(target_dir, self.build_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.build_file_name), build_file)
         util.replace_in_file(build_file, "$VERSION$", util.get_graalvm_version())
+        util.replace_in_file(build_file, "$JAVA_LANGUAGE_VERSION$", self.java_major_version(os.environ["JAVA_HOME"]))
         settings_file = os.path.join(target_dir, self.settings_file_name)
         shutil.copyfile(os.path.join(os.path.dirname(__file__), "gradle", "scripts", self.settings_file_name), settings_file)
         if util.extra_maven_repos:
-            mvn_repos = ""
-            for idx, custom_repo in enumerate(util.extra_maven_repos):
-                mvn_repos += f"maven {{ url \"{custom_repo}\" }}\n    "
-            util.replace_in_file(build_file,
-                                 "repositories {", f"repositories {{\n    mavenLocal()\n    {mvn_repos}")
-            util.replace_in_file(settings_file,
-                                 "repositories {", f"repositories {{\n        {mvn_repos}")
+            self.insert_extra_maven_repositories(build_file, "    ")
+            self.insert_extra_maven_repositories(settings_file, "        ")
+
+    def target_dir_name_sufix(self, target_dir):
+        pass
+
+    def extra_maven_repository(self, repo):
+        pass
 
     def empty_plugin(self):
         pass
@@ -122,9 +147,6 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                     shutil.move(os.path.join(root, file), os.path.join(root, file[0:len(file)- 1] + "java"))
 
         self.copy_build_files(target_dir)
-
-        # at the moment the gradle demon does not run with jdk <= 22
-        assert util.gradle_java_home, "in order to run standalone gradle tests, the 'GRADLE_JAVA_HOME' env var has to be set to a jdk <= 22"
         util.replace_in_file(os.path.join(target_dir, "gradle.properties"), "{GRADLE_JAVA_HOME}", util.gradle_java_home.replace("\\", "\\\\"))
 
         meta_inf_native_image_dir = os.path.join(target_dir, "src", "main", "resources", "META-INF", "native-image")
@@ -244,9 +266,11 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             assert os.path.exists(os.path.join(target_dir, "test-graalpy.lock")), log
             os.remove(os.path.join(target_dir, "test-graalpy.lock"))
 
-            # lock with correct version
+            # lock with correct version. urllib3 2.7 requires
+            # ssl.VERIFY_X509_PARTIAL_CHAIN, which is not available with
+            # GraalPy's JSSE-backed ssl module.
             self.copy_build_files(target_dir)
-            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3"], lock_file="test-graalpy.lock"))
+            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "urllib3<2.7"], lock_file="test-graalpy.lock"))
             cmd = gradlew_cmd + ["graalpyLockPackages"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, contains=True, logger=log)
@@ -255,7 +279,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
 
             # add termcolor and build - fails as it is not part of lock file
             self.copy_build_files(target_dir)
-            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "termcolor==2.2"], lock_file="test-graalpy.lock"))
+            append(build_file, self.lock_packages_config(pkgs=["requests==2.32.3", "urllib3<2.7", "termcolor==2.2"], lock_file="test-graalpy.lock"))
             cmd = gradlew_cmd + ["build"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
             util.check_ouput("BUILD SUCCESS", out, contains=False, logger=log)
@@ -320,8 +344,8 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                 "package org.example;",
                 "package org.example;\nimport java.nio.file.Path;")
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
-                "GraalPyResources.createContext()",
-                "GraalPyResources.contextBuilder(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\")).build()")
+                "GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())",
+                "GraalPyResources.forExternalDirectory(Path.of(\"" + (resources_dir if "win32" != sys.platform else resources_dir.replace("\\", "\\\\")) + "\"))")
 
             # patch build.gradle
             append(build_file, self.packages_termcolor_resource_dir(resources_dir))
@@ -567,8 +591,14 @@ class GradlePluginTestBase(util.BuildToolTestBase):
                                    org.graalvm.python.embedding.VirtualFileSystem.newBuilder()
                                          .resourceDirectory("GRAALPY-VFS/org.graalvm.python.tests/gradleapp1")
                                          .build();
-                                 try (Context context1 = GraalPyResources.createContext();
-                                      Context context2 = GraalPyResources.contextBuilder(vfs).build()) {
+                                 try (Context context1 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                                        .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                                        .apply(GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create()))
+                                        .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build();
+                                      Context context2 = Context.newBuilder().allowHostAccess(HostAccess.ALL).allowCreateThread(true)
+                                        .allowNativeAccess(true).allowPolyglotAccess(PolyglotAccess.ALL)
+                                        .apply(GraalPyResources.forVirtualFileSystem(vfs))
+                                        .extendIO(IOAccess.NONE, io -> io.allowHostSocketAccess(true)).build()) {
                                      int index = 0;
                                      for (Context ctx: new Context[] {context1, context2}) {
                                          ctx.eval("python", "import hello");
@@ -656,6 +686,9 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
 
     def target_dir_name_sufix(self):
         return "_groovy"
+
+    def extra_maven_repository(self, repo):
+        return f'maven {{ url "{self.gradle_string(repo)}" }}'
 
     def empty_plugin(self):
         return f"graalPy {{  }}"
@@ -819,6 +852,9 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
 
     def target_dir_name_sufix(self):
         return "_kotlin"
+
+    def extra_maven_repository(self, repo):
+        return f'maven {{ url = uri("{self.gradle_string(repo)}") }}'
 
     def empty_plugin(self):
         return f"graalPy {{  }}"

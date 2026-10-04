@@ -45,6 +45,7 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.toolchain.ToolchainManager;
 import org.graalvm.python.embedding.tools.vfs.VFSUtils;
 
 import javax.inject.Inject;
@@ -107,8 +108,8 @@ public class LockPackagesMojo extends AbstractGraalPyMojo {
 			""";
 
 	@Inject
-	public LockPackagesMojo(ProjectBuilder projectBuilder) {
-		super(projectBuilder);
+	public LockPackagesMojo(ProjectBuilder projectBuilder, ToolchainManager toolchainManager) {
+		super(projectBuilder, toolchainManager);
 	}
 
 	public void execute() throws MojoExecutionException {

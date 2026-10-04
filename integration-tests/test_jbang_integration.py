@@ -166,6 +166,19 @@ class TestJBangIntegration(unittest.TestCase):
                 file_path = os.path.normpath(os.path.join(os.path.dirname(self.catalog_file), file_ref))
                 self.assertTrue(os.path.isfile(file_path), f"The path definied in catalog is not found: {file_path}")
 
+    def test_graalpy_launcher_alias(self):
+        if util.extra_maven_repos:
+            self.skipTest("catalog aliases cannot be patched with extra Maven repositories")
+
+        work_dir = self.tmpdir
+        log = util.Logger()
+
+        command = JBANG_CMD + [f"graalpy@{self.catalog_file}", "-c", "print('hello graalpy launcher')"]
+        out, result = run_cmd(command, log=log, cwd=work_dir)
+
+        self.assertEqual(0, result, f"command: {command}\n{log}")
+        self.assertIn("hello graalpy launcher", out)
+
     def test_graalpy_template(self):
         template_name = "graalpy"
         test_file = "graalpy_test.java"
@@ -252,8 +265,8 @@ def hello():
                 f"//PIP termcolor==2.2\n//PYTHON_RESOURCES_DIRECTORY {resources_dir}")
         rd = resources_dir.replace("\\", "\\\\")
         util.replace_in_file(hello_java_file,
-                "GraalPyResources.createContext()",
-                f"GraalPyResources.contextBuilder(java.nio.file.Path.of(\"{rd}\")).build()")
+                "GraalPyResources.forVirtualFileSystem(VirtualFileSystem.create())",
+                f"GraalPyResources.forExternalDirectory(java.nio.file.Path.of(\"{rd}\"))")
 
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]

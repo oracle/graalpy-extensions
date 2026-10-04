@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<profiles version="22">
+  <profile kind="CodeFormatterProfile" name="graalpy" version="22">
+    <setting id="org.eclipse.jdt.core.formatter.join_wrapped_lines" value="false"/>
+  </profile>
+</profiles>

@@ -1,5 +1,16 @@
 #!/bin/bash
-set -xe
+set -euo pipefail
+if [[ "${1:-}" == "--help" || "${1:-}" == "help" ]]; then
+  echo "Usage: $0 [bundle-version]"
+  echo "Prints the URL for the latest Maven bundle matching the given version."
+  echo "When omitted, bundle-version defaults to revision from the top-level pom.xml."
+  exit 0
+fi
+if [[ $# -gt 1 ]]; then
+    echo "Usage: $0 [bundle-version]" >&2
+    exit 1
+fi
+set -x
 source="${BASH_SOURCE[0]}"
 while [ -h "$source" ] ; do
     prev_source="$source"
@@ -12,7 +23,20 @@ while [ -h "$source" ] ; do
 done
 project_root="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
-revision="$(cd "${project_root}" && ./mvnw help:evaluate -Dexpression=revision -q -DforceStdout)"
+read_project_revision() {
+    local pom_file="$1/pom.xml"
+    sed -n 's:.*<revision>\(.*\)</revision>.*:\1:p' "${pom_file}" | head -n 1
+}
+
+if [[ -n "${1:-}" ]]; then
+    revision="$1"
+else
+    revision="$(read_project_revision "${project_root}")"
+    if [[ -z "${revision}" ]]; then
+        echo "Failed to read <revision> from ${project_root}/pom.xml" >&2
+        exit 1
+    fi
+fi
 revision="${revision%-SNAPSHOT}" # remove -SNAPSHOT
 
 echo "Trying to find the release for revision: ${revision}"
