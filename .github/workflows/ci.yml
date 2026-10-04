@@ -10,7 +10,7 @@ on:
 
 env:
   graalvm_distribution: 'graalvm'
-  graalvm_version: '25'
+  graalvm_version: '25i3-ea'
   JAVA_TOOL_OPTIONS: '-Dtruffle.UseFallbackRuntime=true --enable-native-access=ALL-UNNAMED'
 
 jobs:
@@ -160,7 +160,7 @@ jobs:
       - name: Run integration tests
         id: tests_run
         run: |
-          mvn --batch-mode -N -s settings.xml -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
+          ./mvnw --batch-mode -N -Dgradle.java.home=$GRADLE_JAVA_HOME exec:java@integration-tests -Dintegration.tests.args="${{ matrix.test_name }} ${{ matrix.extra_test_args }} $TEST_FLAGS"
         shell: bash
 
       # /var/folders/sw/**/T/jbang*native-image
