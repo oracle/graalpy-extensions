@@ -1,0 +1,4 @@
+0644 /GRAALPY-VFS/reordered-permissions/foo/otherdir/hello.txt
+0644 /GRAALPY-VFS/reordered-permissions/foo/otherdir/hi.txt
+0500 /GRAALPY-VFS/reordered-permissions/foo/
+0500 /GRAALPY-VFS/reordered-permissions/foo/otherdir/

@@ -64,9 +64,11 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -81,6 +83,7 @@ import java.util.logging.Logger;
 import static org.graalvm.python.embedding.test.TestUtils.IS_WINDOWS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -684,6 +687,40 @@ public class VirtualFileSystemIntegrationTest {
 	}
 
 	@Test
+	public void externalResourcesBuilderPermissionsTest() throws IOException {
+		assumeTrue(!IS_WINDOWS, "POSIX permissions are not supported on Windows");
+
+		Path resourcesDir = Files.createTempDirectory("vfs-permissions-spectrum");
+		assumeTrue(Files.getFileStore(resourcesDir).supportsFileAttributeView("posix"),
+				"POSIX permissions are not supported on this filesystem");
+
+		try (VirtualFileSystem fs = VirtualFileSystem.newBuilder().resourceDirectory("GRAALPY-VFS/permissions-spectrum")
+				.resourceLoadingClass(VirtualFileSystemIntegrationTest.class).build()) {
+			GraalPyResources.extractVirtualFileSystemResources(fs, resourcesDir);
+		}
+
+		Map<String, String> expectedDirectories = Map.of("public", "r-x------", "private", "rwx------", "exec",
+				"rwxr-xr-x", "shared", "rwxr-x---");
+		Map<String, String> expectedFiles = Map.of("public/readme.txt", "rw-r--r--", "private/secret.txt", "rw-------",
+				"exec/tool.sh", "rwxr-x---", "shared/data.txt", "rw-r-----");
+
+		for (Map.Entry<String, String> expectedDirectory : expectedDirectories.entrySet()) {
+			Path path = resourcesDir.resolve(expectedDirectory.getKey());
+			assertTrue(Files.exists(path));
+			assertTrue(Files.isDirectory(path));
+			assertEquals(PosixFilePermissions.fromString(expectedDirectory.getValue()),
+					Files.getPosixFilePermissions(path));
+		}
+
+		for (Map.Entry<String, String> expectedFile : expectedFiles.entrySet()) {
+			Path path = resourcesDir.resolve(expectedFile.getKey());
+			assertTrue(Files.exists(path));
+			assertTrue(Files.isRegularFile(path));
+			assertEquals(PosixFilePermissions.fromString(expectedFile.getValue()), Files.getPosixFilePermissions(path));
+		}
+	}
+
+	@Test
 	public void vfsMountPointTest() {
 		if (IS_WINDOWS) {
 			assertThrows(IllegalArgumentException.class,
@@ -782,7 +819,7 @@ public class VirtualFileSystemIntegrationTest {
 	}
 
 	@Test
-	public void testVfsWithoutVenv() throws IOException {
+	void testVfsWithoutVenv() throws IOException {
 		try (var vfs = VirtualFileSystem.newBuilder().resourceDirectory("SIMPLE-VFS").build()) {
 			try (Context ctx = addTestOptions(Context.newBuilder().apply(GraalPyResources.forVirtualFileSystem(vfs)))
 					.build()) {
@@ -799,5 +836,24 @@ public class VirtualFileSystemIntegrationTest {
 				assertEquals("simple virtual filesystem without venv\n", result.asString());
 			}
 		}
+	}
+
+	@Test
+	void extractResourcesUsesExplicitDirectoryPermissionsWhenDirsAreListedLater() throws IOException {
+		assumeTrue(!IS_WINDOWS, "POSIX permissions are not supported on Windows");
+
+		Path resourcesDir = Files.createTempDirectory("vfs-reordered-permissions");
+		assumeTrue(Files.getFileStore(resourcesDir).supportsFileAttributeView("posix"),
+				"POSIX permissions are not supported on this filesystem");
+
+		try (VirtualFileSystem fs = VirtualFileSystem.newBuilder()
+				.resourceDirectory("GRAALPY-VFS/reordered-permissions").build()) {
+			GraalPyResources.extractVirtualFileSystemResources(fs, resourcesDir);
+		}
+
+		assertEquals(PosixFilePermissions.fromString("r-x------"),
+				Files.getPosixFilePermissions(resourcesDir.resolve("foo")));
+		assertEquals(PosixFilePermissions.fromString("r-x------"),
+				Files.getPosixFilePermissions(resourcesDir.resolve("foo/otherdir")));
 	}
 }

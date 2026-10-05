@@ -40,6 +40,8 @@
  */
 package org.graalvm.python.embedding;
 
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import org.graalvm.polyglot.io.FileSystem;
 import org.graalvm.python.embedding.VirtualFileSystem.HostIO;
 
@@ -156,11 +158,13 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	private static final char RESOURCE_SEPARATOR_CHAR = '/';
 	private static final String RESOURCE_SEPARATOR = String.valueOf(RESOURCE_SEPARATOR_CHAR);
 
-	private abstract sealed class BaseEntry permits FileEntry, DirEntry {
+	private abstract sealed class BaseEntry {
 		final String platformPath;
+		private Set<PosixFilePermission> permissions;
 
-		private BaseEntry(String platformPath) {
+		private BaseEntry(String platformPath, Set<PosixFilePermission> permissions) {
 			this.platformPath = platformPath;
+			this.permissions = permissions;
 		}
 
 		String getPlatformPath() {
@@ -174,13 +178,81 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		static AssertionError throwUnexpectedSubclass() {
 			throw new AssertionError("Unexpected subclass of sealed DirEntry");
 		}
+
+		public Set<PosixFilePermission> getPermissions() {
+			return permissions;
+		}
+
+		void setPermissions(Set<PosixFilePermission> permissions) {
+			this.permissions = permissions;
+		}
+	}
+
+	private record FilelistEntry(EntryType type, String resourcePath, Set<PosixFilePermission> permissions) {
+		enum EntryType {
+			FILE, DIR
+		}
+
+		static FilelistEntry parse(String line) {
+			if (line == null) {
+				return null;
+			}
+
+			line = line.trim();
+			if (line.isEmpty() || line.startsWith("#")) {
+				return null;
+			}
+
+			// v1 format: only absolute path, preserve legacy extraction permissions
+			if (line.startsWith("/")) {
+				EntryType type = line.endsWith(RESOURCE_SEPARATOR) ? EntryType.DIR : EntryType.FILE;
+				return new FilelistEntry(type, line, null);
+			}
+
+			// v2 format: <mode> <path>
+			String[] parts = line.split("\\s+", 2);
+			if (parts.length != 2) {
+				throw new IllegalArgumentException("Invalid fileslist entry (expected: <mode> <path>): " + line);
+			}
+
+			Set<PosixFilePermission> permissions = parsePermissions(parts[0]);
+			String resourcePath = parts[1];
+
+			if (!resourcePath.startsWith("/")) {
+				throw new IllegalArgumentException("Resource path must be absolute: " + resourcePath);
+			}
+
+			EntryType type = resourcePath.endsWith(RESOURCE_SEPARATOR) ? EntryType.DIR : EntryType.FILE;
+			return new FilelistEntry(type, resourcePath, permissions);
+		}
+
+		private static Set<PosixFilePermission> parsePermissions(String mode) {
+			if (!mode.matches("[0-7]{4}")) {
+				throw new IllegalArgumentException("Invalid permission mode: " + mode);
+			}
+			return PosixFilePermissions.fromString(octalToSymbolic(mode));
+		}
+
+		private static String octalToSymbolic(String octal) {
+			StringBuilder sb = new StringBuilder(9);
+			for (int i = 1; i < 4; i++) {
+				int digit = octal.charAt(i) - '0';
+				sb.append((digit & 4) != 0 ? 'r' : '-');
+				sb.append((digit & 2) != 0 ? 'w' : '-');
+				sb.append((digit & 1) != 0 ? 'x' : '-');
+			}
+			return sb.toString();
+		}
+	}
+
+	private record ExtractedPath(BaseEntry entry, Path path) {
 	}
 
 	private final class FileEntry extends BaseEntry {
 		private List<FileEntry> toExtract;
 
-		public FileEntry(String path) {
-			super(path);
+		public FileEntry(String path, Set<PosixFilePermission> permissions) {
+			super(path, permissions);
 		}
 
 		private InputStream openStream() throws IOException {
@@ -217,8 +289,8 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	private final class DirEntry extends BaseEntry {
 		List<BaseEntry> entries = new ArrayList<>();
 
-		DirEntry(String platformPath) {
-			super(platformPath);
+		DirEntry(String platformPath, Set<PosixFilePermission> permissions) {
+			super(platformPath, permissions);
 		}
 	}
 
@@ -462,6 +534,8 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		String venvPath = absoluteResourcePath(vfsRoot, VFS_VENV);
 		List<URL> filelistUrls = getFilelistURLs(filelistPath);
 		boolean hasNativeFiles = false;
+
+		fine("VFS fileslistPath = %s", filelistPath);
 		for (URL url : filelistUrls) {
 			try (InputStream stream = url.openStream()) {
 				if (stream == null) {
@@ -469,14 +543,15 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 					return;
 				}
 				try (BufferedReader br = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
-					String resourcePath;
+					String line;
 					finest("VFS entries:");
-					while ((resourcePath = br.readLine()) != null) {
-						if (resourcePath.isBlank()) {
-							// allow empty lines, some tools insert empty lines when concatenating files
+					while ((line = br.readLine()) != null) {
+						FilelistEntry meta = FilelistEntry.parse(line);
+						if (meta == null) {
 							continue;
 						}
 
+						String resourcePath = meta.resourcePath();
 						String projPath = absoluteResourcePath(vfsRoot, PROJ_DIR);
 						if (!projWarning && resourcePath.startsWith(projPath)) {
 							projWarning = true;
@@ -499,7 +574,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 							if (genericEntry instanceof DirEntry de) {
 								dirEntry = de;
 							} else if (genericEntry == null) {
-								dirEntry = new DirEntry(dir);
+								dirEntry = new DirEntry(dir, null);
 								vfsEntries.put(dirKey, dirEntry);
 								finest("  %s", dirEntry.getResourcePath());
 								if (parent != null) {
@@ -513,8 +588,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 						} while ((i = platformPath.indexOf(PLATFORM_SEPARATOR, i)) != -1);
 
 						assert parent != null;
+						if (meta.type() == FilelistEntry.EntryType.DIR) {
+							parent.setPermissions(meta.permissions());
+						}
 						if (!platformPath.endsWith(PLATFORM_SEPARATOR)) {
-							FileEntry fileEntry = new FileEntry(platformPath);
+							FileEntry fileEntry = new FileEntry(platformPath, meta.permissions());
 							if (extractFilter != null && extractFilter.test(Paths.get(platformPath))) {
 								fileEntry.toExtract = List.of(fileEntry);
 							}
@@ -936,33 +1014,88 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		}
 	}
 
-	private Path extractSingleFile(FileEntry toExtract) throws IOException {
+	private void applyPermissions(BaseEntry entry, Path path) {
+		try {
+			if (entry.getPermissions() != null && Files.getFileStore(path).supportsFileAttributeView("posix")) {
+				Files.setPosixFilePermissions(path, entry.getPermissions());
+			}
+		} catch (IOException e) {
+			warn("Failed to set permissions for %s: %s", path, e.getMessage());
+		}
+	}
+
+	/**
+	 * Returns the path of an extracted file relative to the VFS mount point. The
+	 * resulting path is used both for resolving the extracted filesystem path and
+	 * for looking up VFS metadata.
+	 */
+	private Path getExtractedRelativePath(FileEntry entry) {
+		return mountPoint.relativize(Paths.get(entry.getPlatformPath()));
+	}
+
+	// The instance owns extractDir; sibling files share temporarily writable
+	// parents.
+	private synchronized Path extractSingleFile(FileEntry toExtract) throws IOException {
 		/*
 		 * Remove the mountPoint(X) (e.g. "graalpy_vfs(x)") prefix if given. Method
 		 * 'file' is able to handle relative paths and we need it to compute the extract
 		 * path.
 		 */
-		Path relPath = mountPoint.relativize(Paths.get(toExtract.getPlatformPath()));
+		Path relPath = getExtractedRelativePath(toExtract);
 		// create target path
 		Path extractedPath = extractDir.resolve(relPath);
-		if (!Files.exists(extractedPath)) {
-			// first create parent dirs
-			Path parent = extractedPath.getParent();
-			assert parent == null || !Files.exists(parent) || Files.isDirectory(parent);
-			if (parent == null) {
-				throw new NullPointerException("Parent is null during extracting path.");
+		List<ExtractedPath> parentDirs = new ArrayList<>();
+		try {
+			prepareExtractedParentDirs(relPath, parentDirs);
+			if (!Files.exists(extractedPath)) {
+				Files.createDirectories(extractedPath.getParent());
+				toExtract.extractTo(extractedPath);
+				applyPermissions(toExtract, extractedPath);
+				finest("extracted '%s' -> '%s'", toExtract.getPlatformPath(), extractedPath);
 			}
-			Files.createDirectories(parent);
-
-			// write data extracted file
-			toExtract.extractTo(extractedPath);
-			finest("extracted '%s' -> '%s'", toExtract.getPlatformPath(), extractedPath);
+			return extractedPath;
+		} finally {
+			// Restore children before parents, including when preparation or extraction
+			// fails.
+			for (int i = parentDirs.size() - 1; i >= 0; i--) {
+				ExtractedPath parent = parentDirs.get(i);
+				applyPermissions(parent.entry(), parent.path());
+			}
 		}
-		return extractedPath;
+	}
+
+	private void prepareExtractedParentDirs(Path relPath, List<ExtractedPath> parentDirs) throws IOException {
+		if (isWindows()) {
+			return;
+		}
+		List<Path> parents = new ArrayList<>();
+		for (Path current = relPath.getParent(); current != null; current = current.getParent()) {
+			parents.add(current);
+		}
+		Collections.reverse(parents);
+		for (Path current : parents) {
+			Path extractedParent = extractDir.resolve(current).normalize();
+			if (!extractedParent.startsWith(extractDir.normalize())) {
+				throw new IOException("Refusing to apply permissions outside extraction directory: " + extractedParent);
+			}
+			// Make ancestors traversable before accessing their children.
+			Files.createDirectories(extractedParent);
+			BaseEntry parentEntry = getEntry(mountPoint.resolve(current));
+			if (parentEntry != null && parentEntry.getPermissions() != null
+					&& Files.getFileStore(extractedParent).supportsFileAttributeView("posix")) {
+				parentDirs.add(new ExtractedPath(parentEntry, extractedParent));
+				Set<PosixFilePermission> permissions = new HashSet<>(Files.getPosixFilePermissions(extractedParent));
+				permissions.add(PosixFilePermission.OWNER_WRITE);
+				permissions.add(PosixFilePermission.OWNER_EXECUTE);
+				Files.setPosixFilePermissions(extractedParent, permissions);
+			}
+		}
 	}
 
 	void extractResources(Path externalResourceDirectory) throws IOException {
 		fine("VFS.extractResources '%s'", externalResourceDirectory);
+		List<ExtractedPath> extractedFiles = new ArrayList<>();
+		List<ExtractedPath> extractedDirs = new ArrayList<>();
 		for (BaseEntry entry : vfsEntries.values()) {
 			String resourcePath = entry.getResourcePath();
 			assert resourcePath.length() >= vfsRoot.length() + 1;
@@ -972,6 +1105,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 			Path destFile = externalResourceDirectory.resolve(Path.of(resourcePath.substring(vfsRoot.length() + 2)));
 			if (entry instanceof DirEntry) {
 				Files.createDirectories(destFile);
+				extractedDirs.add(new ExtractedPath(entry, destFile));
 			} else if (entry instanceof FileEntry fileEntry) {
 				Path parent = destFile.getParent();
 				if (parent != null) {
@@ -979,9 +1113,17 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 				}
 				finest("VFS.extractResources '%s' -> '%s'", resourcePath, destFile);
 				fileEntry.extractTo(destFile);
+				extractedFiles.add(new ExtractedPath(entry, destFile));
 			} else {
 				throw new IllegalStateException("Unexpected entry type: " + entry);
 			}
+		}
+		for (ExtractedPath extractedFile : extractedFiles) {
+			applyPermissions(extractedFile.entry(), extractedFile.path());
+		}
+		extractedDirs.sort((left, right) -> Integer.compare(right.path().getNameCount(), left.path().getNameCount()));
+		for (ExtractedPath extractedDir : extractedDirs) {
+			applyPermissions(extractedDir.entry(), extractedDir.path());
 		}
 	}
 
@@ -1048,7 +1190,8 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 					String.format("read-only filesystem, write access not supported '%s'", path));
 		}
 		if (modes.contains(AccessMode.EXECUTE)) {
-			throw securityException("VFS.checkAccess", String.format("execute access not supported for  '%s'", p));
+			throw securityException("VFS.checkAccess",
+					String.format("execute access is not supported for virtual filesystem entries '%s'", p));
 		}
 
 		getEntrySafe("VFS.checkAccess", path);
