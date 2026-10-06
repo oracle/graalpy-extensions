@@ -252,6 +252,8 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 		private final Path extractDir;
 
 		DeleteTempDir(Path extractDir) {
+			super(null, null, "GraalPy VFS temporary directory cleanup", 0, false);
+			setContextClassLoader(null);
 			this.extractDir = extractDir;
 		}
 
@@ -373,6 +375,11 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	public void close() {
 		if (deleteTempDir != null) {
 			deleteTempDir.removeExtractDir();
+			try {
+				Runtime.getRuntime().removeShutdownHook(deleteTempDir);
+			} catch (IllegalStateException e) {
+				// The JVM is already shutting down.
+			}
 		}
 	}
 

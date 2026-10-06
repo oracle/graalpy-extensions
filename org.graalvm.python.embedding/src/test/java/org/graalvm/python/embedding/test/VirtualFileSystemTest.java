@@ -117,6 +117,15 @@ public class VirtualFileSystemTest {
 		return (FileSystem) f.get(vfs);
 	}
 
+	private static Thread getDeleteTempDir(VirtualFileSystem vfs) throws ReflectiveOperationException {
+		Field implField = vfs.getClass().getDeclaredField("impl");
+		implField.setAccessible(true);
+		Object impl = implField.get(vfs);
+		Field deleteTempDirField = impl.getClass().getDeclaredField("deleteTempDir");
+		deleteTempDirField.setAccessible(true);
+		return (Thread) deleteTempDirField.get(impl);
+	}
+
 	public VirtualFileSystemTest() {
 		Logger logger = Logger.getLogger(VirtualFileSystem.class.getName());
 		for (Handler handler : logger.getHandlers()) {
@@ -1245,6 +1254,23 @@ public class VirtualFileSystemTest {
 		for (FileSystem fs : new FileSystem[]{rwHostIOVFS, rHostIOVFS, noHostIOVFS}) {
 			assertTrue(fs.isFileStoreReadOnly(VFS_ROOT_PATH.resolve("file1")));
 			assertThrows(NoSuchFileException.class, () -> fs.isFileStoreReadOnly(VFS_ROOT_PATH.resolve("bogus")));
+		}
+	}
+
+	@Test
+	public void closeRemovesShutdownHook() throws Exception {
+		VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceLoadingClass(VirtualFileSystemTest.class)
+				.build();
+		Thread shutdownHook = getDeleteTempDir(vfs);
+		assertNull(shutdownHook.getContextClassLoader());
+		try {
+			vfs.close();
+			// Re-registering the same hook would fail if close() had not removed it.
+			Runtime.getRuntime().addShutdownHook(shutdownHook);
+			assertTrue(Runtime.getRuntime().removeShutdownHook(shutdownHook));
+		} finally {
+			Runtime.getRuntime().removeShutdownHook(shutdownHook);
+			vfs.close();
 		}
 	}
 

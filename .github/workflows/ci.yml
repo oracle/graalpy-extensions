@@ -9,7 +9,7 @@ on:
     - cron: '0 0 * * 0'
 
 env:
-  graalvm_version: '25i3-ea'
+  graalvm_version: '25i5-ea'
 
 jobs:
   # This is done as one single separate step to work around rate limits for the API
