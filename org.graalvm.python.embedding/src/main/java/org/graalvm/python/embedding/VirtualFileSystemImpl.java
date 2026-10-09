@@ -1363,17 +1363,19 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 	}
 
 	@Override
-	public void copy(Path s, Path t, CopyOption... options) {
-		// CompositeFileSystem never dispatches to us
-		// CompositeFileSystem.copy() -> FileSystem.copy() -> IOHelper.copy()
-		throw new RuntimeException("should not reach here");
+	public void copy(Path s, Path t, CopyOption... options) throws IOException {
+		// CompositeFileSystem dispatches to us when both paths are in the VFS
+		Objects.requireNonNull(s);
+		Objects.requireNonNull(t);
+		throw securityException("VFS.copy", String.format("read-only filesystem, can't copy '%s' to '%s'", s, t));
 	}
 
 	@Override
-	public void move(Path s, Path t, CopyOption... options) {
-		// CompositeFileSystem never dispatches to us
-		// CompositeFileSystem.move() -> FileSystem.move() -> IOHelper.move()
-		throw new RuntimeException("should not reach here");
+	public void move(Path s, Path t, CopyOption... options) throws IOException {
+		// CompositeFileSystem dispatches to us when both paths are in the VFS
+		Objects.requireNonNull(s);
+		Objects.requireNonNull(t);
+		throw securityException("VFS.move", String.format("read-only filesystem, can't move '%s' to '%s'", s, t));
 	}
 
 	@Override
