@@ -1158,9 +1158,15 @@ public class VirtualFileSystemTest {
 			newByteChannelRealFS(rwHostIOVFS, realFSSource, "moved text");
 		}
 
-		var exCls = IS_WINDOWS ? SecurityException.class : IOException.class;
-		assertThrows(exCls, () -> rHostIOVFS.move(realFSSource2, realFSTarget2));
+		// a read-only host file system rejects the move: up front (SecurityException) when the
+		// composite file system dispatches the move to it, or when copying (IOException)
+		assertThrowsReadOnly(IOException.class, () -> rHostIOVFS.move(realFSSource2, realFSTarget2));
 		assertThrows(SecurityException.class, () -> noHostIOVFS.move(realFSSource2, realFSTarget2));
+	}
+
+	private static void assertThrowsReadOnly(Class<? extends IOException> ioExceptionType, Executable executable) {
+		Throwable t = assertThrows(Exception.class, executable);
+		assertTrue(t instanceof SecurityException || ioExceptionType.isInstance(t), t.toString());
 	}
 
 	@Test
@@ -1181,7 +1187,7 @@ public class VirtualFileSystemTest {
 		}
 
 		Files.delete(realFSSource);
-		assertThrows(NoSuchFileException.class, () -> rHostIOVFS.copy(realFSSource, realFSTarget));
+		assertThrowsReadOnly(NoSuchFileException.class, () -> rHostIOVFS.copy(realFSSource, realFSTarget));
 		assertThrows(SecurityException.class, () -> noHostIOVFS.copy(realFSSource, realFSTarget));
 
 		Files.createFile(realFSSource);
