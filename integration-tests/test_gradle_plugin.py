@@ -133,7 +133,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
     def native_image_with_bogus_include(self):
         pass
 
-    def native_image_with_exlude_email(self):
+    def native_image_with_exclude_email(self):
         pass
 
     def lock_packages_config(self, pkgs, lock_file):
@@ -434,7 +434,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             log = Logger()
             self.copy_build_files(target_dir)
             append(build_file, self.packages_termcolor())
-            append(build_file, self.native_image_with_bogus_include())
+            append(build_file, self.native_image_with_exclude_email())
 
             cmd = gradle_cmd + ["--stacktrace", "build", "nativeCompile"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
@@ -937,7 +937,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
             graalvmNative {
                 binaries {
                     named("main") {
-                        systemProperties.putAll(mapOf("org.graalvm.python.resources.include" to ".*", "org.graalvm.python.resources.include" to ".*/email/.*", "org.graalvm.python.resources.log" to "true"))
+                        systemProperties.putAll(mapOf("org.graalvm.python.resources.include" to ".*", "org.graalvm.python.resources.exclude" to ".*/email/.*", "org.graalvm.python.resources.log" to "true"))
                     }
                 }
             }
