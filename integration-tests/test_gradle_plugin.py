@@ -434,7 +434,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             log = Logger()
             self.copy_build_files(target_dir)
             append(build_file, self.packages_termcolor())
-            append(build_file, self.native_image_with_exclude_email())
+            append(build_file, self.native_image_with_bogus_include())
 
             cmd = gradle_cmd + ["--stacktrace", "build", "nativeCompile"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir, logger=log)
@@ -448,7 +448,7 @@ class GradlePluginTestBase(util.BuildToolTestBase):
             log = Logger()
             self.copy_build_files(target_dir)
             append(build_file, self.packages_termcolor())
-            append(build_file, self.native_image_with_bogus_include())
+            append(build_file, self.native_image_with_exclude_email())
             util.replace_in_file(os.path.join(target_dir, "src", "main", "java", "org", "example", "GraalPy.java"),
                                  "import hello",
                                  "import email; import hello")
