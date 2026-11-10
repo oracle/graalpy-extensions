@@ -9,8 +9,8 @@ jobs:
   run-jbang-tests-on-release:
     runs-on: ubuntu-latest
     env:
-      graalpy_version: '25.3.4.1'
-      graalvm_version: '25.3.4.1'
+      graalpy_version: '25.5.5.0.3'
+      graalvm_version: '25.5'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
