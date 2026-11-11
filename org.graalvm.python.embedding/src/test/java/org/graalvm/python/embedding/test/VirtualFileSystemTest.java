@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2023, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -47,6 +47,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +55,8 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.ByteBuffer;
 import java.nio.channels.NonWritableChannelException;
 import java.nio.channels.SeekableByteChannel;
@@ -80,6 +83,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -1253,6 +1257,55 @@ public class VirtualFileSystemTest {
 		for (FileSystem fs : new FileSystem[]{rwHostIOVFS, rHostIOVFS, noHostIOVFS}) {
 			assertTrue(fs.isFileStoreReadOnly(VFS_ROOT_PATH.resolve("file1")));
 			assertThrows(NoSuchFileException.class, () -> fs.isFileStoreReadOnly(VFS_ROOT_PATH.resolve("bogus")));
+		}
+	}
+
+	@Test
+	public void platformMetadataLineEndings(@TempDir Path tempDir) throws Exception {
+		String resourceDirectory = "platform-test-vfs";
+		Path venv = Files.createDirectories(tempDir.resolve(resourceDirectory).resolve("venv"));
+		Files.writeString(venv.resolve("native.dll"), "test native library");
+		Files.write(tempDir.resolve(resourceDirectory).resolve("fileslist.txt"), List.of(
+				"/" + resourceDirectory + "/venv/contents", "/" + resourceDirectory + "/venv/native.dll"));
+		String currentPlatform = System.getProperty("os.name") + " " + System.getProperty("os.arch");
+		List<String> warnings = new ArrayList<>();
+		Handler handler = new Handler() {
+			@Override
+			public void publish(LogRecord record) {
+				if (record.getLevel().intValue() >= Level.WARNING.intValue()) {
+					warnings.add(record.getMessage());
+				}
+			}
+
+			@Override
+			public void flush() {
+			}
+
+			@Override
+			public void close() {
+			}
+		};
+		Logger logger = Logger.getLogger(VirtualFileSystem.class.getName());
+		logger.addHandler(handler);
+		try (URLClassLoader loader = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, null)) {
+			for (String lineEnding : List.of("\n", "\r\n")) {
+				for (String platform : List.of(currentPlatform, "incompatible-platform")) {
+					// The version is deliberately bogus: this test checks only platform metadata.
+					Files.writeString(venv.resolve("contents"), "version=bogus" + lineEnding + "platform=" + platform
+							+ lineEnding + "packages=ujson==6.1.0" + lineEnding);
+					warnings.clear();
+					try (VirtualFileSystem vfs = VirtualFileSystem.newBuilder().resourceDirectory(resourceDirectory)
+							.resourceClassLoader(loader).build()) {
+						getDelegatingFS(vfs).checkAccess(Path.of(vfs.getMountPoint(), "venv", "native.dll"),
+								Set.of(AccessMode.READ));
+						boolean warned = warnings.stream()
+								.anyMatch(m -> m.contains("not compatible with the current platform"));
+						assertEquals(!platform.equals(currentPlatform), warned, warnings.toString());
+					}
+				}
+			}
+		} finally {
+			logger.removeHandler(handler);
 		}
 	}
 
