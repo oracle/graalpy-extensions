@@ -77,7 +77,7 @@ SOFTWARE.
             </goals>
             <configuration>
               <packages>
-                <package>termcolor</package>
+                <package>termcolor==2.2</package>
               </packages>
             </configuration>
           </execution>

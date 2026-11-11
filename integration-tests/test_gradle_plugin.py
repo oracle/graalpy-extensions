@@ -696,7 +696,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def packages_termcolor(self):
         return textwrap.dedent(f"""
             graalPy {{
-                packages = ["termcolor"]
+                packages = ["termcolor==2.2"]
             }}
             """)
 
@@ -713,7 +713,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def packages_termcolor_ujson(self):
         return textwrap.dedent(f"""
             graalPy {{
-                packages = ["termcolor", "ujson"]
+                packages = ["termcolor==2.2", "ujson==6.1.0"]
             }}
             """)
 
@@ -721,7 +721,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
         resources_dir = resources_dir if 'win32' != sys.platform else resources_dir.replace("\\", "\\\\")
         return textwrap.dedent(f"""
             graalPy {{
-                packages = ["termcolor"]
+                packages = ["termcolor==2.2"]
                 externalDirectory = file("{resources_dir}")
             }}
             """)
@@ -778,7 +778,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
         return '''
                graalPy {
                    resourceDirectory = "GRAALPY-VFS/org.graalvm.python.tests/gradleapp1"
-                   packages = ["termcolor"]
+                   packages = ["termcolor==2.2"]
                }
                apply plugin: 'maven-publish'
                publishing {
@@ -798,7 +798,7 @@ class GradlePluginGroovyTest(GradlePluginTestBase):
     def app2_using_app1(self):
         return '''
             graalPy {
-                 packages = ["termcolor"]
+                 packages = ["termcolor==2.2"]
             }
             repositories { mavenLocal() }
             dependencies {
@@ -874,15 +874,15 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
     def packages_termcolor(self):
        return textwrap.dedent(f"""
             graalPy {{
-               packages.add("termcolor")
+               packages.add("termcolor==2.2")
             }}
             """)
 
     def packages_termcolor_ujson(self):
         return textwrap.dedent(f"""
             graalPy {{
-                packages.add("termcolor")
-                packages.add("ujson")
+                packages.add("termcolor==2.2")
+                packages.add("ujson==6.1.0")
             }}
             """)
 
@@ -890,7 +890,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
         resources_dir = resources_dir if 'win32' != sys.platform else resources_dir.replace("\\", "\\\\")
         return textwrap.dedent(f"""
             graalPy {{
-                packages.add("termcolor")
+                packages.add("termcolor==2.2")
                 externalDirectory = file("{resources_dir}")
             }}
             """)
@@ -947,7 +947,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
         return '''
             graalPy {
                 resourceDirectory = "GRAALPY-VFS/org.graalvm.python.tests/gradleapp1"
-                packages.add("termcolor")
+                packages.add("termcolor==2.2")
             }
             group = "org.graalvm.python.tests"
             version = "1.0.0-SNAPSHOT"
@@ -970,7 +970,7 @@ class GradlePluginKotlinTest(GradlePluginTestBase):
     def app2_using_app1(self):
         return '''
             graalPy {
-                packages.add("termcolor")
+                packages.add("termcolor==2.2")
             }
             repositories { mavenLocal() }
             dependencies {

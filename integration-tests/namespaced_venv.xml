@@ -86,7 +86,7 @@ SOFTWARE.
         <configuration>
           <resourceDirectory>GRAALPY-VFS/${project.groupId}/${project.artifactId}</resourceDirectory>
           <packages>
-            <package>termcolor</package>
+            <package>termcolor==2.2</package>
           </packages>
         </configuration>
       </plugin>

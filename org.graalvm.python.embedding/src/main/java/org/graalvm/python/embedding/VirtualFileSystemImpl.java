@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2024, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -632,7 +632,7 @@ final class VirtualFileSystemImpl implements FileSystem, AutoCloseable {
 				throw new IllegalStateException(
 						String.format("IO error while reading venv contents file'%s'.", contentsPath), ex);
 			}
-			for (String line : contents.split("\n")) {
+			for (String line : contents.lines().toList()) {
 				if (line.startsWith(KEY_PLATFORM + "=")) {
 					String platform = line.substring(KEY_PLATFORM.length() + 1);
 					if (!platform.equals(PLATFORM)) {

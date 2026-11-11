@@ -279,7 +279,7 @@ def hello():
         # add ujson to PIP comment
         util.replace_in_file(hello_java_file,
                 "//PIP termcolor==2.2",
-                "//PIP termcolor==2.2 ujson")
+                "//PIP termcolor==2.2 ujson==6.1.0")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
         out, result = run_cmd(command, log=log, cwd=work_dir)
@@ -291,7 +291,7 @@ def hello():
 
         # remove ujson from PIP comment
         util.replace_in_file(hello_java_file,
-                "//PIP termcolor==2.2 ujson",
+                "//PIP termcolor==2.2 ujson==6.1.0",
                 "//PIP termcolor==2.2\n")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
@@ -305,7 +305,7 @@ def hello():
         # add ujson in additional PIP comment
         util.replace_in_file(hello_java_file,
                 "//PIP termcolor==2.2",
-                "//PIP termcolor==2.2\n//PIP ujson")
+                "//PIP termcolor==2.2\n//PIP ujson==6.1.0")
         tested_code = "import hello; hello.hello()"
         command = JBANG_CMD + [hello_java_file, tested_code]
         out, result = run_cmd(command, log=log, cwd=work_dir)

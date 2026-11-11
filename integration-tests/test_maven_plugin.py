@@ -293,7 +293,7 @@ class MavenPluginTest(util.BuildToolTestBase):
             os.rename(target_dir, target_dir2)
             mvnw_cmd2 = util.get_mvn_wrapper(target_dir2, self.env)
             # adding new dep triggers launcher without venv regen
-            util.replace_in_file(os.path.join(target_dir2, "pom.xml"), "<packages>", "<packages>\n<package>ujson</package>\n")
+            util.replace_in_file(os.path.join(target_dir2, "pom.xml"), "<packages>", "<packages>\n<package>ujson==6.1.0</package>\n")
             cmd = mvnw_cmd2 + ["package", "exec:java", "-Dexec.mainClass=it.pkg.GraalPy"]
             out, return_code = util.run_cmd(cmd, self.env, cwd=target_dir2, logger=log)
             util.check_ouput("BUILD SUCCESS", out, logger=log)
