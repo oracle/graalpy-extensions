@@ -65,7 +65,7 @@ SOFTWARE.
         </executions>
         <configuration>
           <packages>
-            <package>termcolor</package>
+            <package>termcolor==2.2</package>
           </packages>
         </configuration>
       </plugin>

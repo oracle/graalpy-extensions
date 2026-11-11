@@ -85,8 +85,8 @@ SOFTWARE.
         </executions>
         <configuration>
           <packages>
-            <package>ujson</package>
-            <package>termcolor</package>
+            <package>ujson==6.1.0</package>
+            <package>termcolor==2.2</package>
           </packages>
         </configuration>
       </plugin>
